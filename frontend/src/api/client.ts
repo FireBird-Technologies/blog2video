@@ -13,6 +13,8 @@ export * from "./billing";
 export * from "./projects";
 export * from "./enterprise";
 export * from "./integrations";
+export * from "./sources";
+import type { ContentSourcePlatform } from "./sources";
 
 import axios from "axios";
 import type { AxiosResponse } from "axios";
@@ -51,6 +53,31 @@ export async function getPendingWordPressConnection(
 ): Promise<Omit<WordPressConnectionApproval, "connected"> & { expires_at: string }> {
   const res = await publicApi.get(
     `/integrations/wordpress/v1/connections/pending/${encodeURIComponent(userCode)}`
+  );
+  return res.data;
+}
+
+export interface ExtensionConnectionApproval {
+  connected: boolean;
+  browser_label: string;
+}
+
+/** Approve the short code displayed by the Blog2Video Chrome extension. */
+export async function approveExtensionConnection(
+  userCode: string
+): Promise<ExtensionConnectionApproval> {
+  const res = await api.post<ExtensionConnectionApproval>(
+    "/integrations/extension/v1/connections/approve",
+    { user_code: userCode }
+  );
+  return res.data;
+}
+
+export async function getPendingExtensionConnection(
+  userCode: string
+): Promise<{ browser_label: string; expires_at: string }> {
+  const res = await publicApi.get(
+    `/integrations/extension/v1/connections/pending/${encodeURIComponent(userCode)}`
   );
   return res.data;
 }
@@ -222,6 +249,11 @@ export interface Project {
   name: string;
   blog_url: string | null;
   blog_content: string | null;
+  /** "ghost" / "beehiiv" when imported from a connected content source. */
+  source_platform?: ContentSourcePlatform | null;
+  source_post_id?: string | null;
+  /** The site/publication the source post lives on (host+path, or Beehiiv publication id). */
+  source_site?: string | null;
   status: string;
   template?: string;
   voice_gender: string;
@@ -362,6 +394,7 @@ export interface ProjectListItem {
   id: number;
   name: string;
   blog_url: string | null;
+  source_platform?: ContentSourcePlatform | null;
   status: string;
   created_at: string;
   updated_at: string;

@@ -48,6 +48,7 @@ from app.services.chart_planner import (
     sanitize_chart_descriptor,
 )
 from app.services.scraper import scrape_blog, BlogScrapeFailed
+from app.services.source_urls import is_placeholder_source_url, public_source_link
 from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
@@ -1057,7 +1058,7 @@ async def _run_pipeline(project_id: int, user_id: int):
 
             # Step 1: Scrape (skip for upload-based projects)
             if project.status in (ProjectStatus.CREATED,):
-                if project.blog_url and project.blog_url.startswith("upload://"):
+                if is_placeholder_source_url(project.blog_url):
                     # Upload project without pending files — wait for documents
                     _set_error(project_id, project, db, "Documents not yet uploaded. Please upload files first.")
                     span.set_status(Status(StatusCode.ERROR, "Documents not uploaded"))
@@ -3471,12 +3472,7 @@ async def _generate_scenes(
         "tiktok": {"enabled": bool(social_flags.get("tiktok")), "label": "TikTok"},
     }
 
-    raw_blog_url = (getattr(project, "blog_url", None) or "").strip()
-    source_link = (
-        raw_blog_url
-        if raw_blog_url and not raw_blog_url.startswith("upload://")
-        else ""
-    )
+    source_link = public_source_link(getattr(project, "blog_url", None))
 
     # Store descriptors as JSON in remotion_code, optionally preserving existing image assignments
     for i, (scene, descriptor) in enumerate(zip(scenes, descriptors)):

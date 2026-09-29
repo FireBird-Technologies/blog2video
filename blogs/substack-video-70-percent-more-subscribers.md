@@ -3,6 +3,8 @@ title: "Adding Video to a Substack Grew New Subscribers by 70%"
 slug: substack-video-70-percent-more-subscribers
 primary_keyword: how to grow your substack
 description: Two weeks of data from roughly 200 volunteer Substack writers who started publishing video alongside their posts — 4x total audience, 70% more new subscribers, and a 20% lift in open rate.
+hero_image: /blog/blog-cover-substack-video-70-percent-more-subscribers.png
+hero_image_alt: "blog2video.app Substack newsletter plus video distribution across YouTube Instagram TikTok LinkedIn with +70% subscriber growth."
 ---
 
 # Adding Video to a Substack Grew New Subscribers by 70%

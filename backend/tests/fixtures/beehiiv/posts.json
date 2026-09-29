@@ -1,0 +1,916 @@
+{
+  "pub_14a8902d-60ba-50e1-80bd-807a1d785124": [
+    {
+      "id": "post_084ce7b3-d874-5e0d-af47-2f1e3eb6c8c4",
+      "title": "Weekly issue #1",
+      "subtitle": "Subtitle for Weekly issue #1",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1756771200,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #1",
+      "preview_text": "Preview of Weekly issue #1",
+      "slug": "weekly-issue-1",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-1.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-1",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #1</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #1</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #1</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_128a8423-c0ad-52d5-8ad0-30b3732b5339",
+      "title": "Weekly issue #2",
+      "subtitle": "Subtitle for Weekly issue #2",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1756857600,
+      "status": "confirmed",
+      "publish_date": 1756861200,
+      "displayed_date": 1756861200,
+      "split_tested": false,
+      "subject_line": "Weekly issue #2",
+      "preview_text": "Preview of Weekly issue #2",
+      "slug": "weekly-issue-2",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-2.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-2",
+      "audience": "premium",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #2</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "email": "<h1>Weekly issue #2</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "rss": "<h1>Weekly issue #2</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>"
+        },
+        "premium": {
+          "web": "<h1>Weekly issue #2</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #2</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        }
+      }
+    },
+    {
+      "id": "post_a2784394-944d-50b9-b82c-0c08349f1dcc",
+      "title": "Weekly issue #3",
+      "subtitle": "Subtitle for Weekly issue #3",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1756944000,
+      "status": "confirmed",
+      "publish_date": 1756947600,
+      "displayed_date": 1756947600,
+      "split_tested": false,
+      "subject_line": "Weekly issue #3",
+      "preview_text": "Preview of Weekly issue #3",
+      "slug": "weekly-issue-3",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-3.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-3",
+      "audience": "both",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #3</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #3</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #3</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_eb15cd9a-d918-5dd0-9b05-4982a31ff8bc",
+      "title": "Weekly issue #4",
+      "subtitle": "Subtitle for Weekly issue #4",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757030400,
+      "status": "archived",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #4",
+      "preview_text": "Preview of Weekly issue #4",
+      "slug": "weekly-issue-4",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-4.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-4",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #4</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #4</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #4</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_2a05393a-e7a6-54fd-bace-0ea36c922db4",
+      "title": "Weekly issue #5",
+      "subtitle": "Subtitle for Weekly issue #5",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757116800,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #5",
+      "preview_text": "Preview of Weekly issue #5",
+      "slug": "weekly-issue-5",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-5.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-5",
+      "audience": "premium",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #5</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "email": "<h1>Weekly issue #5</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "rss": "<h1>Weekly issue #5</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>"
+        },
+        "premium": {
+          "web": "<h1>Weekly issue #5</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #5</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        }
+      }
+    },
+    {
+      "id": "post_c73b5617-fe85-5632-a8bd-6e6381b85edd",
+      "title": "Weekly issue #6",
+      "subtitle": "Subtitle for Weekly issue #6",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757203200,
+      "status": "confirmed",
+      "publish_date": 1757206800,
+      "displayed_date": 1757206800,
+      "split_tested": false,
+      "subject_line": "Weekly issue #6",
+      "preview_text": "Preview of Weekly issue #6",
+      "slug": "weekly-issue-6",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-6.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-6",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #6</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #6</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #6</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_14290e4f-3eb5-512e-bddc-8948d35a4b7e",
+      "title": "Weekly issue #7",
+      "subtitle": "Subtitle for Weekly issue #7",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757289600,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #7",
+      "preview_text": "Preview of Weekly issue #7",
+      "slug": "weekly-issue-7",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-7.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-7",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #7</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #7</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #7</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_5e12b49f-2aeb-5ce2-b212-fbdedee0688e",
+      "title": "Weekly issue #8",
+      "subtitle": "Subtitle for Weekly issue #8",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757376000,
+      "status": "confirmed",
+      "publish_date": 1757379600,
+      "displayed_date": 1757379600,
+      "split_tested": false,
+      "subject_line": "Weekly issue #8",
+      "preview_text": "Preview of Weekly issue #8",
+      "slug": "weekly-issue-8",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-8.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-8",
+      "audience": "premium",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #8</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "email": "<h1>Weekly issue #8</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "rss": "<h1>Weekly issue #8</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>"
+        },
+        "premium": {
+          "web": "<h1>Weekly issue #8</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #8</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        }
+      }
+    },
+    {
+      "id": "post_b7eb6c26-7dde-5553-bffc-17612cb67905",
+      "title": "Weekly issue #9",
+      "subtitle": "Subtitle for Weekly issue #9",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757462400,
+      "status": "confirmed",
+      "publish_date": 1757466000,
+      "displayed_date": 1757466000,
+      "split_tested": false,
+      "subject_line": "Weekly issue #9",
+      "preview_text": "Preview of Weekly issue #9",
+      "slug": "weekly-issue-9",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-9.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-9",
+      "audience": "both",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #9</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #9</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #9</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_aa0932cf-33ae-5df1-ad78-2bd26fc3942a",
+      "title": "Weekly issue #10",
+      "subtitle": "Subtitle for Weekly issue #10",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757548800,
+      "status": "archived",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #10",
+      "preview_text": "Preview of Weekly issue #10",
+      "slug": "weekly-issue-10",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-10.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-10",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #10</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #10</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #10</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_8e149b34-4ed8-5c0b-a9c3-0219232d7354",
+      "title": "Weekly issue #11",
+      "subtitle": "Subtitle for Weekly issue #11",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757635200,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #11",
+      "preview_text": "Preview of Weekly issue #11",
+      "slug": "weekly-issue-11",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-11.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-11",
+      "audience": "premium",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #11</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "email": "<h1>Weekly issue #11</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "rss": "<h1>Weekly issue #11</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>"
+        },
+        "premium": {
+          "web": "<h1>Weekly issue #11</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #11</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        }
+      }
+    },
+    {
+      "id": "post_600f7466-bccd-5b85-bd61-1fde07dd1b8f",
+      "title": "Weekly issue #12",
+      "subtitle": "Subtitle for Weekly issue #12",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757721600,
+      "status": "confirmed",
+      "publish_date": 1757725200,
+      "displayed_date": 1757725200,
+      "split_tested": false,
+      "subject_line": "Weekly issue #12",
+      "preview_text": "Preview of Weekly issue #12",
+      "slug": "weekly-issue-12",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-12.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-12",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #12</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #12</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #12</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_9dc933ea-974d-55cd-bff3-3a0e2c73edc2",
+      "title": "Weekly issue #13",
+      "subtitle": "Subtitle for Weekly issue #13",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757808000,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #13",
+      "preview_text": "Preview of Weekly issue #13",
+      "slug": "weekly-issue-13",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-13.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-13",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #13</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #13</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #13</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_6c5e9e30-6683-5472-be9b-cbf9c4726f30",
+      "title": "Weekly issue #14",
+      "subtitle": "Subtitle for Weekly issue #14",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757894400,
+      "status": "confirmed",
+      "publish_date": 1757898000,
+      "displayed_date": 1757898000,
+      "split_tested": false,
+      "subject_line": "Weekly issue #14",
+      "preview_text": "Preview of Weekly issue #14",
+      "slug": "weekly-issue-14",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-14.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-14",
+      "audience": "premium",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #14</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "email": "<h1>Weekly issue #14</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "rss": "<h1>Weekly issue #14</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>"
+        },
+        "premium": {
+          "web": "<h1>Weekly issue #14</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #14</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        }
+      }
+    },
+    {
+      "id": "post_d7fd50dc-8682-51f9-abc1-ac1f16011ba4",
+      "title": "Weekly issue #15",
+      "subtitle": "Subtitle for Weekly issue #15",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1757980800,
+      "status": "confirmed",
+      "publish_date": 1757984400,
+      "displayed_date": 1757984400,
+      "split_tested": false,
+      "subject_line": "Weekly issue #15",
+      "preview_text": "Preview of Weekly issue #15",
+      "slug": "weekly-issue-15",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-15.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-15",
+      "audience": "both",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #15</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #15</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #15</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_ccadc214-5f5a-5d1e-b8f2-fc3236a5d2ff",
+      "title": "Weekly issue #16",
+      "subtitle": "Subtitle for Weekly issue #16",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758067200,
+      "status": "archived",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #16",
+      "preview_text": "Preview of Weekly issue #16",
+      "slug": "weekly-issue-16",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-16.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-16",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #16</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #16</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #16</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_9f3db759-46c6-59c6-8097-203364fe80d0",
+      "title": "Weekly issue #17",
+      "subtitle": "Subtitle for Weekly issue #17",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758153600,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #17",
+      "preview_text": "Preview of Weekly issue #17",
+      "slug": "weekly-issue-17",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-17.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-17",
+      "audience": "premium",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #17</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "email": "<h1>Weekly issue #17</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "rss": "<h1>Weekly issue #17</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>"
+        },
+        "premium": {
+          "web": "<h1>Weekly issue #17</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #17</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        }
+      }
+    },
+    {
+      "id": "post_c9a5e019-c71e-58a3-b8bb-711cd8be5dcb",
+      "title": "Weekly issue #18",
+      "subtitle": "Subtitle for Weekly issue #18",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758240000,
+      "status": "confirmed",
+      "publish_date": 1758243600,
+      "displayed_date": 1758243600,
+      "split_tested": false,
+      "subject_line": "Weekly issue #18",
+      "preview_text": "Preview of Weekly issue #18",
+      "slug": "weekly-issue-18",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-18.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-18",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #18</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #18</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #18</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_4c1afee1-3221-50b9-84bc-f43fb29c69bb",
+      "title": "Weekly issue #19",
+      "subtitle": "Subtitle for Weekly issue #19",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758326400,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #19",
+      "preview_text": "Preview of Weekly issue #19",
+      "slug": "weekly-issue-19",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-19.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-19",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #19</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #19</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #19</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_1762d9ec-c308-5fbf-828f-bf789a1ee850",
+      "title": "Weekly issue #20",
+      "subtitle": "Subtitle for Weekly issue #20",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758412800,
+      "status": "confirmed",
+      "publish_date": 1758416400,
+      "displayed_date": 1758416400,
+      "split_tested": false,
+      "subject_line": "Weekly issue #20",
+      "preview_text": "Preview of Weekly issue #20",
+      "slug": "weekly-issue-20",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-20.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-20",
+      "audience": "premium",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #20</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "email": "<h1>Weekly issue #20</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "rss": "<h1>Weekly issue #20</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>"
+        },
+        "premium": {
+          "web": "<h1>Weekly issue #20</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #20</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        }
+      }
+    },
+    {
+      "id": "post_a44d9b73-e119-5c75-9b91-0e3c1ac791f9",
+      "title": "Weekly issue #21",
+      "subtitle": "Subtitle for Weekly issue #21",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758499200,
+      "status": "confirmed",
+      "publish_date": 1758502800,
+      "displayed_date": 1758502800,
+      "split_tested": false,
+      "subject_line": "Weekly issue #21",
+      "preview_text": "Preview of Weekly issue #21",
+      "slug": "weekly-issue-21",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-21.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-21",
+      "audience": "both",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #21</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #21</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #21</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_48137024-c8de-5950-a318-3b70af605cc8",
+      "title": "Weekly issue #22",
+      "subtitle": "Subtitle for Weekly issue #22",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758585600,
+      "status": "archived",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #22",
+      "preview_text": "Preview of Weekly issue #22",
+      "slug": "weekly-issue-22",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-22.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-22",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #22</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #22</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #22</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_88601b5e-e298-530a-a989-4434cde17b43",
+      "title": "Weekly issue #23",
+      "subtitle": "Subtitle for Weekly issue #23",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758672000,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Weekly issue #23",
+      "preview_text": "Preview of Weekly issue #23",
+      "slug": "weekly-issue-23",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-23.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-23",
+      "audience": "premium",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #23</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "email": "<h1>Weekly issue #23</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>",
+          "rss": "<h1>Weekly issue #23</h1><p>A preview for free readers.</p><div class=\"paywall\">Upgrade to read the rest</div>"
+        },
+        "premium": {
+          "web": "<h1>Weekly issue #23</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #23</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p><h2>Premium deep dive</h2><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        }
+      }
+    },
+    {
+      "id": "post_0f8aa4fd-4b74-5ec3-b06c-5c4486f0ef00",
+      "title": "Weekly issue #24",
+      "subtitle": "Subtitle for Weekly issue #24",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1758758400,
+      "status": "confirmed",
+      "publish_date": 1758762000,
+      "displayed_date": 1758762000,
+      "split_tested": false,
+      "subject_line": "Weekly issue #24",
+      "preview_text": "Preview of Weekly issue #24",
+      "slug": "weekly-issue-24",
+      "thumbnail_url": "https://media.beehiiv.mock/weekly-brief/weekly-issue-24.jpg",
+      "web_url": "https://weekly-brief.beehiiv.com/p/weekly-issue-24",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Weekly issue #24</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Weekly issue #24</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Weekly issue #24</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    }
+  ],
+  "pub_1353e581-2834-5e29-bfaf-9b1ad39ddebe": [
+    {
+      "id": "post_4123bbd6-ff45-51b3-9103-32203a81118a",
+      "title": "Solo issue #1",
+      "subtitle": "Subtitle for Solo issue #1",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1756771200,
+      "status": "confirmed",
+      "publish_date": 1756774800,
+      "displayed_date": 1756774800,
+      "split_tested": false,
+      "subject_line": "Solo issue #1",
+      "preview_text": "Preview of Solo issue #1",
+      "slug": "solo-issue-1",
+      "thumbnail_url": "https://media.beehiiv.mock/solo-notes/solo-issue-1.jpg",
+      "web_url": "https://solo-notes.beehiiv.com/p/solo-issue-1",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Solo issue #1</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Solo issue #1</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Solo issue #1</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    },
+    {
+      "id": "post_c80c4ade-0199-568d-9d08-3428e247f3d4",
+      "title": "Solo issue #2",
+      "subtitle": "Subtitle for Solo issue #2",
+      "authors": [
+        "Mock Author"
+      ],
+      "created": 1756857600,
+      "status": "draft",
+      "publish_date": null,
+      "displayed_date": null,
+      "split_tested": false,
+      "subject_line": "Solo issue #2",
+      "preview_text": "Preview of Solo issue #2",
+      "slug": "solo-issue-2",
+      "thumbnail_url": "https://media.beehiiv.mock/solo-notes/solo-issue-2.jpg",
+      "web_url": "https://solo-notes.beehiiv.com/p/solo-issue-2",
+      "audience": "free",
+      "platform": "both",
+      "content_tags": [
+        "mock"
+      ],
+      "hidden_from_feed": false,
+      "content": {
+        "free": {
+          "web": "<h1>Solo issue #2</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "email": "<h1>Solo issue #2</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>",
+          "rss": "<h1>Solo issue #2</h1><p>Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. Newsletters work best when every issue teaches one idea well. This week we look at what changed, why it matters, and what to do next. </p>"
+        },
+        "premium": {
+          "web": null,
+          "email": null
+        }
+      }
+    }
+  ]
+}

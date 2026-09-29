@@ -41,7 +41,7 @@ from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
 from app.services import elevenlabs_keys
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, video_styles, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets, wordpress_integration, integrations
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, video_styles, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets, wordpress_integration, extension_integration, integrations, content_sources
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -847,11 +847,13 @@ app.include_router(template_studio.router)
 app.include_router(background_music.router)
 app.include_router(embed.router)
 app.include_router(wordpress_integration.router)
+app.include_router(extension_integration.router)
 app.include_router(unsubscribe.router)
 app.include_router(affiliate.router)
 app.include_router(stock_data.router)
 app.include_router(support.router)
 app.include_router(integrations.router)
+app.include_router(content_sources.router)
 # Hosted MCP server: OAuth 2.1 + SSE transport
 app.include_router(mcp_oauth.router)
 # Root-level OAuth discovery endpoints (RFC 8414 + RFC 9728 require these to

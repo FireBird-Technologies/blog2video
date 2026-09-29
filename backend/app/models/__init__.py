@@ -47,6 +47,7 @@ from app.models.social_publish_job import SocialPublishJob
 from app.models.mcp_oauth import MCPClient, MCPAuthCode
 from app.models.email_verification import EmailVerificationCode, VerificationPurpose
 from app.models.wordpress_integration import WordPressConnection, WordPressProjectLink
+from app.models.extension_integration import ExtensionConnection, ExtensionProjectLink
 
 __all__ = [
 
@@ -65,4 +66,5 @@ __all__ = [
     "MCPClient", "MCPAuthCode",
     "EmailVerificationCode", "VerificationPurpose",
     "WordPressConnection", "WordPressProjectLink",
+    "ExtensionConnection", "ExtensionProjectLink",
 ]

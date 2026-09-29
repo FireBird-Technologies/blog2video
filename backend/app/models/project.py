@@ -52,6 +52,15 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     blog_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     blog_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set when the content was imported through a connected content source
+    # (Ghost / Beehiiv) rather than scraped, so publish-back can default to the
+    # post it came from. Null for scraped and uploaded projects.
+    source_platform: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    source_post_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Which site/publication that post lives on (source_urls.connection_site_key):
+    # post ids are only unique per site — WordPress ids are small integers — so
+    # "the post this was made from" only applies while the same site is connected.
+    source_site: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[ProjectStatus] = mapped_column(
         Enum(ProjectStatus), default=ProjectStatus.CREATED
     )

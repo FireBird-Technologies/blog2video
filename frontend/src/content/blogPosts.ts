@@ -17,6 +17,161 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "suit-up-blog2video-update",
+    title: "Suit Up: Saved Video Preferences, Script Review, Direct YouTube and LinkedIn Publishing, and a Faster Blog2Video",
+    description:
+      "Blog2Video's latest update: your video preferences are now saved and reused, you can review and edit the script before generation, finished videos publish straight to YouTube or LinkedIn, and the app is cleaner and renders faster.",
+    category: "Product Update",
+    heroImage: "/blog/blog-cover-suit-up-blog2video-update.png",
+    heroImageAlt:
+      "Stickman spinning into a dark cape suit, surrounded by cards for saved preferences, script review, YouTube and LinkedIn publish icons, and a speed boost.",
+    publishedAt: "2026-09-26",
+    readTime: "5 min read",
+    heroEyebrow: "Product Update",
+    heroTitle: "Suit up: four major upgrades to Blog2Video",
+    heroDescription:
+      "Saved video preferences, script review before generation, one-click publishing to YouTube and LinkedIn, and a cleaner, faster app. All four are live now.",
+    primaryKeyword: "blog2video update",
+    keywordVariant: "blog2video new features",
+    relatedPaths: [
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+      "/blogs/four-new-tricks",
+      "/blogs/blog2video-september-2026-update",
+      "/blogs/stickman-v4-jetpack-update",
+    ],
+    sections: [
+      {
+        heading: "Four upgrades, one suit",
+        paragraphs: [
+          "Four things shipped in this release. Each one takes a step out of going from a blog post to a published video. To introduce them we made another stickman video, and this time the stickman puts on a Batman suit. He spins into the suit, throws a batarang, gives a thumbs up, carries the finished video out, then crouches and leaps off the roof.",
+          "The full video and the vertical Short are both embedded on this page. Here is the written version.",
+        ],
+        bullets: [
+          "Suit up: four upgrades",
+          "Upgrade one: video preferences are now saved",
+          "Upgrade two: review the script before generation",
+          "Upgrade three: publish directly to YouTube or LinkedIn",
+          "Upgrade four: a cleaner UI and faster rendering",
+          "Outro: blog2video.app",
+        ],
+      },
+      {
+        heading: "1. Video preferences are now saved",
+        paragraphs: [
+          "Before this release, every new project started from scratch. You picked the style, template, voice and settings again each time, and fixed the same things in the editor video after video.",
+          "Now Blog2Video remembers them. Under Video Styles you can create a custom style, and a style you pin as Preferred is applied to every new video. It also learns from the edits you make, so later videos need fewer fixes.",
+          "In practice, a newsletter or blog that publishes every week gets a consistent video series without anyone re-entering the setup each time.",
+        ],
+        bullets: [
+          "Create a custom style under Video Styles",
+          "Pin a style as Preferred and new videos start with it",
+          "Your edits feed back in, so later videos need fewer changes",
+        ],
+      },
+      {
+        heading: "2. Review the script before generation",
+        paragraphs: [
+          "Blog2Video writes a narration script from your post before it builds any scenes. Until now that script went straight into generation, so you could only correct the wording after the video already existed.",
+          "Now you can tick Review Script before generation. The script opens first, and you can rewrite a line, cut a section or fix a name. When it reads right, click Save all & continue, and the scenes are assigned from the script you approved.",
+          "Fixing a sentence in text takes seconds. Fixing it after rendering means regenerating the scene and the voiceover.",
+        ],
+        bullets: [
+          "Tick Review Script before generation when you create the video",
+          "Edit the script directly, line by line",
+          "Save all & continue, and scenes are built from your version",
+        ],
+      },
+      {
+        heading: "3. Publish directly to YouTube or LinkedIn",
+        paragraphs: [
+          "Once a video was finished, publishing it used to mean downloading the MP4, opening YouTube or LinkedIn, uploading it again, and filling in the details. It was slow, and on a large file it wasted bandwidth for no reason.",
+          "You can now publish finished videos straight to YouTube or LinkedIn from inside Blog2Video. There is nothing to download or re-upload, which saves time and money on every video.",
+        ],
+      },
+      {
+        heading: "4. A cleaner UI and faster rendering",
+        paragraphs: [
+          "The last upgrade applies to everything. The interface has been cleaned up, starting with a new hero screen, so it takes fewer clicks to find what you need.",
+          "Rendering is faster, and so is editing: changes in the editor show up sooner, and finished videos come back sooner. Put simply, the app is more fun to use.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try the new Blog2Video",
+      },
+      {
+        heading: "How the four fit together",
+        paragraphs: [
+          "Each upgrade covers a different step. Saved preferences mean the first draft is close to how you want it. Script review means the words are right before any scene is built. The cleaner UI and faster rendering make the editing pass shorter. Direct publishing handles the last step, from finished video to your channel.",
+          "Paste a post, check the script, and publish. The steps in between now need much less work from you.",
+        ],
+      },
+      {
+        heading: "Got a PDF instead of a blog post?",
+        paragraphs: [
+          "If your source material is reports, whitepapers or decks, not blog posts, pdf2vid.com is a version of Blog2Video built for documents. It uses the same templates and the same export options.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "Turn a PDF into a video at pdf2vid.com",
+      },
+      {
+        heading: "Try it",
+        paragraphs: [
+          "All four upgrades are live now at blog2video.app.",
+          "Made with love, by Firebird Technologies.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "What's new in this Blog2Video update?",
+        answer:
+          "Four things: video preferences are now saved and reused, you can review and edit the script before generation, finished videos can be published directly to YouTube or LinkedIn, and the app has a cleaner UI with faster rendering and editing.",
+      },
+      {
+        question: "How do saved video preferences work?",
+        answer:
+          "Under Video Styles you can create a custom style and pin it as Preferred. New videos then start with that style, and Blog2Video learns from the edits you make, so later videos need fewer fixes.",
+      },
+      {
+        question: "Can I edit the script before Blog2Video generates the video?",
+        answer:
+          "Yes. Tick Review Script before generation when you create the video. The script opens for you to edit first, and when you click Save all & continue, the scenes are built from the version you approved.",
+      },
+      {
+        question: "Can Blog2Video upload videos to YouTube and LinkedIn?",
+        answer:
+          "Yes. Finished videos can be published straight to YouTube or LinkedIn from inside Blog2Video, so you do not need to download the MP4 and upload it again.",
+      },
+      {
+        question: "When was this update released?",
+        answer:
+          "26 September 2026. It shipped saved video preferences, script review before generation, direct publishing to YouTube and LinkedIn, and a cleaner, faster UI together.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Suit Up: Saved Video Preferences, Script Review, Direct YouTube and LinkedIn Publishing, and a Faster Blog2Video",
+        angle:
+          "Product update post covering the four upgrades, with the release video and the Short embedded.",
+      },
+      {
+        channel: "video",
+        title: "Suit up: four major upgrades to Blog2Video",
+        angle:
+          "Stickman-as-Batman release video, one move per upgrade, ending on blog2video.app.",
+      },
+      {
+        channel: "twitter",
+        title: "Major updates to Blog2Video",
+        angle:
+          "Four-point post: saved preferences, script review, direct YouTube/LinkedIn upload, cleaner and faster UI. Attach the vertical Short.",
+      },
+    ],
+  },
+  {
     slug: "four-new-tricks",
     title: "Four New Tricks: Editable Custom Templates, Auto Font Size, More Scenes, and Avatars",
     description:
@@ -98,7 +253,6 @@ export const blogPosts: BlogPost[] = [
         heading: "4. Avatars are live",
         paragraphs: [
           "Avatars are out of beta. Upload a photo and it becomes your presenter, speaking your script, lip-synced to the narration in every scene. You can also pick one of our presenters.",
-          "If you've used a talking photo AI tool before, it's the same idea, with one difference: instead of a single talking-head clip, the avatar presents the whole video, scene after scene, alongside the templates, charts and captions.",
         ],
       },
       {
@@ -145,11 +299,6 @@ export const blogPosts: BlogPost[] = [
         question: "Are Blog2Video Avatars still in beta?",
         answer:
           "No. Avatars are now live for everyone. Upload a photo and it presents your script, lip-synced to the narration in every scene, or pick one of the built-in presenters.",
-      },
-      {
-        question: "Can Blog2Video make a talking photo from a picture?",
-        answer:
-          "Yes. Upload a clear, front-facing photo and Blog2Video animates it into a talking avatar that speaks your script, lip-synced to the narration. It works with prebuilt AI voices, a cloned voice, or your own recording.",
       },
       {
         question: "Can I use Blog2Video without a Google account?",
@@ -408,7 +557,7 @@ export const blogPosts: BlogPost[] = [
       {
         heading: "3. Avatars (Beta) - upload a photo, get a presenter",
         paragraphs: [
-          "Upload any photo and Blog2Video brings it to life as a talking photo avatar: your presenter, speaking your script, lip-synced to the narration, scene after scene. Or pick one of ours if you would rather not put your own face on it.",
+          "Upload any photo and Blog2Video brings it to life: your presenter, speaking your script, lip-synced to the narration, scene after scene. Or pick one of ours if you would rather not put your own face on it.",
           "The lip sync is driven by the narration track that already exists in the project, so the avatar follows whatever voice you chose - a prebuilt voice, your cloned voice, or a recording you made yourself. It carries across scenes rather than being a single talking-head clip bolted to the front.",
           "It is in beta, and we are calling it that honestly. It works well on clear, front-facing, well-lit portraits and gets less reliable as the source photo gets further from that. Try it, tell us where it breaks.",
         ],
@@ -519,15 +668,15 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "can-chatgpt-make-videos",
-    title: "Can ChatGPT Make Videos? No, But Here Is How to Make One With It (Free and Paid)",
+    title: "Can ChatGPT Make Videos? What Actually Lets ChatGPT and Claude Generate Real Video",
     description:
-      "No, ChatGPT cannot make a video file on its own. Here are three ways to make a video with ChatGPT, step by step: free (script plus a text-to-video tool), with Sora, or in one message through an MCP connector. Plus whether it can make videos from photos.",
+      "ChatGPT cannot render a finished video from a chat message on its own, and Claude has no video model at all. Here is what actually happens when you ask, what Sora and Veo really produce, and how an MCP connector lets either assistant return a real narrated MP4.",
     category: "Comparison",
     heroImage: "/blog/blog-cover-can-chatgpt-make-videos.png",
     heroImageAlt:
       "A frosted chat window connected by a glowing cable to a separate video player and MP4 file, showing that chat assistants operate a renderer rather than making video themselves.",
     publishedAt: "2026-09-05",
-    readTime: "11 min read",
+    readTime: "9 min read",
     heroEyebrow: "AI video, honestly",
     heroTitle: "ChatGPT cannot make you a video. It can operate something that does.",
     heroDescription:
@@ -553,36 +702,6 @@ export const blogPosts: BlogPost[] = [
           "Generative video models (Sora, Veo, Runway, Kling) - separate products, hallucinated frames, seconds long, no narration by default",
           "Connected tools via MCP - the assistant calls a real renderer and hands you back a finished file",
           "Neither - the assistant writes you a script and you go and make it yourself",
-        ],
-      },
-      {
-        heading: "How to make a video with ChatGPT, step by step",
-        paragraphs: [
-          "There are three practical routes, from the most manual to the most automatic.",
-          "Route 1, script only (works on the free plan): ask ChatGPT for a script with a hook, three to five sections, and a closing line, then ask it to split the script into scenes with on-screen text for each. Paste that script into a text-to-video tool, pick a voice and a template, and render.",
-          "Route 2, generative clips: use OpenAI's Sora, a separate product from the chat window, to generate short clips from a prompt, then cut them together with narration in a video editor. This suits visual moods and b-roll, not explainers with accurate on-screen text.",
-          "Route 3, one message to a finished video: connect a video tool to ChatGPT through an MCP connector, then send a sentence like 'turn this article into a video' with a link. ChatGPT calls the tool, which writes the narration, builds the scenes, and returns a preview link or an MP4.",
-        ],
-        bullets: [
-          "Fastest free route: ChatGPT writes the script, a text-to-video tool renders it",
-          "Best for cinematic b-roll: Sora clips edited together",
-          "Best for explainers from an article or document: an MCP-connected renderer",
-        ],
-        ctaPath: "/blog-to-video",
-        ctaLabel: "Turn a script or article into a video",
-      },
-      {
-        heading: "Can ChatGPT make videos for free?",
-        paragraphs: [
-          "Partly. On the free plan ChatGPT can write the script, the scene breakdown, the captions, and the title and description, and that is most of the thinking. The rendering has to happen somewhere else.",
-          "Pair the free script with a text-to-video tool that has a free tier and you can get a finished video without paying for either. MCP connectors are the exception: in ChatGPT they need a paid plan (Plus, Pro, Team or Enterprise), so the one-message route is not free.",
-        ],
-      },
-      {
-        heading: "Can ChatGPT make a video from photos?",
-        paragraphs: [
-          "Not by itself. ChatGPT can look at your photos, describe them, and write narration or captions for a slideshow, but it cannot animate them into a video file.",
-          "To make a video from photos, give those captions to a video tool, or use a talking-photo tool: upload a portrait and it animates the face to speak your script, lip-synced to the voiceover. Blog2Video's Avatars work this way, turning an uploaded photo into a presenter for the whole video.",
         ],
       },
       {
@@ -646,22 +765,20 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/blog-to-video",
         ctaLabel: "Try it without the chat window",
       },
+      {
+        heading: "ChatGPT, NotebookLM and grounded answers",
+        paragraphs: [
+          "Video is only one of the jobs people hand to ChatGPT. For research, the bigger question is whether the answer comes from a source you can check. Our sister product Notestack has a plain comparison of how ChatGPT and NotebookLM handle that.",
+        ],
+        ctaPath: "https://notestack.ai/blogs/notebooklm-vs-chatgpt",
+        ctaLabel: "Read NotebookLM vs ChatGPT",
+      },
     ],
     faq: [
       {
         question: "Can ChatGPT make videos?",
         answer:
           "Not on its own. ChatGPT is a language model with an image model attached; it has no video renderer behind the chat box. OpenAI's Sora is a separate text-to-video product that generates short generative clips. To get a finished narrated video out of a ChatGPT conversation you connect an external video tool through an MCP connector, and the assistant calls that tool to do the rendering.",
-      },
-      {
-        question: "How do I make a video with ChatGPT for free?",
-        answer:
-          "Ask ChatGPT for a script split into scenes with on-screen text, then paste it into a text-to-video tool with a free tier and render it there. The free ChatGPT plan cannot render video itself, and MCP connectors need a paid plan.",
-      },
-      {
-        question: "Can ChatGPT make a video from photos?",
-        answer:
-          "Not on its own. It can write captions and narration for your photos, but a separate tool has to turn them into a video. A talking-photo tool, such as Blog2Video's Avatars, can animate a portrait so it speaks your script.",
       },
       {
         question: "Can Claude make videos?",
@@ -1130,6 +1247,14 @@ export const blogPosts: BlogPost[] = [
         ],
         ctaPath: "/blog-to-video",
         ctaLabel: "Turn a newsletter issue into a video",
+      },
+      {
+        heading: "Get your Substack in front of more readers",
+        paragraphs: [
+          "A newsletter's value follows its subscriber count. One free way to add readers is to list your Substack on BlogHub, a directory where people browse for new newsletters to subscribe to.",
+        ],
+        ctaPath: "https://bloghub.app/submit-your-newsletter",
+        ctaLabel: "List your newsletter on BlogHub",
       },
     ],
     faq: [
@@ -1640,6 +1765,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "https://bloghub.app/blogs/article-submission-sites",
         ctaLabel: "5 places to submit your article",
       },
+      {
+        heading: "Submission sites that accept your articles",
+        paragraphs: [
+          "If you want a longer list of places to submit posts, BlogHub keeps a curated list of article submission sites, with what each one accepts and whether the link it gives you is worth anything.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/article-submission-sites",
+        ctaLabel: "See article submission sites",
+      },
     ],
     faq: [
       {
@@ -1932,6 +2065,14 @@ export const blogPosts: BlogPost[] = [
           "Spending your good hours on research? Perplexity.",
           "Good posts, dead click-through? Your covers — Ideogram.",
         ],
+      },
+      {
+        heading: "Beyond Substack: AI tools for every kind of writer",
+        paragraphs: [
+          "This list is about Substack specifically. For a broader look at AI tools that help writers research, keep their voice and publish without the busywork, see the guide from Notestack, our research notebook for writers.",
+        ],
+        ctaPath: "https://notestack.ai/blogs/ai-tools-for-writers",
+        ctaLabel: "AI tools for writers",
       },
     ],
     faq: [
@@ -2511,21 +2652,21 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "2008-financial-crisis-stickman-explainer",
-    title: "The 2008 Financial Crisis Explained Simply: 4 Steps (With Stick Figures)",
+    title: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
     description:
-      "What caused the 2008 financial crisis? The housing bubble, mortgage-backed securities, reckless lending, and the crash and bailout, explained simply in four steps with a narrated stick-figure animation.",
+      "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-2008-financial-crisis-stickman-explainer.png",
     heroImageAlt:
       "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
     publishedAt: "2026-07-14",
     readTime: "3 min read",
-    heroEyebrow: "Economics, explained",
-    heroTitle: "The 2008 financial crisis, explained simply in four steps",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The 2008 Financial Crisis, Explained in Four Steps with Stick Figures",
     heroDescription:
-      "It started with a house. The housing bubble, the mortgage bonds, the lending nobody checked, and the crash, told with a row of stick figures and a few charts.",
+      "The whole thing nearly collapsed, and it started with a house. We stripped the 2008 crash down to four steps you can follow with a row of stick figures and a few charts — a documentary-style Remotion short.",
     primaryKeyword: "2008 financial crisis explained",
-    keywordVariant: "what caused the 2008 financial crisis",
+    keywordVariant: "subprime mortgage crisis explainer video",
     relatedPaths: ["/for-finance-publishers", "/blogs/newsletter-market-breakdown-video", "/blog-to-video"],
     sections: [
       {
@@ -2566,28 +2707,7 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: [
-      {
-        question: "What caused the 2008 financial crisis, in simple terms?",
-        answer:
-          "Banks lent heavily to home buyers who could not afford to repay, bundled those loans into bonds rated as safe, and sold them worldwide. When house prices fell and borrowers defaulted, the bonds collapsed in value and the banks holding them failed or nearly failed.",
-      },
-      {
-        question: "What were mortgage-backed securities?",
-        answer:
-          "Bonds built from thousands of home loans bundled together. Investors received the loan repayments, and many of these bonds were rated AAA even though they contained risky subprime mortgages.",
-      },
-      {
-        question: "How big was the 2008 bank bailout?",
-        answer:
-          "The US Troubled Asset Relief Program (TARP), passed in October 2008, authorised up to $700 billion to stabilise the financial system.",
-      },
-      {
-        question: "How was this stick-figure explainer made?",
-        answer:
-          "It was built entirely in code with Remotion (React), with no stock footage and no AI-generated video, and narrated with ElevenLabs. It renders in both landscape and portrait from one composition.",
-      },
-    ],
+    faq: faq("2008 financial crisis explained", "subprime mortgage crisis explainer video"),
     distributionPlan: [
       {
         channel: "site",
@@ -3377,52 +3497,32 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "sisyphus-stickman-animation",
-    title: "The Myth of Sisyphus, Explained: The Myth, Camus, and Why He Is Happy",
+    title: "The Myth of Sisyphus: We Ended the Film on the Reclimb, Not the Fall",
     description:
-      "Who was Sisyphus, why was he punished, and what did Albert Camus mean by 'one must imagine Sisyphus happy'? The Greek myth and Camus's essay explained in plain words, with a narrated 80-second stickman animation.",
+      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-sisyphus-stickman-animation.png",
     heroImageAlt:
-      "A stickman pushing a boulder up a mountainside at dusk, from the Myth of Sisyphus stickman animation.",
+      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
     publishedAt: "2026-07-14",
-    readTime: "5 min read",
-    heroEyebrow: "Myth & philosophy, explained",
-    heroTitle: "The Myth of Sisyphus, explained: the boulder, the gods, and Camus",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Myth of Sisyphus: We Ended the Film on the Reclimb, Not the Fall",
     heroDescription:
-      "The Greek myth of the man condemned to push a boulder uphill forever, and Albert Camus's famous reading of it, explained in plain words, with a narrated stickman animation.",
-    primaryKeyword: "myth of sisyphus",
-    keywordVariant: "one must imagine sisyphus happy meaning",
-    relatedPaths: ["/blogs/ship-of-theseus-stickman-animation", "/blogs/prometheus-stickman-animation", "/blogs/the-grind-stickman-animation", "/templates/stickman_2"],
+      "One must imagine Sisyphus happy. We animated the myth as a narrated stickman short with a physically honest boulder — and chose to end not on the stone thundering down, but on the man setting his hands to it again.",
+    primaryKeyword: "myth of sisyphus animation",
+    keywordVariant: "sisyphus myth stickman short",
+    relatedPaths: ["/blogs/prometheus-stickman-animation", "/blogs/the-grind-stickman-animation", "/templates/stickman_2"],
     sections: [
       {
-        heading: "Who was Sisyphus?",
+        heading: "Overview",
         paragraphs: [
-          "In Greek mythology, Sisyphus was the king of Ephyra, the city later called Corinth. He was famous for being clever and for cheating the gods, above all for cheating death.",
-          "In the best-known version he chains up Thanatos, Death himself, so that nobody can die. Later, when he does reach the underworld, he tricks his way back out by persuading the gods to let him return to the living. He is finally dragged back for good.",
+          "One must imagine Sisyphus happy.",
+          "The myth is usually remembered as futility — the endless push, the stone rolling back. We animated it as a narrated stickman short, about eighty-one seconds long, and made one deliberate choice about where to end.",
         ],
       },
       {
-        heading: "The punishment",
-        paragraphs: [
-          "As punishment, Sisyphus must roll a huge boulder up a hill. Every time it nears the top, it rolls back down, and he has to start again, forever. Homer describes him at this task in Book 11 of the Odyssey.",
-          "That is why a 'Sisyphean' task means work that is endless and can never be finished.",
-        ],
-      },
-      {
-        heading: "Camus: 'One must imagine Sisyphus happy'",
-        paragraphs: [
-          "In his 1942 essay The Myth of Sisyphus, the French writer Albert Camus uses the myth to describe what he calls the absurd: people keep looking for meaning in a universe that offers none.",
-          "Camus argues that we should neither give up nor escape into false hope. Instead we should live fully with our eyes open, and that choice is a kind of revolt. Sisyphus knows exactly how hopeless his task is, and he walks back down to the boulder anyway. For Camus, that lucid, deliberate return is where his freedom lies. That is why the essay ends: 'The struggle itself toward the heights is enough to fill a man's heart. One must imagine Sisyphus happy.'",
-        ],
-      },
-      {
-        heading: "Why the animation ends on the reclimb",
-        paragraphs: [
-          "Most retellings end on the stone rolling down. Our animation ends on the moment Camus cares about: Sisyphus walking back down and setting his hands to the stone again.",
-        ],
-      },
-      {
-        heading: "The story in the animation",
+        heading: "The story",
         paragraphs: [
           "A lone stickman heaves a great boulder up a mountainside at mythic dusk. Near the summit the stone slips and thunders all the way back down. He watches, walks the long walk down… and sets his hands to the stone again.",
           "A grave, measured narrator — a Morgan Freeman sort of cadence — tells the myth beat by beat and closes on Camus: \"One must imagine Sisyphus happy.\"",
@@ -3449,28 +3549,7 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: [
-      {
-        question: "What is the Myth of Sisyphus about?",
-        answer:
-          "In Greek mythology, King Sisyphus cheated death and was punished by being made to roll a boulder up a hill for eternity, only for it to roll back down every time it neared the top.",
-      },
-      {
-        question: "Why was Sisyphus punished?",
-        answer:
-          "For his trickery against the gods, above all for cheating death: in the best-known version he chained up Thanatos (Death) and later tricked his way out of the underworld.",
-      },
-      {
-        question: "What does 'one must imagine Sisyphus happy' mean?",
-        answer:
-          "It is the last line of Albert Camus's 1942 essay The Myth of Sisyphus. Camus argues that life has no built-in meaning, but that accepting this lucidly and carrying on anyway is a form of freedom. The struggle itself can be enough.",
-      },
-      {
-        question: "How was this Sisyphus animation made?",
-        answer:
-          "It was built entirely in code with Remotion (React), with the boulder's rotation computed from the distance it travels along the slope. The same stickman style is available as a Blog2Video template.",
-      },
-    ],
+    faq: faq("myth of sisyphus animation", "sisyphus myth stickman short"),
     distributionPlan: [
       {
         channel: "site",
@@ -3890,58 +3969,32 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "ship-of-theseus-stickman-animation",
-    title: "The Ship of Theseus Paradox, Explained (With a 90-Second Animation)",
+    title: "The Ship of Theseus: A Philosophy Puzzle in Stickman Animation",
     description:
-      "What is the Ship of Theseus? If you replace every plank of a ship, is it still the same ship? Here is the paradox in plain words, where it comes from, the main answers philosophers give, and a narrated stickman animation that shows it happen plank by plank.",
+      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-ship-of-theseus-stickman-animation.png",
     heroImageAlt:
-      "A stickman shipwright replacing the planks of a Greek galley one by one, from the Ship of Theseus stickman animation.",
+      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
     publishedAt: "2026-07-16",
-    readTime: "5 min read",
-    heroEyebrow: "Philosophy, explained",
-    heroTitle: "The Ship of Theseus, explained: replace every plank, and is it still your ship?",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Ship of Theseus: A Philosophy Puzzle in Stickman Animation",
     heroDescription:
-      "A two-thousand-year-old puzzle about identity and change, explained in plain words, with a narrated stickman animation that rebuilds the ship one plank at a time.",
-    primaryKeyword: "ship of theseus",
-    keywordVariant: "ship of theseus paradox explained",
-    relatedPaths: ["/blogs/sisyphus-stickman-animation", "/blogs/narcissus-stickman-animation", "/blogs/2008-financial-crisis-stickman-explainer", "/templates/stickman_2"],
+      "Replace every plank, and is it still your ship? We told the Ship of Theseus paradox as a narrated stickman short — a galley rebuilt plank by plank on screen, and a twist about a second ship. Here's how we built it in Remotion.",
+    primaryKeyword: "ship of theseus explained",
+    keywordVariant: "ship of theseus stickman animation",
+    relatedPaths: ["/blogs/narcissus-stickman-animation", "/blogs/2008-financial-crisis-stickman-explainer", "/templates/stickman_2"],
     sections: [
       {
-        heading: "What is the Ship of Theseus?",
+        heading: "Overview",
         paragraphs: [
-          "The Ship of Theseus is a thought experiment about identity: if every part of an object is replaced over time, is it still the same object?",
-          "The story goes like this. Theseus sails home to Athens a hero, and the Athenians keep his ship as a monument. Over the years the wood rots, so they pull out each decayed plank and put in a new one. Eventually not a single original plank is left. Is it still the ship of Theseus?",
-          "The animation at the top of this post shows it happen: a stickman shipwright swaps the planks one at a time until the counter reaches the last one.",
+          "Replace every plank, and is it still your ship?",
+          "The Ship of Theseus is a two-thousand-year-old thought experiment, so we made it something you can watch happen — about a hundred and five seconds, narrated end to end.",
         ],
       },
       {
-        heading: "Where the paradox comes from",
-        paragraphs: [
-          "The earliest well-known version is in Plutarch's Life of Theseus, written in the first century AD. He says the Athenians preserved the ship by replacing its old timbers with new ones, and that philosophers used it as their standard example of things that grow and change: some said it stayed the same ship, others said it did not.",
-          "In the seventeenth century Thomas Hobbes added the twist that makes it hard. Suppose someone collected every discarded plank and rebuilt the original ship from them. Now there are two ships. Which one is the ship of Theseus?",
-        ],
-      },
-      {
-        heading: "The main answers",
-        paragraphs: [
-          "There is no single accepted solution, but most answers fall into a few camps:",
-        ],
-        bullets: [
-          "Same parts, same ship: identity lives in the material, so the ship rebuilt from the original planks is the real one.",
-          "Continuity: identity lives in an unbroken history of gradual change, so the ship that stayed in the harbour and was repaired is the real one.",
-          "Form and function: following Aristotle, what makes it that ship is its design and purpose, not its wood, so the repaired ship keeps its identity.",
-          "No fact of the matter: 'same ship' is a label we choose, and the paradox shows that everyday words for identity break down at the edges.",
-        ],
-      },
-      {
-        heading: "Why it still matters",
-        paragraphs: [
-          "The same question comes up well beyond ships: your body replaces most of its cells over time; a band can replace every member and keep its name; a company can keep its brand after every founder leaves. The Ship of Theseus is how philosophers ask what, if anything, stays the same through all that change.",
-        ],
-      },
-      {
-        heading: "The story in the animation",
+        heading: "The story",
         paragraphs: [
           "Theseus sails home a hero, and Athens vows to preserve his ship forever. But wood rots. A shipwright pulls one rotten plank and nails in a fresh one. Then another. Time-lapses by — day and night flicker, a growing pile of old planks, a counter ticking N of 36 — until not one original board remains.",
           "The philosophers argue: is it still the ship of Theseus? And then the twist: someone has kept every discarded plank and rebuilt a second ship from them. Now which one is real?",
@@ -3969,28 +4022,7 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: [
-      {
-        question: "What is the Ship of Theseus paradox in simple terms?",
-        answer:
-          "If you replace every part of something one piece at a time, is it still the same thing? The Ship of Theseus asks this about a ship whose planks are all replaced until none of the originals remain.",
-      },
-      {
-        question: "Who came up with the Ship of Theseus?",
-        answer:
-          "The best-known early version comes from Plutarch's Life of Theseus (1st century AD). Thomas Hobbes later added the twist of rebuilding a second ship from the discarded original planks.",
-      },
-      {
-        question: "What is the answer to the Ship of Theseus?",
-        answer:
-          "There is no agreed answer. Some philosophers say the ship made of the original parts is the real one, others say the continuously repaired ship is, and others say 'the same ship' is a convention rather than a fact.",
-      },
-      {
-        question: "How was this Ship of Theseus animation made?",
-        answer:
-          "It was built entirely in code with Remotion (React), narrated with a synthetic voice, and rendered in landscape and portrait from one composition. The same stickman style is available as a Blog2Video template.",
-      },
-    ],
+    faq: faq("ship of theseus explained", "ship of theseus stickman animation"),
     distributionPlan: [
       {
         channel: "site",
@@ -4091,42 +4123,35 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "american-psycho-stickman-parody",
-    title: "The American Psycho Business Card Scene, Explained (Plus a Stickman Parody)",
+    title: "American Psycho: The Business Card Scene, Reimagined as a Stickman Ad",
     description:
-      "What happens in the American Psycho business card scene, what the cards say, and why it is really about status anxiety. The scene explained, plus our 67-second stickman parody where the cards are AI video tools.",
+      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-american-psycho-stickman-parody.png",
     heroImageAlt:
-      "Stickman executives comparing business cards around a boardroom table, from the American Psycho business card scene parody.",
+      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
     publishedAt: "2026-07-16",
-    readTime: "4 min read",
-    heroEyebrow: "Film scene, explained",
-    heroTitle: "The American Psycho business card scene, explained",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "American Psycho: The Business Card Scene, Reimagined as a Stickman Ad",
     heroDescription:
-      "Bone, eggshell, pale nimbus white: why four near-identical business cards make one of the most quoted scenes in film, and our stickman parody of it.",
+      "Look at that subtle off-white coloring. We turned the American Psycho business-card scene into a stickman ad — execs one-upping each other with AI video tools, until Bateman lays down the one card nobody can stop staring at.",
     primaryKeyword: "american psycho business card scene",
-    keywordVariant: "american psycho business card scene meaning",
-    relatedPaths: ["/blogs/reservoir-dogs-stickman-parody", "/blogs/matrix-red-dress-stickman", "/blogs/neo-stops-ai-slop-stickman", "/templates/stickman_2"],
+    keywordVariant: "american psycho stickman parody",
+    relatedPaths: ["/blogs/reservoir-dogs-stickman-parody", "/blogs/neo-stops-ai-slop-stickman", "/templates/stickman_2"],
     sections: [
       {
-        heading: "What happens in the business card scene",
+        heading: "Overview",
         paragraphs: [
-          "In American Psycho (2000), directed by Mary Harron and adapted from Bret Easton Ellis's 1991 novel, Christian Bale plays Patrick Bateman, an investment banker at Pierce & Pierce in 1980s Manhattan.",
-          "In a meeting, Bateman proudly shows off his new business card: 'bone' coloured, with lettering 'called Silian Rail'. His colleagues answer with their own: one is 'eggshell with Romalian type', another has raised lettering on 'pale nimbus white'. Then someone says the line everyone remembers, 'Let's see Paul Allen's card', and Bateman is floored: 'Look at that subtle off-white coloring. The tasteful thickness of it. Oh my God, it even has a watermark.' (Paul Allen is called Paul Owen in the novel.)",
+          "Look at that subtle off-white coloring.",
+          "The business-card comparison is one of the most quotable scenes in film, so we turned it into an ad — about sixty-seven seconds, five voices, and a lot of sweat over a wordmark.",
         ],
       },
       {
-        heading: "What the scene means",
-        paragraphs: [
-          "The joke is that the cards are almost identical. The men all have the same job, suits, haircuts and restaurants, so they compete over tiny differences in paper stock and typeface. Their status comes from surface detail, not from anything real.",
-          "For Bateman the scene is humiliating. He can't stand being outclassed on the one thing that sets him apart, and his envy of Paul Allen feeds into the violence later in the film. The scene works as satire because it makes that emptiness funny before it turns dark.",
-        ],
-      },
-      {
-        heading: "Our parody",
+        heading: "The story",
         paragraphs: [
           "A table of Pierce & Pierce executives one-up each other with their AI video generators — HeyGen, InVideo, Seedance — each card slid across the table with quiet menace.",
-          "Then Bateman lays down Paul Allen's card: blog2video. The tasteful thickness. The watermark. He can't stop staring at it, heartbeat pounding, sweat beading, as it plainly outclasses everything else on the table.",
+          "Then Bateman lays down Paul Owen's card: blog2video. The tasteful thickness. The watermark. He can't stop staring at it, heartbeat pounding, sweat beading, as it plainly outclasses everything else on the table.",
         ],
       },
       {
@@ -4151,28 +4176,7 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: [
-      {
-        question: "What is the business card scene in American Psycho about?",
-        answer:
-          "Patrick Bateman and his colleagues compare near-identical business cards, competing over colour, typeface and paper thickness. It satirises 1980s Wall Street status obsession: the men are interchangeable, so they fight over trivial details.",
-      },
-      {
-        question: "What does Paul Allen's business card look like?",
-        answer:
-          "Bateman describes it as having a 'subtle off-white coloring', a 'tasteful thickness', and a watermark. It is the card that makes him most jealous. (In the novel the character is called Paul Owen.)",
-      },
-      {
-        question: "Who is in the American Psycho business card scene?",
-        answer:
-          "Christian Bale as Patrick Bateman, with Josh Lucas, Justin Theroux and Bill Sage as his colleagues. Jared Leto plays Paul Allen.",
-      },
-      {
-        question: "How was this American Psycho stickman parody made?",
-        answer:
-          "It was built entirely in code with Remotion (React), with five ElevenLabs voices for the executives. Instead of business cards, each executive slides across the name of an AI video tool.",
-      },
-    ],
+    faq: faq("american psycho business card scene", "american psycho stickman parody"),
     distributionPlan: [
       {
         channel: "site",
@@ -4350,39 +4354,32 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "matrix-red-dress-stickman",
-    title: "The Woman in the Red Dress in The Matrix, Explained (Plus a Stickman Parody)",
+    title: "The Woman in the Red Dress: The Matrix Distraction Scene as a Stickman Parody",
     description:
-      "What happens in The Matrix's 'woman in the red dress' scene, what Morpheus is teaching Neo, and why it is one of the film's key ideas. The scene explained, plus our stickman parody of it.",
+      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
     category: "Behind the scenes",
     heroImage: "/blog/blog-cover-matrix-red-dress-stickman.png",
     heroImageAlt:
-      "A grey crowd of stickman pedestrians with one figure in a red dress, from the Matrix red dress stickman parody.",
+      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
     publishedAt: "2026-07-16",
-    readTime: "4 min read",
-    heroEyebrow: "Film scene, explained",
-    heroTitle: "The woman in the red dress in The Matrix, explained",
+    readTime: "2 min read",
+    heroEyebrow: "Behind the scenes",
+    heroTitle: "The Woman in the Red Dress: The Matrix Distraction Scene as a Stickman Parody",
     heroDescription:
-      "'Were you listening to me, Neo, or were you looking at the woman in the red dress?' What the training-program scene means, and our stickman parody of it.",
+      "Were you listening, or looking at the woman in the red dress? We rebuilt the Matrix training-program scene as a stickman parody — a grey crowd, one red accent, and a freeze-reveal that turns the distraction into the danger.",
     primaryKeyword: "woman in the red dress matrix",
-    keywordVariant: "matrix woman in the red dress scene meaning",
-    relatedPaths: ["/blogs/neo-first-dodge-stickman", "/blogs/neo-stops-ai-slop-stickman", "/blogs/american-psycho-stickman-parody", "/templates/stickman_2"],
+    keywordVariant: "matrix red dress stickman parody",
+    relatedPaths: ["/blogs/neo-stops-ai-slop-stickman", "/blogs/ai-videos-are-slop-unless-they-are-relevant", "/templates/stickman_2"],
     sections: [
       {
-        heading: "What happens in the scene",
+        heading: "Overview",
         paragraphs: [
-          "In The Matrix (1999), after Neo is freed, Morpheus loads a training program: a simulated city street packed with people in dark business clothes. As they walk, Morpheus explains that the Matrix is a system, and that the people still plugged into it are part of that system.",
-          "Neo is distracted by a woman in a bright red dress who walks past and smiles at him. Morpheus asks, 'Were you listening to me, Neo, or were you looking at the woman in the red dress?' Then he says, 'Look again.' Neo turns around and the woman has become Agent Smith, pointing a gun at his head. Morpheus says, 'Freeze it,' and the whole simulation stops.",
+          "\"Were you listening… or were you looking at the woman in the red dress?\"",
+          "The training-program scene is a perfect metaphor for slick, empty content, so we rebuilt it — a desaturated crowd, one red accent, and a hard freeze.",
         ],
       },
       {
-        heading: "What the scene means",
-        paragraphs: [
-          "It's a lesson in two parts. First, anyone still inside the Matrix can become an Agent at any moment, so nobody in the crowd can be trusted. Second, the danger works through distraction: the thing designed to catch your eye is the thing that gets you killed.",
-          "That's why the woman is the only splash of colour in a grey crowd. The film makes you look where Neo looks, so the audience gets caught out too.",
-        ],
-      },
-      {
-        heading: "Our parody",
+        heading: "The story",
         paragraphs: [
           "A crowd of identical grey stickman pedestrians shuffles down a street — and among them, impossible to miss, is the woman in the red dress. \"Look again,\" says Agent Smith.",
           "The crowd freezes; every grey figure snaps toward camera as a threat. The red dress was the distraction — the ordinary, generic content was the danger all along.",
@@ -4410,28 +4407,7 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video free",
       },
     ],
-    faq: [
-      {
-        question: "What is the woman in the red dress scene in The Matrix?",
-        answer:
-          "It is a training program Morpheus shows Neo. Neo is distracted by a woman in a red dress, who turns into Agent Smith pointing a gun at him, teaching Neo that anyone still plugged into the Matrix can become an Agent.",
-      },
-      {
-        question: "What does the woman in the red dress symbolise?",
-        answer:
-          "Distraction. She is designed to draw the eye, and while Neo looks at her he misses the danger. The scene warns that the system uses what you want to see to control you.",
-      },
-      {
-        question: "What does Morpheus say in the red dress scene?",
-        answer:
-          "'Were you listening to me, Neo, or were you looking at the woman in the red dress?', followed by 'Look again' and 'Freeze it'.",
-      },
-      {
-        question: "How was this Matrix stickman parody made?",
-        answer:
-          "It was built entirely in code with Remotion (React). The whole crowd is animated, then freezes on cue, and the red figure is the only colour in a fully desaturated scene.",
-      },
-    ],
+    faq: faq("woman in the red dress matrix", "matrix red dress stickman parody"),
     distributionPlan: [
       {
         channel: "site",
@@ -5651,6 +5627,14 @@ export const blogPosts: BlogPost[] = [
         ],
         ctaPath: "/blog-to-video",
         ctaLabel: "Try Blog2Video free",
+      },
+      {
+        heading: "Just need slides from a PDF?",
+        paragraphs: [
+          "If you only want a slideshow from a PDF, with no narration, PDF2Video has a free PDF to slideshow tool that turns each section into a slide.",
+        ],
+        ctaPath: "https://pdf2vid.com/tools/pdf-to-slideshow",
+        ctaLabel: "Try PDF to slideshow",
       },
     ],
     faq: [
@@ -7214,366 +7198,6 @@ export const blogPosts: BlogPost[] = [
       {
         channel: "twitter",
         title: "Thread: 5 Free Headline Score Checkers That Actually Improve Your CTR",
-        angle:
-          "Post the main takeaways as a thread and link the full article.",
-      },
-    ],
-  },
-  {
-    slug: "how-to-convert-pdf-into-video",
-    title: "How to Convert a PDF Into a Video: 5 Best AI Tools in 2026",
-    description:
-      "Learn how to convert a PDF into a video using the 5 best AI tools in 2026 — Blog2Video, Synthesia, X-Pilot, Visla, and Mootion. Step-by-step guide included.",
-    category: "How-to",
-    heroImage: "/blog/blog-cover-how-to-convert-pdf-into-video.png",
-    heroImageAlt:
-      "PDF document converting into narrated video using AI tools.",
-    publishedAt: "2026-07-14",
-    readTime: "6 min read",
-    heroEyebrow: "How-to",
-    heroTitle: "How to Convert a PDF Into a Video: 5 Best AI Tools in 2026",
-    heroDescription:
-      "Learn how to convert a PDF into a video using the 5 best AI tools in 2026 — Blog2Video, Synthesia, X-Pilot, Visla, and Mootion. Step-by-step guide included.",
-    primaryKeyword: "how to convert pdf into video",
-    keywordVariant: "pdf to video converter ai",
-    relatedPaths: ["/pdf-to-video", "/blogs/how-to-make-a-pdf-into-a-video", "/blogs/how-to-convert-pdf-to-video"],
-    sections: [
-      {
-        heading: "Overview",
-        paragraphs: [
-          "TL;DR: A step-by-step guide to converting a PDF into a video using the five best AI tools in 2026 — Blog2Video, Synthesia, X-Pilot, Visla, and Mootion.",
-          "The fastest way to make your PDF actually reach people is to convert it into a video. A PDF gets downloaded and forgotten. A video gets watched, shared, embedded in blog posts, and distributed on YouTube, LinkedIn, and Instagram.",
-          "The good news: AI tools in 2026 make this conversion automatic. You upload the PDF, and the tool extracts the content, builds a narrated video, and handles the visual layout. No filming, no design work, no editing software.",
-          "Here are the five best tools for converting PDFs into videos, with a full comparison and step-by-step instructions.",
-        ],
-      },
-      {
-        heading: "Why Convert a PDF to Video?",
-        paragraphs: [
-          "PDFs are excellent for sharing dense information with a small audience that is specifically looking for it. But for everyone else:",
-          "1. PDFs don't reach new audiences. You can't embed a PDF on YouTube or boost it on LinkedIn the same way you can a video.",
-          "2. PDFs don't explain themselves. A narrated video walks the viewer through the content at your intended pace.",
-          "3. PDFs aren't mobile-friendly. Pinching and zooming on a 20-page report is a poor experience. A two-minute video covering the same content is far more watchable on a phone.",
-          "4. Video improves information retention. Studies consistently show that viewers retain more from video than from reading — especially for complex or data-heavy content.",
-          "If you've already put the work into writing the PDF, converting it to video is simply smart content distribution.",
-        ],
-      },
-      {
-        heading: "1. Blog2Video — Best for Polished, Branded Video From PDFs",
-        paragraphs: [
-          "Best for: Marketers, educators, and creators who want high-quality visual output",
-          "Blog2Video is purpose-built for turning written content — including PDFs — into professional broadcast and explainer videos. Upload the PDF, select a visual template, and the AI generates a narrated, scene-structured video in 2–3 minutes.",
-          "What makes it stand out from other PDF-to-video tools:",
-          "The template library is substantially higher quality than competitors. Instead of generic slideshows, Blog2Video produces:",
-          "1. Newscast — broadcast-style video with lower thirds, anchor narration, and data graphics that look like TV visuals",
-          "2. Nightfall — cinematic dark glass panels with neon-glow metrics; premium keynote aesthetic",
-          "3. Gridcraft — editorial bento-grid layouts; clean, modern, great for business content",
-          "4. Spotlight — bold kinetic typography that slams into frame; fast-paced and social-first",
-          "5. Geometric Explainer — clean whiteboard style for technical or educational content",
-          "Blog2Video also exports in four formats from the same PDF: MP4 video, PowerPoint (.pptx), PDF slides, and PNG images per scene. You can share the video on YouTube, use the PDF as a LinkedIn carousel, send the PowerPoint to clients for review, and use the PNGs for social posts — all from one upload.",
-          "Pricing: $4 per video; bulk rates at 10+ and 30+ exports Try it: blog2video.app",
-        ],
-      },
-      {
-        heading: "2. Synthesia — Best for Corporate-Grade AI Avatar Videos",
-        paragraphs: [
-          "Best for: Enterprise training, compliance, and sales enablement",
-          "Synthesia is the professional benchmark for AI avatar video generation. It extracts key points from your PDF, generates a script, and produces a video with one of 230+ AI presenters delivering the narration with lip-synced delivery in 140+ languages.",
-          "The result looks exactly like a real human is presenting your document on camera. For internal training videos, compliance modules, and customer onboarding — where production values signal credibility — Synthesia is the right tool.",
-          "Limitation: It's expensive relative to most PDF-to-video tools. The professional quality comes at a professional price point.",
-          "Best for: Corporate training, compliance, and sales content where human-presenter-style video matters Pricing: Paid plans starting at ~$22/month",
-        ],
-      },
-      {
-        heading: "3. X-Pilot — Best Free PDF to Video Option",
-        paragraphs: [
-          "Best for: Anyone who needs PDF-to-video conversion with no budget",
-          "X-Pilot uses AI to extract document structure and generate narrated, animated videos — not static slideshows. The free tier is genuinely useful:",
-          "1. Up to 30 pages per document",
-          "2. 1080p MP4 export",
-          "3. No watermark",
-          "4. No credit card required",
-          "The visual output is more generic than Blog2Video or Synthesia, but for the price (free), it's hard to argue with. Best for simple instructional content, research summaries, and educational PDFs where visual polish matters less than getting the content into video format.",
-          "Free tier: Yes — no watermark, no credit card, 1080p export Best for: Free PDF-to-video conversion with reasonable quality",
-        ],
-      },
-      {
-        heading: "4. Visla — Best for Short-Form and Social Video",
-        paragraphs: [
-          "Best for: Marketers turning PDFs into social media videos",
-          "Visla automatically extracts key content from the PDF, breaks it into scenes, and generates video that feels more like a reel or explainer than a presentation. It adds stock footage, narration, and scene transitions.",
-          "If the goal is a LinkedIn video, Instagram Reel, or YouTube Short rather than a full explainer, Visla's social-first approach produces better results than tools oriented toward long-form presentation content.",
-          "Best for: Short-form video for social media from PDF source content Free tier: Limited free tier",
-        ],
-      },
-      {
-        heading: "5. Mootion — Best for Speed",
-        paragraphs: [
-          "Best for: Anyone who needs a video generated as fast as possible",
-          "Mootion outperformed competitors by 65% in speed in independent tests — generating a full 3-minute video in under 2 minutes compared to the industry average of 6 minutes. If turnaround speed is your primary constraint, Mootion is worth testing.",
-          "The output quality is solid for presentation-style videos. For premium visual output at high speed, it's a reasonable middle ground.",
-          "Best for: High-volume use cases where speed is the primary priority Free tier: Limited",
-        ],
-      },
-      {
-        heading: "How to Convert a PDF Into a Video With Blog2Video (Step by Step)",
-        paragraphs: [
-        ],
-        bullets: [
-          "Go to blog2video.app and sign in (or create a free account)",
-          "Click New Project → select Upload PDF or Paste Link if the document is hosted online",
-          "Upload your PDF — the AI reads and extracts the content automatically",
-          "Select a template: - Newscast — broadcast-style with TV graphics - Gridcraft — editorial and modern - Nightfall — cinematic and premium - Spotlight — bold and social-first - Geometric Explainer — clean and educational",
-          "Choose a voiceover from the library (multiple English accents plus other languages)",
-          "Click Generate — wait 2–5 minutes for the AI to build your video",
-          "Review the scenes in the editor; adjust any scene text, images, or layout if needed",
-          "Export: - MP4 — upload to YouTube, LinkedIn, or embed on your site - PowerPoint — share with teammates or clients for editing - PDF — upload to LinkedIn as a carousel - PNG — use individual slides for social posts",
-        ],
-      },
-      {
-        heading: "Comparison: PDF to Video Converters in 2026",
-        paragraphs: [
-        ],
-        bullets: [
-          "Blog2Video — Free: Trial · Templates: ✓✓ High quality · Export Formats: MP4 + PPT + PDF + PNG · Avatar: — · Best For: Polished branded video",
-          "Synthesia — Free: No · Templates: ✓ · Export Formats: MP4 · Avatar: ✓✓ AI avatars · Best For: Enterprise/corporate",
-          "X-Pilot — Free: ✓✓ · Templates: Basic · Export Formats: MP4 · Avatar: — · Best For: Free tier, no watermark",
-          "Visla — Free: Limited · Templates: ✓ · Export Formats: MP4 · Avatar: — · Best For: Social/short-form video",
-          "Mootion — Free: Limited · Templates: ✓ · Export Formats: MP4 · Avatar: — · Best For: Speed-first generation",
-        ],
-        ctaPath: "/pdf-to-video",
-        ctaLabel: "Convert a PDF to video free",
-      },
-      {
-        heading: "If PDFs are your main input, there is a build for that",
-        paragraphs: [
-          "Blog2Video handles PDFs alongside URLs, documents and pasted text, which is right if your source material is mixed. If it is almost always a PDF — reports, whitepapers, lecture decks, handbooks, research summaries — pdf2vid.com is the same engine set up for exactly that job.",
-          "It takes the upload first rather than asking for a URL, reads the page structure directly, and maps sections and headings onto scenes without you re-pasting anything. Same templates, same automatic sizing across 16:9, 9:16 and 1:1, same MP4, PowerPoint, PDF and PNG exports.",
-          "It is the shortest route from a document that gets downloaded and forgotten to a video that gets watched, embedded, and shared.",
-        ],
-        ctaPath: "https://pdf2vid.com",
-        ctaLabel: "Generate a video from a PDF at pdf2vid.com",
-      },
-    ],
-    faq: [
-      {
-        question: "How long does it take to convert a PDF to video?",
-        answer:
-          "Blog2Video converts most PDFs in 2–5 minutes. Mootion is faster. Synthesia takes longer due to avatar rendering.",
-      },
-      {
-        question: "Do I need to edit the video after conversion?",
-        answer:
-          "Usually not. Blog2Video gives you a review screen where you can adjust scenes, but most outputs are usable without additional editing.",
-      },
-      {
-        question: "What's the best free way to convert a PDF to video?",
-        answer:
-          "X-Pilot offers the strongest free tier — 1080p MP4, no watermark, no credit card required, up to 30 pages.",
-      },
-      {
-        question: "Can I add my own voiceover to the PDF video?",
-        answer:
-          "Blog2Video uses AI voiceovers from its library. Some tools (like Synthesia) let you clone your voice. Manually adding a voiceover is also possible via video editing after export.",
-      },
-      {
-        question: "Which PDF format works best?",
-        answer:
-          "Text-based PDFs (with selectable text) work best. Scanned image PDFs produce lower quality results because the AI cannot extract the text reliably.",
-      },
-      {
-        question: "Can I upload a presentation or slide deck PDF?",
-        answer:
-          "Yes. Presentation PDFs — where each page is a slide — work particularly well because the page structure already maps closely to video scenes.",
-      },
-    ],
-    distributionPlan: [
-      {
-        channel: "site",
-        title: "How to Convert a PDF Into a Video: 5 Best AI Tools in 2026",
-        angle:
-          "Learn how to convert a PDF into a video using the 5 best AI tools in 2026 — Blog2Video, Synthesia, X-Pilot, Visla, and Mootion. Step-by-step guide included.",
-      },
-      {
-        channel: "video",
-        title: "How to Convert a PDF Into a Video — the 90-second version",
-        angle:
-          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/how-to-convert-pdf-into-video.",
-      },
-      {
-        channel: "twitter",
-        title: "Thread: How to Convert a PDF Into a Video",
-        angle:
-          "Post the main takeaways as a thread and link the full article.",
-      },
-    ],
-  },
-  {
-    slug: "how-to-make-a-pdf-into-a-video",
-    title: "How to Make a PDF Into a Video: 5 AI Tools That Actually Work in 2026",
-    description:
-      "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
-    category: "How-to",
-    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
-    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
-    heroImage: "/blog/blog-cover-how-to-make-a-pdf-into-a-video.png",
-    heroImageAlt:
-      "Step-by-step workflow turning a PDF into a publishable MP4 video.",
-    publishedAt: "2026-07-14",
-    readTime: "6 min read",
-    heroEyebrow: "How-to",
-    heroTitle: "How to Make a PDF Into a Video: 5 AI Tools That Actually Work in 2026",
-    heroDescription:
-      "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
-    primaryKeyword: "how to make a pdf into a video",
-    keywordVariant: "make a video from a pdf",
-    relatedPaths: ["/pdf-to-video", "/blogs/how-to-convert-pdf-into-video", "/blogs/create-summary-videos-from-pdfs"],
-    sections: [
-      {
-        heading: "Overview",
-        paragraphs: [
-          "TL;DR: How to make a PDF into a video using five AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video — with step-by-step instructions for each.",
-          "Turning a PDF into a video used to mean hiring a motion designer, recording a screen capture, or spending hours in video editing software. In 2026, AI tools handle the heavy lifting — you upload the PDF, and the tool extracts the content, builds a visual structure, adds narration, and outputs a finished video.",
-          "The tricky part is that not all tools do this equally well. Some produce stiff slideshows. Others generate genuinely engaging videos with narration, transitions, and broadcast-style visuals.",
-          "Here are the five best tools for converting PDFs to video, with honest notes on what each is actually good for.",
-        ],
-      },
-      {
-        heading: "Why Converting a PDF to Video Makes Sense",
-        paragraphs: [
-          "A PDF sits in a downloads folder. A video lives on YouTube, LinkedIn, or your website — and people actually watch it.",
-          "The content you've already written in that PDF — the research, the argument, the explainer — is often better than most video scripts. The problem is packaging. Once that PDF becomes a video:",
-        ],
-        bullets: [
-          "It's shareable on platforms where PDFs don't reach",
-          "It adds audio narration that a PDF can't deliver",
-          "It's accessible to audiences who consume content by watching rather than reading",
-          "It can be embedded in blogs, newsletters, and landing pages",
-        ],
-      },
-      {
-        heading: "1. Blog2Video — Best for High-Quality Branded Videos From PDFs",
-        paragraphs: [
-          "Best for: Marketers, educators, and creators who want a visually polished output",
-          "Blog2Video is built specifically for turning written content — including PDFs — into professional broadcast and explainer videos. You upload the PDF (or paste a URL if the content is online), select a visual template, and the AI generates a narrated video with structured scenes.",
-          "The output quality is noticeably higher than most PDF-to-video tools because Blog2Video uses purpose-built templates with broadcast-style visuals:",
-          "1. Newscast — broadcast graphics, lower thirds, anchor-style narration",
-          "2. Nightfall — cinematic dark glass panels, great for launches and deep dives",
-          "3. Gridcraft — editorial bento-grid layouts, clean and modern",
-          "4. Spotlight — bold kinetic typography, fast-paced and social-first",
-          "5. Geometric Explainer — clean whiteboard-style for technical content",
-          "You can also export the same PDF content as a PowerPoint deck, PDF slides, or PNG images alongside the video — one source document, four distribution formats.",
-          "Pricing: $4 per video; bulk rates at 10+ and 30+ exports Best for: Content that deserves visual polish — marketing materials, educational content, product explainers Try it: blog2video.app",
-        ],
-      },
-      {
-        heading: "2. Synthesia — Best for Professional Corporate Videos With AI Avatars",
-        paragraphs: [
-          "Best for: Enterprise training, compliance, and sales enablement content",
-          "Synthesia is the professional-grade option. It extracts key points from your PDF, drafts a script, and produces a video with one of 230+ AI presenters delivering the narration with lip-synced delivery in 140+ languages.",
-          "The result looks like a real human is presenting your document content on camera. It's the most professional output of any tool on this list — which is also why it's the most expensive.",
-          "Best for: Corporate training, compliance modules, customer onboarding, sales presentations Limitation: Cost; overkill for casual or educational use",
-        ],
-      },
-      {
-        heading: "3. X-Pilot — Best Free PDF to Video Converter",
-        paragraphs: [
-          "Best for: Users on a tight budget who need a professional output without watermarks",
-          "X-Pilot uses AI to extract the document structure and generate narrated, animated videos — not simple slideshows. The free tier covers up to 30 pages, exports at 1080p MP4, no watermark, no credit card required.",
-          "For simple instructional content, research summaries, and educational PDFs, X-Pilot's free tier is genuinely useful. The output won't match Blog2Video or Synthesia visually, but for the price it's hard to beat.",
-          "Best for: Free PDF-to-video conversion with no watermark Limitation: Less visual polish than premium tools; templates are more generic",
-        ],
-      },
-      {
-        heading: "4. Visla — Best for Short-Form and Social Video",
-        paragraphs: [
-          "Best for: Marketers turning PDFs into short, engaging reels and explainers",
-          "Visla automatically extracts key content from the PDF, breaks it into scenes, and generates a video structure that feels closer to a reel or explainer video rather than a static presentation. It adds stock footage, narration, and transitions.",
-          "If you need to turn a PDF into a LinkedIn video, Instagram Reel, or YouTube Short, Visla's AI-driven storytelling approach is better suited than tools focused on presentation-style output.",
-          "Best for: Short-form and social video from PDF source content Limitation: Less control over branding and visual style than Blog2Video",
-        ],
-      },
-      {
-        heading: "5. Powtoon — Best for Animated Explainer Videos",
-        paragraphs: [
-          "Best for: Educators and trainers who want animated characters and scenes",
-          "Powtoon is an AI-powered platform where you upload a PDF, select an output style (animated, presentation-style, or footage-based), and let the AI generate a script, build scenes, and produce a video.",
-          "The animated style works particularly well for educational content — think explainer videos for courses, tutorials, and how-to guides.",
-          "Best for: Educational and training content with animated visuals Limitation: The animated style isn't appropriate for all content types",
-        ],
-      },
-      {
-        heading: "How to Make a PDF Into a Video With Blog2Video (Step by Step)",
-        paragraphs: [
-          "1. Go to blog2video.app and sign in",
-          "2. Click New Project → select PDF upload or paste a link if the content is hosted online",
-          "3. Upload your PDF",
-          "4. Select a template — Newscast for broadcast style, Gridcraft for editorial, Nightfall for cinematic",
-          "5. Choose a voiceover from the voice library",
-          "6. Click Generate — the AI extracts content, structures scenes, and builds the video (2–3 minutes)",
-          "7. Review scenes in the editor; adjust any scene text or images if needed",
-          "8. Export as MP4 video, PDF slides, PowerPoint, or PNG images",
-          "The full process from PDF upload to finished video takes under 10 minutes for most documents.",
-        ],
-      },
-      {
-        heading: "Comparison: PDF to Video Tools",
-        paragraphs: [
-        ],
-        bullets: [
-          "Blog2Video — Free: Trial · Avatars: — · Branding Control: ✓✓ · Export Formats: MP4, PPT, PDF, PNG · Best For: Polished explainers & carousels",
-          "Synthesia — Free: No · Avatars: ✓✓ · Branding Control: ✓ · Export Formats: MP4 · Best For: Corporate/enterprise video",
-          "X-Pilot — Free: ✓ · Avatars: — · Branding Control: Limited · Export Formats: MP4 · Best For: Budget PDF-to-video",
-          "Visla — Free: Limited · Avatars: — · Branding Control: ✓ · Export Formats: MP4 · Best For: Short-form social video",
-          "Powtoon — Free: Limited · Avatars: Animated · Branding Control: ✓ · Export Formats: MP4 · Best For: Educational animation",
-        ],
-        ctaPath: "/pdf-to-video",
-        ctaLabel: "Turn your PDF into a video",
-      },
-    ],
-    faq: [
-      {
-        question: "Can you really turn a PDF into a video automatically?",
-        answer:
-          "Yes. AI tools like Blog2Video and Synthesia extract content from the PDF, structure it into scenes, add narration, and output a finished video with no manual editing required.",
-      },
-      {
-        question: "How long does it take to convert a PDF to video?",
-        answer:
-          "With Blog2Video, most PDFs generate into a finished video in 2–5 minutes. More complex documents with many pages may take slightly longer.",
-      },
-      {
-        question: "What type of PDF works best for video conversion?",
-        answer:
-          "Written documents — reports, white papers, how-to guides, explainers, research summaries — work best. Scanned image PDFs (not machine-readable text) may produce lower quality results.",
-      },
-      {
-        question: "Do I need to edit the video after it's generated?",
-        answer:
-          "You can, but it's not required. Blog2Video gives you a review screen where you can adjust any scene. Most generated videos are usable without additional editing.",
-      },
-      {
-        question: "Which tool is best for a free PDF to video conversion?",
-        answer:
-          "X-Pilot has the strongest free tier with no watermark and 1080p export. Blog2Video's results are higher quality but require payment.",
-      },
-    ],
-    distributionPlan: [
-      {
-        channel: "site",
-        title: "How to Make a PDF Into a Video: 5 AI Tools That Actually Work in 2026",
-        angle:
-          "Learn how to make a PDF into a video using 5 AI tools tested in 2026 — Synthesia, Visla, X-Pilot, Vidnoz, and Blog2Video. Step-by-step instructions included.",
-      },
-      {
-        channel: "video",
-        title: "How to Make a PDF Into a Video — the 90-second version",
-        angle:
-          "Compress the article's core argument into a short narrated video with Blog2Video and link back to /blogs/how-to-make-a-pdf-into-a-video.",
-      },
-      {
-        channel: "twitter",
-        title: "Thread: How to Make a PDF Into a Video",
         angle:
           "Post the main takeaways as a thread and link the full article.",
       },
@@ -9409,7 +9033,7 @@ export const blogPosts: BlogPost[] = [
     keywordVariant: "investment research video generator",
     relatedPaths: [
       "/blog-to-video",
-      "/blogs/best-templates-for-explainer-videos",
+      "/templates",
       "/blogs/whats-new-in-blog2video-six-features",
       "/article-to-video",
     ],
@@ -9561,7 +9185,7 @@ export const blogPosts: BlogPost[] = [
       "/tools/stock-visualizer",
       "/blog-to-video",
       "/blogs/new-template-finance-publication",
-      "/blogs/best-templates-for-explainer-videos",
+      "/templates",
     ],
     sections: [
       {
@@ -9698,8 +9322,8 @@ export const blogPosts: BlogPost[] = [
     keywordVariant: "blog2video june 2026 updates",
     relatedPaths: [
       "/blog-to-video",
-      "/mcp-connector",
-      "/blogs/how-to-use-ai-voiceover-for-blog-content",
+      "/mcp-server",
+      "/ai-voice-over",
       "/blog-to-youtube-video",
     ],
     sections: [
@@ -9722,7 +9346,7 @@ export const blogPosts: BlogPost[] = [
           "Drives scenes, voiceover, and render from a single instruction",
           "Drop Blog2Video into any existing AI or automation pipeline",
         ],
-        ctaPath: "/mcp-connector",
+        ctaPath: "/mcp-server",
         ctaLabel: "Explore the MCP server",
       },
       {
@@ -9737,7 +9361,7 @@ export const blogPosts: BlogPost[] = [
           "Control delivery speed independently from script length",
           "Adjust tonal exaggeration through the ElevenLabs API directly",
         ],
-        ctaPath: "/blogs/how-to-use-ai-voiceover-for-blog-content",
+        ctaPath: "/ai-voice-over",
         ctaLabel: "Try voice controls",
       },
       {
@@ -10573,9 +10197,9 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "faceless-videos-for-writers-and-marketers",
-    title: "How to Make Faceless Videos With AI (and Start a Faceless YouTube Channel)",
+    title: "Faceless Videos for Writers and Marketers",
     description:
-      "How to make faceless videos with AI: turn a script, blog post, or newsletter into a narrated video with no camera and no face on screen. Step by step, plus how to run a faceless YouTube channel that doesn't look like AI slop.",
+      "How to create faceless videos from blog posts, newsletters, and explainers without becoming a full-time on-camera creator.",
     category: "Strategy",
     heroImage: "/blog/blog-cover-faceless-videos-for-writers-and-marketers.png",
     heroImageAlt:
@@ -10583,47 +10207,18 @@ export const blogPosts: BlogPost[] = [
     publishedAt: "2026-04-16",
     readTime: "8 min read",
     heroEyebrow: "Creator strategy",
-    heroTitle: "How to make faceless videos with AI, without making AI slop",
+    heroTitle: "Faceless videos work best when the content is already strong",
     heroDescription:
       "You do not need a talking-head workflow to build a real video channel. For many writers, educators, and B2B teams, faceless videos are the fastest way to turn existing content into something watchable and repeatable.",
     primaryKeyword: "faceless videos",
-    keywordVariant: "faceless youtube channel",
+    keywordVariant: "how to make faceless videos",
     relatedPaths: [
       "/blog-to-video",
       "/blog-to-youtube-video",
-      "/blogs/ai-video-generators-that-are-not-slop",
       "/article-to-video",
       "/distribution-flywheel",
     ],
     sections: [
-      {
-        heading: "How to make a faceless video with AI, step by step",
-        paragraphs: [
-          "A faceless video is narration over visuals: text, diagrams, charts, illustrations or animation, with nobody on camera. With an AI video generator the whole process takes minutes:",
-        ],
-        bullets: [
-          "1. Start from a script, blog post, newsletter, or URL. The stronger the writing, the better the video.",
-          "2. Paste it into a faceless video generator such as Blog2Video, which splits it into scenes and writes the narration.",
-          "3. Pick a voice: a prebuilt AI voice, a clone of your own voice, or your own recording.",
-          "4. Pick a template so every video on the channel looks consistent.",
-          "5. Review the scenes, fix anything that is off, and export in 16:9 for YouTube or 9:16 for Shorts, Reels and TikTok.",
-        ],
-        ctaPath: "/blog-to-video",
-        ctaLabel: "Make a faceless video",
-      },
-      {
-        heading: "How to start a faceless YouTube channel",
-        paragraphs: [
-          "Most faceless channels that fail do so for the same reason: they publish generic, prompt-generated videos that look like every other channel. Viewers recognise that look and leave, and YouTube's recommendations follow the viewers.",
-          "Channels that last pick a niche they can actually explain (finance, history, software, science, self-improvement), build every video from a real script or article rather than a one-line prompt, and keep one consistent visual style so the channel is recognisable. If you already write a blog or newsletter, you already have the backlog: every post is a video.",
-        ],
-        bullets: [
-          "Pick one niche and one visual template, and stick with both",
-          "Write or reuse a real script for every video; don't prompt from a one-liner",
-          "Publish on a schedule you can sustain, and cut each long video into Shorts",
-          "Put the full article link in the description to send viewers back to your site",
-        ],
-      },
       {
         heading: "Why faceless videos are attractive in the first place",
         paragraphs: [
@@ -10679,28 +10274,7 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Try Blog2Video for faceless videos",
       },
     ],
-    faq: [
-      {
-        question: "What is a faceless video?",
-        answer:
-          "A video where nobody appears on camera. The message is carried by narration over visuals such as text, diagrams, charts, illustrations, stock imagery or animation.",
-      },
-      {
-        question: "How do I make faceless videos with AI?",
-        answer:
-          "Start from a script, blog post or URL, paste it into an AI faceless video generator, pick a voice and a template, review the scenes, and export. Tools like Blog2Video write the narration and build the scenes from your text.",
-      },
-      {
-        question: "Can faceless YouTube channels make money?",
-        answer:
-          "Yes. Faceless channels can join the YouTube Partner Program like any other channel. YouTube's monetisation policies reward original, valuable content and can exclude repetitive or mass-produced videos, so each video needs a real script, not just a prompt.",
-      },
-      {
-        question: "What is the best faceless video niche?",
-        answer:
-          "One you can explain well and publish consistently. Educational niches such as finance, history, technology and science suit faceless video because the value is in the explanation, not the presenter.",
-      },
-    ],
+    faq: faq("faceless videos", "creating narration-led videos without being on camera"),
     distributionPlan: [
       {
         channel: "site",
@@ -10746,7 +10320,6 @@ export const blogPosts: BlogPost[] = [
       "/blog-to-youtube-video",
       "/ai-video-generator-for-bloggers",
       "/blogs/blog-to-video-tools-compared",
-      "/blogs/blog2video-official-site-vs-copycats",
     ],
     sections: [
       {
@@ -11009,6 +10582,14 @@ export const blogPosts: BlogPost[] = [
         ],
         ctaPath: "/",
         ctaLabel: "Try your first video free",
+      },
+      {
+        heading: "What counts as AI slop",
+        paragraphs: [
+          "Relevance is one half of the problem. The other is how the video gets made. Our guide to AI slop breaks down the production methods that create it and the AI video generators that avoid it.",
+        ],
+        ctaPath: "/blogs/ai-video-generators-that-are-not-slop",
+        ctaLabel: "Read: AI slop and how to avoid it",
       },
     ],
     faq: [
@@ -11390,101 +10971,6 @@ export const blogPosts: BlogPost[] = [
       { channel: "video", title: "How To Turn a Blog Post Into a Video", angle: "Show the exact scene-by-scene workflow from URL to export." },
       { channel: "substack", title: "Repurposing is easier when the structure already exists", angle: "Speak to creators with a growing content archive." },
       { channel: "medium", title: "Do not rewrite what your blog post already solved", angle: "Lead with the anti-rewrite framing for content marketers." },
-    ],
-  },
-  {
-    slug: "create-summary-videos-from-pdfs",
-    title: "How To Create Summary Videos From PDFs",
-    description:
-      "A practical guide to turning PDFs into concise summary videos that are easier to watch, share, and revisit than the original document alone.",
-    category: "Document workflow",
-    heroImage: "/blog/blog-cover-pdf-educators.png",
-    heroImageAlt:
-      "A PDF document being condensed into a short summary video with highlighted takeaways and narration.",
-    publishedAt: "2026-04-04",
-    readTime: "7 min read",
-    heroEyebrow: "PDF to video",
-    heroTitle: "The fastest PDF-to-video workflow is usually a summary, not a full conversion",
-    heroDescription:
-      "When the source document is dense, the best video does not try to show every page. It pulls out the main points, builds a clearer sequence, and turns the PDF into something people will actually watch.",
-    primaryKeyword: "create summary videos from pdfs",
-    keywordVariant: "pdf summary video",
-    relatedPaths: ["/pdf-to-video", "/for-educators", "/article-to-video"],
-    sections: [
-      {
-        heading: "Most PDFs need summarising before they need animating",
-        paragraphs: [
-          "PDFs often contain the right information in the wrong format for video. They are usually dense, static, and designed for reading at your own pace. A summary video works because it extracts the main teaching points, claims, or steps and rebuilds them into a more guided experience.",
-          "That makes summary videos especially useful for course notes, reports, onboarding documents, research explainers, and long internal guides where the full PDF is valuable but not easy to consume quickly.",
-        ],
-      },
-      {
-        heading: "Choose the ideas that deserve a scene",
-        paragraphs: [
-          "The goal is not to cover every page evenly. It is to identify the pages or sections that carry the argument, then turn those into a narrative flow. In practice that often means opening with the conclusion, grouping related pages together, and dropping low-value detail that only matters in the full document.",
-          "A good summary video should help a viewer understand the document faster and decide whether to go deeper. It is a bridge into the PDF, not a replacement for every line inside it.",
-        ],
-        bullets: [
-          "Start with the main takeaway, not the table of contents.",
-          "Group repeated points into one clearer scene.",
-          "Keep charts, diagrams, and frameworks that carry meaning.",
-          "Leave dense reference detail in the PDF itself.",
-        ],
-      },
-      {
-        heading: "Why PDF summary videos work",
-        paragraphs: [
-          "A short summary video makes a document more usable across more contexts. It can introduce the material before a lesson, explain the key findings of a report, onboard a new team member, or help a busy reader decide what matters before opening the full file.",
-          "This is often a better use of video than full document narration because it respects how people actually consume information. Most viewers want orientation first, then depth if the topic matters to them.",
-        ],
-      },
-      {
-        heading: "How Blog2Video handles PDF-to-video summaries",
-        paragraphs: [
-          "1. Upload the PDF and let Blog2Video extract the structure and content blocks.",
-          "2. Choose a template built for clarity so the output feels instructional instead of overloaded.",
-          "3. Generate a concise narrated video, then refine the scenes to emphasize the strongest takeaways before exporting.",
-        ],
-        ctaPath: "/pdf-to-video",
-        ctaLabel: "Turn a PDF into a summary video",
-      },
-      {
-        heading: "A dedicated home for document-first workflows",
-        paragraphs: [
-          "If nearly everything you convert starts life as a PDF, pdf2vid.com is the version of this workflow built around that assumption. You upload the document instead of pasting a link, and it reads the page structure — headings, sections, figures — to decide where the scene breaks belong.",
-          "The summary-first approach described above is the default there rather than something you have to steer it towards, which matters most for the long documents that make the worst full conversions: annual reports, dissertations, policy papers, training manuals.",
-        ],
-        ctaPath: "https://pdf2vid.com",
-        ctaLabel: "Summarise a PDF into video at pdf2vid.com",
-      },
-    ],
-    faq: [
-      {
-        question: "Can I turn any PDF into a summary video?",
-        answer:
-          "Usually yes, as long as the PDF has readable text or a clear structure. Reports, lesson notes, handouts, and slide exports are especially strong candidates.",
-      },
-      {
-        question: "Should a PDF summary video cover every page?",
-        answer:
-          "Usually no. Summary videos are more effective when they focus on the main claims, steps, or lessons instead of trying to narrate the entire document evenly.",
-      },
-      {
-        question: "Who uses PDF summary videos most often?",
-        answer:
-          "Educators, trainers, researchers, consultants, and internal knowledge teams are the most common users because they already have important material trapped in documents.",
-      },
-      {
-        question: "What is the difference between a PDF summary video and a full PDF-to-video conversion?",
-        answer:
-          "A summary video prioritizes the most important ideas and condenses them for faster understanding. A full conversion tries to preserve more of the original document in scene form.",
-      },
-    ],
-    distributionPlan: [
-      { channel: "site", title: "How To Create Summary Videos From PDFs", angle: "Capture informational PDF-to-video search intent with a practical angle." },
-      { channel: "video", title: "Turn a Dense PDF Into a Summary Video", angle: "Show a before-and-after example from document to concise explainer." },
-      { channel: "substack", title: "Most PDFs should become summaries before they become videos", angle: "Use the summary-first framing for knowledge-heavy audiences." },
-      { channel: "medium", title: "The smarter PDF-to-video workflow starts with less", angle: "Lead with the idea that condensing improves comprehension." },
     ],
   },
   {
@@ -12276,6 +11762,15 @@ export const blogPosts: BlogPost[] = [
           "Free, with native Google Drive/Workspace integration",
         ],
       },
+      {
+        heading: "If you wanted NotebookLM for your own writing",
+        paragraphs: [
+          "Blog2Video is a video tool, not a research notebook. If what you actually want is NotebookLM pointed at everything you have published, with answers cited to the exact lines you wrote, that is Notestack, our sister product.",
+          "It syncs a whole blog or newsletter, makes two host audio overviews of your posts, and hands finished posts to Blog2Video when you want a video.",
+        ],
+        ctaPath: "https://notestack.ai/notebooklm-alternative",
+        ctaLabel: "Notestack vs NotebookLM",
+      },
     ],
     faq: [
       {
@@ -12359,7 +11854,7 @@ export const blogPosts: BlogPost[] = [
     primaryKeyword: "manual blog to video workflow",
     keywordVariant: "blog to video time comparison",
     relatedPaths: [
-      "/blogs/how-to-turn-a-blog-post-into-a-video",
+      "/how-to-turn-a-blog-post-into-a-video",
       "/blog-to-video",
       "/blog-to-youtube-video",
     ],
@@ -12592,7 +12087,7 @@ export const blogPosts: BlogPost[] = [
       "Most article-to-video tools fall apart when the content is detailed, structured, or technical. The key is not just generating video quickly. It is preserving the parts that made the article good in the first place.",
     primaryKeyword: "best ai tools to convert articles into videos",
     keywordVariant: "article to video software comparison",
-    relatedPaths: ["/article-to-video", "/ai-video-generator-for-bloggers", "/measurement-playbook", "/blogs/ai-video-generator-for-bloggers-buying-guide"],
+    relatedPaths: ["/article-to-video", "/ai-video-generator-for-bloggers", "/measurement-playbook"],
     sections: [
       {
         heading: "What matters in a real evaluation",
@@ -12742,7 +12237,7 @@ export const blogPosts: BlogPost[] = [
       "The challenge is not generating ideas. It is turning detailed writing into a video format that still feels credible and useful.",
     primaryKeyword: "technical bloggers repurpose posts into youtube videos",
     keywordVariant: "technical blog to YouTube workflow",
-    relatedPaths: ["/for-technical-bloggers", "/blog-to-youtube-video", "/code-snippet-to-video", "/blogs/how-to-preserve-code-snippets-in-ai-generated-videos"],
+    relatedPaths: ["/for-technical-bloggers", "/blog-to-youtube-video", "/code-snippet-to-video"],
     sections: [
       {
         heading: "Pick posts with durable demand",
@@ -13830,6 +13325,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/",
         ctaLabel: "Try AI voiceover on your content",
       },
+      {
+        heading: "Want a conversation instead of a narration?",
+        paragraphs: [
+          "A voiceover reads your post. An AI podcast turns it into a two host conversation that explains and questions your ideas. Notestack has a free AI podcast generator that builds the script only from your own text.",
+        ],
+        ctaPath: "https://notestack.ai/tools/ai-podcast-generator",
+        ctaLabel: "Try the AI podcast generator",
+      },
     ],
     faq: faq("AI voiceover for blog content", "using synthetic narration for article repurposing"),
     distributionPlan: [
@@ -14128,109 +13631,10 @@ export const blogPosts: BlogPost[] = [
     ],
   },
   {
-    slug: "how-to-convert-pdf-to-video",
-    title: "How To Convert a PDF Into a Video",
-    description:
-      "A step-by-step PDF-to-video workflow for turning whitepapers, lesson notes, research summaries, and guides into narrated explainer videos.",
-    category: "How-to",
-    // Duplicate intent with the canonical PDF-to-video how-to; consolidate signals there.
-    canonicalPath: "/blogs/how-to-convert-pdf-into-video",
-    heroImage: "/blog/blog-cover-pdf-educators.png",
-    heroImageAlt:
-      "Editorial illustration of a PDF document being converted into a structured narrated explainer video.",
-    publishedAt: "2026-06-21",
-    readTime: "7 min read",
-    heroEyebrow: "Document how-to",
-    heroTitle: "Turn a PDF into a video by keeping its structure, not just its text",
-    heroDescription:
-      "Most PDF-to-video tools either read the file page by page as a slideshow or summarize it into a generic avatar script. Neither approach keeps the original document's logic. Here is a workflow that does.",
-    primaryKeyword: "how to convert pdf to video",
-    keywordVariant: "how to make a pdf into a video",
-    relatedPaths: [
-      "/pdf-to-video",
-      "/for-educators",
-      "/for-researchers",
-      "/blogs/pdf-to-video-fastest-workflow-for-educators",
-    ],
-    sections: [
-      {
-        heading: "Start with a PDF that already has a teaching arc",
-        paragraphs: [
-          "PDF-to-video works best when the source document already explains something in order: a whitepaper, a lesson handout, a research summary, a guide, or a report with headings and sections. If the PDF is just a scanned form or a dense, unstructured dump of text, the video will inherit that confusion.",
-          "Documents with headings, bullet lists, diagrams, and worked examples convert especially well because that structure becomes the scene outline almost directly.",
-        ],
-      },
-      {
-        heading: "Don't treat every page as one video frame",
-        paragraphs: [
-          "The weakest version of PDF-to-video is a literal slideshow: render each page as a frame, add narration, done. That ignores the fact that PDF pages are a print layout decision, not a video pacing decision — a dense page might need three scenes, and three short pages might collapse into one.",
-          "A stronger workflow reads the PDF's actual structure — headings, sections, and supporting content — and maps that structure to scenes, independent of where the original page breaks fell.",
-        ],
-        bullets: [
-          "Use headings and subheadings as scene boundaries, not page boundaries.",
-          "Let dense sections (data tables, multi-step processes) split into multiple scenes.",
-          "Carry diagrams and charts into the video as visuals instead of narrating around them.",
-        ],
-      },
-      {
-        heading: "Keep the narration grounded in the document",
-        paragraphs: [
-          "A PDF-to-video conversion should sound like a narrated version of the document, not a generic AI summary that happens to share a topic with it. That distinction matters most for research papers, technical guides, and lesson material where precision is the point.",
-          "If the conversion strips out specific numbers, caveats, or examples in favor of a smoother-sounding script, it has solved the wrong problem.",
-        ],
-      },
-      {
-        heading: "Pick a template that matches the document's purpose",
-        paragraphs: [
-          "A whitepaper, a lesson PDF, and a research summary do not need the same visual treatment. Whiteboard-style templates suit teaching material and step-by-step explanations. Cleaner editorial templates suit whitepapers and research summaries where credibility matters more than pacing energy.",
-        ],
-      },
-      {
-        heading: "How Blog2Video handles this",
-        paragraphs: [
-          "1. Upload your PDF — Blog2Video reads the full document structure, including headings, paragraphs, lists, and images, and maps it into a scene outline.",
-          "2. Choose a template — Whiteboard is the strongest default for lesson notes and teaching material; pick a cleaner editorial template for whitepapers and research summaries.",
-          "3. Generate and review — Each scene follows a section of the original PDF. Edit any scene in the AI editor, then export as MP4, or as PNG, PDF, or PowerPoint slides if you want a deck alongside the video.",
-        ],
-        component: "document-education",
-        ctaPath: "/pdf-to-video",
-        ctaLabel: "Convert a PDF to video",
-      },
-    ],
-    faq: [
-      {
-        question: "How do I make a PDF into a video?",
-        answer:
-          "Upload the PDF into Blog2Video. It reads the document's headings, paragraphs, and images, maps them into a scene-by-scene outline, adds narration, and generates a video you can edit before exporting as MP4.",
-      },
-      {
-        question: "Will the video just be my PDF pages turned into a slideshow?",
-        answer:
-          "No. Instead of rendering each page as one frame, Blog2Video maps the document's actual section structure to scenes, so dense pages can split into multiple scenes and short pages can combine — the pacing follows the content, not the original page breaks.",
-      },
-      {
-        question: "Does this work for research papers and whitepapers, not just lesson PDFs?",
-        answer:
-          "Yes. The same structure-preserving approach works for whitepapers, research summaries, reports, and guides — anything with headings and a logical sequence of ideas.",
-      },
-      {
-        question: "Can I get something other than an MP4 out of the same PDF?",
-        answer:
-          "Yes. The same generated scenes can be exported as PNG slides, a PDF deck, or a PowerPoint file, so one PDF upload can produce a video and a slide deck without a second production pass.",
-      },
-    ],
-    distributionPlan: [
-      { channel: "site", title: "Canonical PDF-to-video how-to", angle: "Capture 'how to convert pdf to video' and 'how to make a pdf into a video' search intent." },
-      { channel: "substack", title: "PDF-to-video workflow note", angle: "Explain why page-by-page slideshow conversion loses the document's logic." },
-      { channel: "medium", title: "Why most PDF-to-video tools get the pacing wrong", angle: "Lead with the structure-vs-page-breaks framing." },
-      { channel: "video", title: "PDF-to-video walkthrough", angle: "Show a dense PDF page splitting into multiple well-paced scenes." },
-    ],
-  },
-  {
     slug: "how-to-turn-a-powerpoint-into-a-video",
-    title: "How to Turn a PowerPoint Into a Video: 3 Ways (Including Free, Built Into PowerPoint)",
+    title: "How To Turn a PowerPoint Into a Video",
     description:
-      "How to convert a PowerPoint to a video: export an MP4 straight from PowerPoint for free, record narration over your slides, or turn the deck into a narrated AI video without re-recording. Step by step for each.",
+      "A practical PPTX-to-video workflow for turning presentations and slide decks into publishable videos without rerecording the whole deck.",
     category: "How-to",
     heroImage: "/blog/blog-cover-how-to-pptx-to-video.png",
     heroImageAlt:
@@ -14238,48 +13642,13 @@ export const blogPosts: BlogPost[] = [
     publishedAt: "2026-03-10",
     readTime: "8 min read",
     heroEyebrow: "Deck how-to",
-    heroTitle: "How to turn a PowerPoint into a video: three ways, from free to fully narrated",
+    heroTitle: "Turn a PowerPoint into a video by repackaging the lesson, not just replaying the slides",
     heroDescription:
       "A slide deck already contains sequence and intent. The best PPTX-to-video workflow keeps that structure while making the delivery easier to watch outside the original meeting or classroom.",
-    primaryKeyword: "how to turn a powerpoint into a video",
-    keywordVariant: "powerpoint to video converter",
-    relatedPaths: ["/pptx-to-video", "/pdf-to-video", "/for-educators", "/templates/whiteboard"],
+    primaryKeyword: "how to turn a PowerPoint into a video",
+    keywordVariant: "pptx to video workflow",
+    relatedPaths: ["/pptx-to-video", "/for-educators", "/templates/whiteboard"],
     sections: [
-      {
-        heading: "The three ways to turn a PowerPoint into a video",
-        paragraphs: [
-          "Which one you need depends on whether the slides can carry the message on their own, or whether they only made sense with a speaker in the room.",
-        ],
-        bullets: [
-          "Way 1, free: export the deck as an MP4 from PowerPoint itself. Best when the slides stand on their own.",
-          "Way 2, free: record your own narration over the slides, then export. Best when you are happy to present on mic.",
-          "Way 3, AI: turn the deck into a narrated video with generated voiceover and redesigned scenes. Best when you don't want to record anything, or the slides need a speaker to make sense.",
-        ],
-      },
-      {
-        heading: "Way 1: Export a PowerPoint as a video (free, built in)",
-        paragraphs: [
-          "PowerPoint can save any presentation as a video file, with no extra software.",
-          "In PowerPoint for Windows, go to File > Export > Create a Video. Choose a quality (up to Full HD or 4K, depending on your version), choose how long each slide stays on screen, and click Create Video to save an MP4. On a Mac, go to File > Export and choose MP4 as the file format.",
-          "Transitions and animations are kept. The limitation is that you get the slides exactly as they are: no voice unless you record one, and dense text-heavy slides are hard to read at video pace.",
-        ],
-      },
-      {
-        heading: "Way 2: Record narration over the slides",
-        paragraphs: [
-          "To add your voice, use the Record button (on the Record or Slide Show tab, depending on your version). Talk through each slide as you advance it; PowerPoint saves the audio and timing on every slide. Then export with Create a Video and choose Use Recorded Timings and Narrations.",
-          "This works well for lectures and internal training. It takes as long as the presentation itself, plus retakes, and a stumble on slide 14 usually means re-recording that slide.",
-        ],
-      },
-      {
-        heading: "Way 3: Turn the deck into a narrated AI video",
-        paragraphs: [
-          "If you don't want to record anything, a PowerPoint to video converter can read the deck and rebuild it as a video: it writes narration from your slides and speaker notes, voices it, and lays each point out as a scene sized for a screen instead of a projector.",
-          "That's what the rest of this guide covers. Most of the work is deciding what belonged to the speaker and what belongs on screen.",
-        ],
-        ctaPath: "/pptx-to-video",
-        ctaLabel: "Try the PowerPoint to video converter",
-      },
       {
         heading: "Start with a deck that teaches something clearly",
         paragraphs: [
@@ -14325,28 +13694,7 @@ export const blogPosts: BlogPost[] = [
         ctaLabel: "Turn a PowerPoint into video",
       },
     ],
-    faq: [
-      {
-        question: "Can PowerPoint save a presentation as a video?",
-        answer:
-          "Yes. In PowerPoint for Windows use File > Export > Create a Video, and on a Mac use File > Export and choose MP4. It keeps transitions and animations, and can include narration and timings you recorded.",
-      },
-      {
-        question: "How do I turn a PowerPoint into a video with narration?",
-        answer:
-          "Either record your own voice with PowerPoint's Record feature and export with recorded timings and narrations, or use an AI PowerPoint to video converter that writes and voices the narration from your slides and speaker notes.",
-      },
-      {
-        question: "Is there a free PowerPoint to video converter?",
-        answer:
-          "PowerPoint's built-in Create a Video export is free if you already have PowerPoint. AI converters that add generated narration usually have a free tier or trial.",
-      },
-      {
-        question: "Why does my exported PowerPoint video look boring?",
-        answer:
-          "Because slides are designed for a live speaker. Exported as-is, text-heavy slides sit on screen with nothing explaining them. Moving the explanation into narration and splitting dense slides into several scenes fixes most of it.",
-      },
-    ],
+    faq: faq("PowerPoint to video", "turning decks into reusable video lessons"),
     distributionPlan: [
       { channel: "site", title: "Canonical PowerPoint-to-video guide", angle: "Capture deck-to-video search demand." },
       { channel: "substack", title: "Asynchronous presentation note", angle: "Explain why recorded decks underperform compared to adapted videos." },
@@ -14561,6 +13909,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/",
         ctaLabel: "Convert your blog archive into videos",
       },
+      {
+        heading: "Research the archive before you convert it",
+        paragraphs: [
+          "Converting an archive goes faster when you know which posts are worth it. Notestack syncs your whole blog or newsletter, maps the topics you keep returning to, and flags evergreen posts worth resurfacing, so you pick the best ones for video first.",
+        ],
+        ctaPath: "https://notestack.ai",
+        ctaLabel: "Explore your archive with Notestack",
+      },
     ],
     faq: faq("bulk blog to video", "turning archives into repeatable video pipelines"),
     distributionPlan: [
@@ -14587,7 +13943,7 @@ export const blogPosts: BlogPost[] = [
       "Custom templates are what turn repeated video generation into a brand system. The goal is not styling each asset from scratch. It is making every output feel coherent, recognizable, and faster to produce.",
     primaryKeyword: "how to create custom branded video templates",
     keywordVariant: "custom branded video template guide",
-    relatedPaths: ["/custom-branded-video-templates", "/ai-scene-editor", "/blogs/best-templates-for-explainer-videos"],
+    relatedPaths: ["/custom-branded-video-templates", "/ai-scene-editor", "/best-templates-for-explainer-videos"],
     sections: [
       {
         heading: "Start with the repeatable parts of the brand",
@@ -14667,7 +14023,6 @@ export const blogPosts: BlogPost[] = [
       "/article-to-video",
       "/blogs/best-ai-tools-to-convert-articles-into-videos",
       "/pricing",
-      "/blogs/ai-video-generator-for-bloggers-buying-guide",
     ],
     sections: [
       {
@@ -15439,7 +14794,7 @@ export const blogPosts: BlogPost[] = [
       "Developer relations teams do not need a separate content factory for every launch, tutorial, or onboarding flow. The strongest video workflow often begins with the docs you already maintain.",
     primaryKeyword: "devrel docs to video",
     keywordVariant: "developer relations documentation video",
-    relatedPaths: ["/for-technical-writers", "/docx-to-video", "/code-snippet-to-video", "/blogs/how-to-preserve-code-snippets-in-ai-generated-videos"],
+    relatedPaths: ["/for-technical-writers", "/docx-to-video", "/code-snippet-to-video"],
     sections: [
       {
         heading: "Documentation is one of DevRel's highest-leverage source assets",
@@ -16242,7 +15597,6 @@ export const blogPosts: BlogPost[] = [
       "/blogs/blog-to-video-tools-compared",
       "/blogs/blog2video-vs-heygen",
       "/blogs/blog2video-vs-veed",
-      "/blogs/blog2video-official-site-vs-copycats",
     ],
     sections: [
       {
@@ -17816,7 +17170,7 @@ export const blogPosts: BlogPost[] = [
       "Anthropic built MCP — so Claude has first-class support for it. Add the Blog2Video server to Claude Desktop or use it as a connector in claude.ai, and Claude can scrape articles, generate scripts, pick templates, and hand back preview links without leaving your conversation.",
     primaryKeyword: "blog2video mcp server claude",
     keywordVariant: "connect mcp server claude desktop blog to video",
-    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n", "/blogs/claude-chat-to-video"],
+    relatedPaths: ["/blog-to-video", "/pricing", "/blogs/blog2video-mcp-server-n8n"],
     sections: [
       {
         heading: "Why Claude is the natural home for MCP tools",
@@ -18438,7 +17792,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "how-to-grow-your-substack-newsletter",
-    title: "How to Grow Your Substack Newsletter in 2026 (Niche Guide + YouTube Channel Option)",
+    title: "How to Grow a Substack With YouTube in 2026 (Finance, Politics and Policy Playbook)",
     description:
       "A niche-by-niche playbook for growing your Substack in finance, politics, and public policy — plus how launching a YouTube channel and using Blog2Video's designer templates can 10x your reach.",
     category: "Educational",
@@ -18451,8 +17805,9 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "Your Substack can be a media empire. Most writers treat it like a hobby.",
     heroDescription:
       "Finance writers, policy analysts, political commentators — Substack is yours to own. Here's the 2026 playbook for growing your list, picking the right niche, launching a YouTube channel to amplify it, and using Blog2Video's designer templates to make every post look and feel like a broadcast.",
-    primaryKeyword: "how to grow your substack",
-    keywordVariant: "grow substack newsletter",
+    // General "how to grow on substack" intent belongs to bloghub.app/blogs/how-to-grow-on-substack; this post keeps the video angle.
+    primaryKeyword: "grow substack with youtube",
+    keywordVariant: "substack youtube channel",
     relatedPaths: [
       "/blog-to-video",
       "/blog-to-youtube-video",
@@ -18540,6 +17895,14 @@ export const blogPosts: BlogPost[] = [
         ctaPath: "/blog-to-video",
         ctaLabel: "Turn your newsletter into video",
       },
+      {
+        heading: "The general Substack growth playbook",
+        paragraphs: [
+          "This guide is about growing with YouTube and video. For the fundamentals that apply to every Substack (recommendations, Notes, cross posts and directories), BlogHub has a full guide on how to grow on Substack.",
+        ],
+        ctaPath: "https://bloghub.app/blogs/how-to-grow-on-substack",
+        ctaLabel: "How to grow on Substack",
+      },
     ],
     faq: [
       {
@@ -18620,7 +17983,7 @@ export const blogPosts: BlogPost[] = [
     relatedPaths: [
       "/for-newsletters",
       "/blog-to-video",
-      "/blogs/best-templates-for-explainer-videos",
+      "/templates",
       "/blogs/new-template-finance-publication",
     ],
     sections: [
@@ -19195,7 +18558,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "ai-video-generators-that-are-not-slop",
-    title: "AI Video Generators That Are Not Slop",
+    title: "AI Slop: The AI Video Generators That Are Not Slop",
     description:
       "Slop is not a look, it is a production method. Two things separate the AI video generators that produce it from the ones that do not: programmatic rendering, and templates a human actually designed.",
     category: "Comparison",
@@ -19208,8 +18571,9 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "Most AI video generators make slop. Two things separate the ones that do not.",
     heroDescription:
       "It is not the model, the voice, or the resolution. It is whether the video is compiled from your actual content, and whether a human designed the template that content lands in.",
-    primaryKeyword: "ai video generator",
-    keywordVariant: "ai slop",
+    // Owns "ai slop" (49.5k/mo US) for the whole network; bloghub and pdf2vid posts on the theme link here.
+    primaryKeyword: "ai slop",
+    keywordVariant: "ai video generators that are not slop",
     relatedPaths: [
       "/blogs/ai-videos-are-slop-unless-they-are-relevant",
       "/ai-video-generator-for-bloggers",
@@ -19336,7 +18700,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "substack-video-70-percent-more-subscribers",
-    title: "Adding Video to a Substack Grew New Subscribers by 70%",
+    title: "Substack Video: Adding Video Grew New Subscribers by 70%",
     description:
       "Two weeks of data from roughly 200 volunteer Substack writers who started publishing video alongside their posts: 4x total audience, 70% more new subscribers, and a 20% lift in open rate.",
     category: "Strategy",
@@ -19349,8 +18713,8 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "Substack writers who added video grew new subscribers by 70%",
     heroDescription:
       "We asked around 200 volunteers who had been publishing video alongside their posts for two weeks what changed. The numbers were larger than I expected, and they came from distribution rather than from the videos themselves.",
-    primaryKeyword: "how to grow your substack",
-    keywordVariant: "substack video",
+    primaryKeyword: "substack video",
+    keywordVariant: "grow your substack with video",
     relatedPaths: [
       "/for-substack-writers",
       "/blogs/how-to-grow-your-substack-newsletter",

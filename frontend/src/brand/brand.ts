@@ -228,12 +228,13 @@ export function counterpartOf(id: BrandId): Brand {
 const ORIGIN_KEY = "b2v_signup_origin";
 
 /**
- * Remember that this user arrived through pdf2video, so the dashboard's
- * BlogUrlForm defaults to the Upload tab instead of Link.
+ * Remember which brand the user most recently came in through. The latest entry
+ * wins: opening pdf2video makes the dashboard's BlogUrlForm default to Upload,
+ * and opening blog2video afterwards switches it back to Link (and vice versa).
  *
- * Called on PdfLanding mount rather than only at login — a visitor who browses
- * the marketing page, signs in, and lands on the dashboard should get the
- * document-first form even though the sign-in itself carries no brand.
+ * pdf2video is marked on PdfLanding mount and on the pdf2vid.com token handoff;
+ * blog2video is marked whenever "/" is opened on the blog2video brand (App.tsx),
+ * including by a logged-in user who is redirected straight to the dashboard.
  *
  * NOTE: localStorage is per-origin. This only survives into the dashboard when
  * the app is served on the pdf2video domain itself (both domains pointed at the
@@ -241,12 +242,16 @@ const ORIGIN_KEY = "b2v_signup_origin";
  * blog2video.app for the app shell, this flag will not be readable there and
  * origin needs to move to the user record instead.
  */
-export function markPdfOrigin(): void {
+export function markOrigin(id: BrandId): void {
   try {
-    localStorage.setItem(ORIGIN_KEY, "pdf2video");
+    localStorage.setItem(ORIGIN_KEY, id);
   } catch {
     // Ignore — a lost preference is not worth breaking the page over.
   }
+}
+
+export function markPdfOrigin(): void {
+  markOrigin("pdf2video");
 }
 
 export function cameFromPdf2Video(): boolean {

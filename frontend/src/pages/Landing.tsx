@@ -14,6 +14,7 @@ import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
 import AvatarShowcase from "../components/AvatarShowcase";
+import WordPressPluginTeaser from "../components/WordPressPluginTeaser";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
@@ -758,6 +759,13 @@ export default function Landing() {
 
         <UserReviewsSection />
       </div>
+
+      {/* ─── WordPress plugin teaser ─── */}
+      <section className="py-16 border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-6">
+          <WordPressPluginTeaser />
+        </div>
+      </section>
 
        {/* ─── AI Avatar showcase ─── */}
       <section className="py-20 border-t border-gray-100">

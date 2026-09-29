@@ -11,7 +11,7 @@ import { SupportWidget } from "./components/support/SupportWidget";
 import { UIHighlightOverlay } from "./components/support/UIHighlightOverlay";
 import Landing from "./pages/Landing";
 import PdfLanding from "./pages/PdfLanding";
-import { applyFavicon, isPdfBrand, useBrand, markPdfOrigin } from "./brand/brand";
+import { applyFavicon, isPdfBrand, useBrand, markOrigin, markPdfOrigin } from "./brand/brand";
 import Pricing from "./pages/Pricing";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
@@ -33,6 +33,7 @@ import TemplateStudio from "./pages/TemplateStudio";
 import TemplatesShowcasePage from "./pages/TemplatesShowcasePage";
 import WordPressConnect from "./pages/WordPressConnect";
 import WordPressPlugin from "./pages/WordPressPlugin";
+import ExtensionConnect from "./pages/ExtensionConnect";
 
 function ExternalRedirect({ to }: { to: string }) {
   useEffect(() => { window.location.replace(to); }, [to]);
@@ -49,7 +50,6 @@ import EmbedPreviewPage from "./pages/EmbedPreviewPage";
 import FreeTemplatesPage from "./pages/FreeTemplatesPage";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
-import MCPConnector from "./pages/MCPConnector";
 import { trackPageView } from "./gtag";
 
 // Hidden poster-capture route (used by scripts/capture-posters.ts). Lazy so it
@@ -116,6 +116,16 @@ function AppRoutes() {
   const isToolsPath =
     location.pathname === "/tools" || location.pathname.startsWith("/tools/");
 
+  // Opening "/" is an entry through this brand's landing (a logged-in user is
+  // redirected to the dashboard before any landing mounts, so record it here).
+  // The latest entry decides the create form's default tab — see markOrigin.
+  // Skipped while a pdf2vid.com ?token handoff is being consumed below.
+  useEffect(() => {
+    if (location.pathname !== "/") return;
+    if (new URLSearchParams(location.search).has("token")) return;
+    markOrigin(isPdfBrand ? "pdf2video" : "blog2video");
+  }, [location.pathname]);
+
   // Cross-domain handoff from pdf2vid.com (frontend-pdf2video/, a
   // landing-page-only deployment with no dashboard of its own — see its
   // PdfLanding.tsx/Pricing.tsx handleGoogleSuccess). A token arriving via
@@ -125,7 +135,20 @@ function AppRoutes() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const handoffToken = params.get("token");
-    if (!handoffToken || user) return;
+    if (!handoffToken) return;
+    const scrubToken = () => {
+      const next = new URLSearchParams(location.search);
+      next.delete("token");
+      const qs = next.toString();
+      navigate(qs ? `${location.pathname}?${qs}` : location.pathname, { replace: true });
+    };
+    if (user) {
+      // Already signed in here, but they just came in through pdf2video: that
+      // entry is now the latest, so it still decides the default form tab.
+      markPdfOrigin();
+      scrubToken();
+      return;
+    }
     (async () => {
       // getMe() takes no args — the axios interceptor (api/client.ts) reads
       // localStorage["b2v_token"] directly, so the token must be written
@@ -140,10 +163,7 @@ function AppRoutes() {
       } catch {
         localStorage.removeItem("b2v_token"); // invalid/expired handoff token
       } finally {
-        const next = new URLSearchParams(location.search);
-        next.delete("token");
-        const qs = next.toString();
-        navigate(qs ? `${location.pathname}?${qs}` : location.pathname, { replace: true });
+        scrubToken();
       }
     })();
   }, [location.search]);
@@ -230,6 +250,7 @@ function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/wordpress-connect" element={<WordPressConnect />} />
         <Route path="/wordpress-plugin" element={<WordPressPlugin />} />
+        <Route path="/extension-connect" element={<ExtensionConnect />} />
         {marketingPages.map((page) => (
           <Route
             key={page.path}
@@ -284,12 +305,12 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/integrations"
+          element={<Navigate to="/dashboard?tab=integrations" replace />}
+        />
+        <Route
           path="/mcp-connector"
-          element={
-            <ProtectedRoute>
-              <MCPConnector />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/dashboard?tab=integrations&source=ai" replace />}
         />
         <Route
           path="/template-studio-editing-feature"

@@ -54,9 +54,13 @@ from sqlalchemy import or_
 from app.config import settings
 from app.database import SessionLocal
 from app.models.social_connection import (
+    PLATFORM_BEEHIIV,
+    PLATFORM_GHOST,
     PLATFORM_LINKEDIN,
+    PLATFORM_WORDPRESS,
     PLATFORM_X,
     PLATFORM_YOUTUBE,
+    STATUS_REVOKED,
     SocialConnection,
 )
 from app.models.social_publish_job import (
@@ -312,6 +316,12 @@ def _run_publish_job_sync(job_id: int) -> None:
                     path, is_temp = _publish_x(db, job, conn, work_dir)
                 elif job.platform == PLATFORM_LINKEDIN:
                     path, is_temp = _publish_linkedin(db, job, conn, work_dir)
+                elif job.platform == PLATFORM_GHOST:
+                    path, is_temp = _publish_ghost(db, job, conn, work_dir)
+                elif job.platform == PLATFORM_BEEHIIV:
+                    path, is_temp = _publish_beehiiv(db, job, conn, work_dir)
+                elif job.platform == PLATFORM_WORDPRESS:
+                    path, is_temp = _publish_wordpress(db, job, conn, work_dir)
                 else:
                     raise PublishError(
                         f"Unsupported platform '{job.platform}'.",
@@ -518,10 +528,437 @@ def _publish_linkedin(db, job: SocialPublishJob, conn: SocialConnection, work_di
     return path, is_temp
 
 
+def _ghost_too_large_message(limit_bytes: int | None, total_bytes: int) -> str:
+    """Short, shown in the publish modal above its "Use embed" button.
+
+    No readable cap almost always means self-hosted, where the limit is the web
+    server's, not a plan — so it doesn't tell the user to upgrade anything.
+    """
+    from app.services.ghost_api import mb_unit
+
+    unit = mb_unit(limit_bytes)
+    size = f"{total_bytes / unit:.1f} MB"
+    if limit_bytes is not None:
+        return (
+            f"Your Ghost plan allows uploads up to {limit_bytes / unit:.0f} MB, "
+            f"and this video is {size}. Use the embedded player instead."
+        )
+    return f"Your Ghost site refused this {size} video as too large. Use the embedded player instead."
+
+
+def _ghost_source_error(db, conn: SocialConnection, exc) -> PublishError:
+    code = {
+        "invalid_key": "reauth_required",
+        "upload_too_large": "video_too_large",
+    }.get(exc.code, exc.code)
+    if exc.code == "invalid_key":
+        conn.status = STATUS_REVOKED
+        conn.last_error = str(exc)[:500]
+        db.commit()
+    return PublishError(str(exc), code=code, retryable=exc.retryable)
+
+
+def _place_ghost_card(ghost_api, creds, job: SocialPublishJob, card: dict, card_type: str) -> dict:
+    if job.target_mode in ("top", "bottom") and job.target_post_id:
+        return ghost_api.add_video_to_post(
+            creds, job.target_post_id, card, job.target_mode, card_type
+        )
+    return ghost_api.create_draft_with_video(creds, job.title, card, card_type)
+
+
+def _finish_ghost(db, job: SocialPublishJob, conn: SocialConnection, post: dict) -> None:
+    from app.services import ghost_api
+
+    post_id = post.get("id") or job.target_post_id
+    job.platform_post_id = post_id
+    job.platform_post_url = ghost_api.editor_url(conn.site_url or "", post_id) if post_id else None
+    _succeed(db, job)
+
+
+def _publish_ghost_embed(db, job: SocialPublishJob, conn: SocialConnection):
+    """Add the embed player as an HTML card — no upload, so no plan size cap."""
+    from app.models.project import Project
+    from app.services import embed_player, ghost_api, source_importer
+    from app.services.source_common import SourceError
+
+    project = db.get(Project, job.project_id)
+    if project is None:
+        raise PublishError("This project no longer exists.", code="video_missing", retryable=False)
+    token = embed_player.ensure_embed_token(project, db)
+    card = ghost_api.build_html_card(embed_player.embed_iframe_html(token, project.aspect_ratio))
+    try:
+        creds = source_importer.ghost_credentials(conn)
+        post = _place_ghost_card(ghost_api, creds, job, card, "html")
+    except SourceError as exc:
+        raise _ghost_source_error(db, conn, exc)
+    _finish_ghost(db, job, conn, post)
+    return None, False
+
+
+def _publish_ghost(db, job: SocialPublishJob, conn: SocialConnection, work_dir: str):
+    """Upload the MP4 to the Ghost site and add a native video card — or, for
+    ``delivery == "embed"``, add the embed player as an HTML card instead.
+
+    ``target_mode`` "top"/"bottom" edits ``target_post_id`` in place; "new_draft"
+    creates a draft holding just the video, which the user can then place.
+    Ghost's own conflict check (updated_at) turns a concurrent edit into a
+    retryable failure rather than a lost edit.
+    """
+    from app.services import ghost_api, source_importer, video_thumbnail
+    from app.services import youtube_publish as yt
+    from app.services.source_common import SourceError
+
+    if job.delivery == "embed":
+        return _publish_ghost_embed(db, job, conn)
+
+    try:
+        creds = source_importer.ghost_credentials(conn)
+    except SourceError as exc:
+        raise _ghost_source_error(db, conn, exc)
+    # Ghost(Pro) caps uploads per plan. Read before touching the video: on a
+    # small plan (free trial / Starter, 5 MB) no real video fits, so embed the
+    # player whatever the client asked for — never render-then-fail, never
+    # download the MP4 for nothing.
+    limit_bytes = ghost_api.get_upload_limit(creds)
+    if limit_bytes is not None and limit_bytes <= ghost_api.SMALL_PLAN_MAX:
+        logger.info(
+            "[PUBLISH_QUEUE] Job %s: Ghost plan caps uploads at %s bytes; embedding instead",
+            job.id, limit_bytes,
+        )
+        job.delivery = "embed"
+        db.commit()
+        return _publish_ghost_embed(db, job, conn)
+
+    path, is_temp = yt.resolve_local_video(job.project_id, job.r2_video_key, work_dir)
+    total_bytes = os.path.getsize(path)
+    if total_bytes <= 0:
+        raise PublishError(
+            "The rendered video is empty.", code="video_missing", retryable=False
+        )
+    job.total_bytes = total_bytes
+    db.commit()
+
+    last_write = [0.0]
+
+    def on_progress(done: int) -> None:
+        now = time.time()
+        if now - last_write[0] < PROGRESS_WRITE_INTERVAL_SECONDS and done < total_bytes:
+            return
+        last_write[0] = now
+        job.uploaded_bytes = min(done, total_bytes)
+        job.updated_at = datetime.utcnow()  # heartbeat for the stale sweep
+        db.commit()
+
+    try:
+        # Over a bigger plan's cap: fail fast with the real limit (the modal
+        # offers the embed) instead of streaming for minutes into a dropped
+        # connection.
+        if limit_bytes is not None and total_bytes > limit_bytes:
+            raise PublishError(
+                _ghost_too_large_message(limit_bytes, total_bytes),
+                code="video_too_large", retryable=False,
+            )
+        file_name = ghost_api.media_file_name(job.title)
+        width, height, duration = video_thumbnail.probe_video(path)
+
+        thumbnail_url = None
+        os.makedirs(work_dir, exist_ok=True)
+        frame = os.path.join(work_dir, "ghost_thumb.jpg")
+        if video_thumbnail.extract_frame(path, frame, at_seconds=1.0):
+            try:
+                thumbnail_url = ghost_api.upload_image(
+                    creds, frame, file_name.replace(".mp4", ".jpg")
+                )
+            except SourceError as exc:
+                # A missing poster is cosmetic; don't fail the publish over it.
+                if exc.code == "invalid_key":
+                    raise
+                logger.warning("[PUBLISH_QUEUE] Ghost thumbnail upload failed: %s", exc)
+
+        try:
+            video_url = ghost_api.upload_media(creds, path, file_name, on_progress=on_progress)
+        except SourceError as exc:
+            # When the plan's cap couldn't be read, over-the-cap uploads usually
+            # get dropped mid-stream with a bare 5xx rather than a 413, which
+            # would otherwise look like an outage and be retried pointlessly. A
+            # 5xx on a file above the smallest cap is treated as the size limit.
+            if (
+                exc.code == "provider_error" and exc.retryable
+                and total_bytes > ghost_api.SMALL_PLAN_UPLOAD_LIMIT
+            ):
+                raise SourceError(str(exc), code="upload_too_large")
+            raise
+        job.uploaded_bytes = total_bytes
+        db.commit()
+
+        card = ghost_api.build_video_card(
+            src=video_url, thumbnail_src=thumbnail_url, file_name=file_name,
+            width=width, height=height, duration=duration,
+        )
+        post = _place_ghost_card(ghost_api, creds, job, card, "video")
+    except SourceError as exc:
+        err = _ghost_source_error(db, conn, exc)
+        if exc.code == "upload_too_large":
+            err = PublishError(
+                _ghost_too_large_message(limit_bytes, total_bytes),
+                code=err.code, retryable=err.retryable,
+            )
+        raise err
+
+    _finish_ghost(db, job, conn, post)
+    return path, is_temp
+
+
+def _publish_beehiiv(db, job: SocialPublishJob, conn: SocialConnection, work_dir: str):
+    """Add the video to Beehiiv as a click-to-watch image block.
+
+    Beehiiv can't host an MP4, so the block is the badged poster frame (the same
+    one the newsletter snippet uses) linked to the public watch page.
+    ``target_mode`` "top"/"bottom" prepends/appends to ``target_post_id``;
+    "new_draft" creates a draft. Beehiiv only allows post writes on Max and
+    Enterprise plans; anything else fails as ``plan_required`` (not retryable),
+    and the UI offers the copy-paste snippet instead.
+    """
+    from app.models.project import Project
+    from app.routers.content_sources import newsletter_thumbnail_url, watch_page_url
+    from app.services import beehiiv_api, source_importer
+    from app.services import youtube_publish as yt
+    from app.services.source_common import SourceError
+
+    project = db.query(Project).filter(Project.id == job.project_id).first()
+    if project is None:
+        raise PublishError("The project no longer exists.", code="video_missing", retryable=False)
+
+    path, is_temp = yt.resolve_local_video(job.project_id, job.r2_video_key, work_dir)
+    # Nothing is uploaded byte-by-byte; mark the transfer as one unit so the
+    # progress bar doesn't sit at 0% while Beehiiv is called.
+    job.total_bytes = 1
+    db.commit()
+
+    try:
+        os.makedirs(work_dir, exist_ok=True)
+        thumbnail_url = newsletter_thumbnail_url(project, path, work_dir)
+        if not thumbnail_url:
+            raise PublishError(
+                "We couldn't make a thumbnail for the video.", code="video_missing", retryable=True
+            )
+        blocks = beehiiv_api.video_blocks(thumbnail_url, watch_page_url(db, project), job.title)
+        api_key = source_importer.beehiiv_key(conn)
+        publication_id = conn.account_id or ""
+        if job.target_mode in ("top", "bottom") and job.target_post_id:
+            post = beehiiv_api.add_blocks_to_post(
+                api_key, publication_id, job.target_post_id, blocks, job.target_mode
+            )
+        else:
+            post = beehiiv_api.create_draft_post(api_key, publication_id, job.title, blocks)
+    except SourceError as exc:
+        code = {"invalid_key": "reauth_required"}.get(exc.code, exc.code)
+        if exc.code == "invalid_key":
+            conn.status = STATUS_REVOKED
+            conn.last_error = str(exc)[:500]
+            db.commit()
+        raise PublishError(str(exc), code=code, retryable=exc.retryable)
+
+    job.platform_post_id = post.get("id") or job.target_post_id
+    job.platform_post_url = post.get("web_url")
+    _succeed(db, job)
+    return path, is_temp
+
+
+def _wordpress_error(db, conn: SocialConnection, exc) -> PublishError:
+    """SourceError → PublishError for WordPress; a dead credential revokes the connection."""
+    code = {
+        "invalid_key": "reauth_required",
+        "auth_header_stripped": "reauth_required",
+        "app_passwords_disabled": "reauth_required",
+        "upload_too_large": "video_too_large",
+    }.get(exc.code, exc.code)
+    if code == "reauth_required":
+        conn.status = STATUS_REVOKED
+        conn.last_error = str(exc)[:500]
+        db.commit()
+    return PublishError(str(exc), code=code, retryable=exc.retryable)
+
+
+def _wordpress_too_large_message(caps: dict, limit_bytes: int | None, total_bytes: int) -> str:
+    from app.services import wordpress_api
+
+    fallback = (
+        "the embedded player" if wordpress_api.fallback_delivery(caps) == "embed"
+        else "a click-to-watch thumbnail"
+    )
+    size = f"{total_bytes / (1024 * 1024):.1f} MB"
+    if limit_bytes:
+        return (
+            f"Your WordPress site allows uploads up to {limit_bytes / (1024 * 1024):.0f} MB, "
+            f"and this video is {size}. Use {fallback} instead."
+        )
+    return f"Your WordPress site refused this {size} video as too large. Use {fallback} instead."
+
+
+def _publish_wordpress(db, job: SocialPublishJob, conn: SocialConnection, work_dir: str):
+    """Add the video to a WordPress post, in whichever form the site allows.
+
+    ``delivery``: "video" uploads the MP4 to the media library and inserts a
+    video block; "embed" inserts our player in an HTML block; "link" inserts
+    the badged poster frame linked to the watch page. Capabilities are re-read
+    first (plans and roles change): a video the site can no longer take
+    becomes the fallback rather than a failure. Block-editor posts get block
+    markup, classic-editor posts plain HTML/shortcodes.
+    """
+    from app.models.project import Project
+    from app.routers.content_sources import newsletter_thumbnail_url, watch_page_url
+    from app.services import embed_player, source_importer, video_thumbnail, wordpress_api
+    from app.services import youtube_publish as yt
+    from app.services.source_common import SourceError
+
+    project = db.query(Project).filter(Project.id == job.project_id).first()
+    if project is None:
+        raise PublishError("The project no longer exists.", code="video_missing", retryable=False)
+
+    try:
+        creds = source_importer.wordpress_credentials(conn)
+        caps = wordpress_api.capabilities(creds)
+    except SourceError as exc:
+        raise _wordpress_error(db, conn, exc)
+
+    delivery = job.delivery or "video"
+    if delivery == "video" and not caps.get("can_upload_video"):
+        delivery = wordpress_api.fallback_delivery(caps)
+    if delivery == "embed" and not caps.get("can_embed"):
+        delivery = "link"
+    if delivery != (job.delivery or "video"):
+        logger.info(
+            "[PUBLISH_QUEUE] Job %s: WordPress can't take %s; using %s",
+            job.id, job.delivery or "video", delivery,
+        )
+        job.delivery = delivery
+        db.commit()
+
+    def place(build_card) -> dict:
+        if job.target_mode in ("top", "bottom") and job.target_post_id:
+            return wordpress_api.add_to_post(creds, job.target_post_id, build_card, job.target_mode)
+        return wordpress_api.create_draft(creds, job.title, build_card)
+
+    path, is_temp = None, False
+    try:
+        if delivery == "embed":
+            token = embed_player.ensure_embed_token(project, db)
+            iframe = embed_player.embed_iframe_html(token, project.aspect_ratio)
+            job.total_bytes = 1
+            db.commit()
+            post = place(lambda block: wordpress_api.embed_card(iframe, block))
+
+        elif delivery == "link":
+            path, is_temp = yt.resolve_local_video(job.project_id, job.r2_video_key, work_dir)
+            job.total_bytes = 1
+            db.commit()
+            os.makedirs(work_dir, exist_ok=True)
+            thumb_url = newsletter_thumbnail_url(project, path, work_dir)
+            if not thumb_url:
+                raise PublishError(
+                    "We couldn't make a thumbnail for the video.", code="video_missing", retryable=True
+                )
+            image_url, media_id = thumb_url, None
+            if caps.get("can_upload_images"):
+                # Host the thumbnail on the site itself when allowed; else hotlink ours.
+                badge = os.path.join(work_dir, "wp_thumb.jpg")
+                frame = os.path.join(work_dir, "wp_frame.jpg")
+                badged = False
+                if video_thumbnail.extract_frame(path, frame, at_seconds=1.0):
+                    try:
+                        video_thumbnail.add_play_badge(frame, badge)
+                        badged = True
+                    except Exception:  # noqa: BLE001 — a plain hotlink still works
+                        logger.warning("[PUBLISH_QUEUE] WordPress play badge failed", exc_info=True)
+                if badged:
+                    try:
+                        media = wordpress_api.upload_media(
+                            creds, badge, wordpress_api.media_file_name(job.title, "jpg"), "image/jpeg"
+                        )
+                        image_url, media_id = media["source_url"], media.get("id")
+                    except SourceError as exc:
+                        if exc.code in ("invalid_key", "auth_header_stripped"):
+                            raise
+                        logger.warning("[PUBLISH_QUEUE] WordPress thumbnail upload failed: %s", exc)
+            watch = watch_page_url(db, project)
+            post = place(lambda block: wordpress_api.link_card(image_url, watch, job.title, media_id, block))
+
+        else:
+            path, is_temp = yt.resolve_local_video(job.project_id, job.r2_video_key, work_dir)
+            total_bytes = os.path.getsize(path)
+            if total_bytes <= 0:
+                raise PublishError("The rendered video is empty.", code="video_missing", retryable=False)
+            job.total_bytes = total_bytes
+            db.commit()
+            limit = caps.get("upload_limit_bytes")
+            if limit and total_bytes > limit:
+                raise PublishError(
+                    _wordpress_too_large_message(caps, limit, total_bytes),
+                    code="video_too_large", retryable=False,
+                )
+
+            last_write = [0.0]
+
+            def on_progress(done: int) -> None:
+                now = time.time()
+                if now - last_write[0] < PROGRESS_WRITE_INTERVAL_SECONDS and done < total_bytes:
+                    return
+                last_write[0] = now
+                job.uploaded_bytes = min(done, total_bytes)
+                job.updated_at = datetime.utcnow()  # heartbeat for the stale sweep
+                db.commit()
+
+            # Poster first (small; non-fatal), then the MP4.
+            poster = None
+            os.makedirs(work_dir, exist_ok=True)
+            frame = os.path.join(work_dir, "wp_poster.jpg")
+            if video_thumbnail.extract_frame(path, frame, at_seconds=1.0):
+                try:
+                    poster = wordpress_api.upload_media(
+                        creds, frame, wordpress_api.media_file_name(job.title, "jpg"), "image/jpeg"
+                    )["source_url"]
+                except SourceError as exc:
+                    if exc.code in ("invalid_key", "auth_header_stripped"):
+                        raise
+                    logger.warning("[PUBLISH_QUEUE] WordPress poster upload failed: %s", exc)
+            try:
+                media = wordpress_api.upload_media(
+                    creds, path, wordpress_api.media_file_name(job.title, "mp4"), "video/mp4",
+                    on_progress=on_progress,
+                )
+            except SourceError as exc:
+                if exc.code == "upload_too_large" or (
+                    # Over-cap uploads are often dropped with a bare 5xx rather than a 413.
+                    exc.code == "provider_error" and exc.retryable and total_bytes > 8 * 1024 * 1024
+                ):
+                    raise PublishError(
+                        _wordpress_too_large_message(caps, limit, total_bytes),
+                        code="video_too_large", retryable=False,
+                    )
+                raise
+            job.uploaded_bytes = total_bytes
+            db.commit()
+            post = place(lambda block: wordpress_api.video_card(
+                media["source_url"], poster, media.get("id"), block
+            ))
+    except SourceError as exc:
+        raise _wordpress_error(db, conn, exc)
+
+    post_id = post.get("id") or job.target_post_id
+    job.platform_post_id = str(post_id) if post_id else None
+    job.platform_post_url = wordpress_api.editor_url(creds, post_id) if post_id else None
+    _succeed(db, job)
+    return path, is_temp
+
+
 _PLATFORM_LABELS = {
     PLATFORM_YOUTUBE: "YouTube",
     PLATFORM_X: "X",
     PLATFORM_LINKEDIN: "LinkedIn",
+    PLATFORM_GHOST: "Ghost",
+    PLATFORM_BEEHIIV: "Beehiiv",
+    PLATFORM_WORDPRESS: "WordPress",
 }
 
 
@@ -612,6 +1049,14 @@ def _fail(db, job: SocialPublishJob, exc: PublishError) -> None:
     # Only reached once the job is terminally failed — the retry loop in
     # _run_publish_job_sync does not call this between attempts, so a transient
     # error that recovers never mails the user about it.
+    #
+    # A Ghost video too big for the plan isn't mailed: the project page shows
+    # the "Oops" modal offering the embed player, which is the fix — an email
+    # saying "failed" for something one click resolves is just noise.
+    if job.platform in (PLATFORM_GHOST, PLATFORM_WORDPRESS) and exc.code in (
+        "video_too_large", "video_not_supported", "storage_full",
+    ):
+        return
     _notify(db, job, succeeded=False)
 
 

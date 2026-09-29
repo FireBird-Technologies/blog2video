@@ -817,6 +817,14 @@ export const distributionPosts: BlogPost[] = [
         ctaPath: "https://blog2video.app",
         ctaLabel: "Read the post-and-newsletter version at Blog2Video",
       },
+      {
+        heading: "The wider AI slop problem",
+        paragraphs: [
+          "Documents expose slop fast, but the problem is not unique to PDFs. Blog2Video's guide to AI slop covers what it is, how it gets made, and the AI video generators that avoid it for any kind of content.",
+        ],
+        ctaPath: "https://blog2video.app/blogs/ai-video-generators-that-are-not-slop",
+        ctaLabel: "Read the guide to AI slop",
+      },
     ],
     faq: [
       {

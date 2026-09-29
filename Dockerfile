@@ -24,6 +24,17 @@ WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# ── Language-detection model (fast-langdetect "full") ────────
+# services/language_detection.py asks for the full model, which fast-langdetect
+# downloads (125 MB) on first use into $FTLANG_CACHE. Baked in here so the
+# first scrape/import after a deploy doesn't block for minutes on that
+# download. The md5 is the one fast-langdetect itself verifies the file with.
+ENV FTLANG_CACHE=/app/models/fasttext
+RUN mkdir -p "$FTLANG_CACHE" && \
+  curl -fsSL -o "$FTLANG_CACHE/lid.176.bin" \
+    https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin && \
+  echo "01810bc59c6a3d2b79c79e6336612f65  $FTLANG_CACHE/lid.176.bin" | md5sum -c -
+
 # ── Remotion template + npm install ──────────────────────────
 COPY remotion-video/ ./remotion-video/
 RUN cd remotion-video && npm ci --omit=dev

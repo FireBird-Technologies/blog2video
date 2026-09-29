@@ -5,11 +5,9 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import Seo from "../components/seo/Seo";
 
-// Placeholders until the plugin is live on WordPress.org and the zip is
-// hosted somewhere permanent. Swap these two constants in when ready — no
-// other code on this page needs to change.
-const WORDPRESS_ORG_URL = "https://wordpress.org/plugins/blog2video/";
-const PLUGIN_ZIP_URL = "/downloads/blog2video.zip";
+// Hosted on Cloudflare R2 (VITE_R2_PUBLIC_URL, same base as the backend's R2_PUBLIC_URL).
+// Mirrors the constant in components/tools/ToolWidgets.tsx.
+const PLUGIN_ZIP_URL = `${import.meta.env.VITE_R2_PUBLIC_URL}/static/plugins/blog2video-wordpress-plugin.zip`;
 
 interface Step {
   title: string;
@@ -20,7 +18,7 @@ const STEPS: Step[] = [
   {
     title: "Install the plugin",
     description:
-      "Upload the Blog2Video zip in Plugins → Add New, or install it directly from the WordPress.org directory. Activate it — that's it, no configuration file to edit.",
+      "Download the Blog2Video zip and upload it in Plugins → Add New. Activate it — that's it, no configuration file to edit.",
   },
   {
     title: "Connect your account",
@@ -130,17 +128,16 @@ export default function WordPressPlugin() {
             <button
               type="button"
               onClick={primaryCta}
-              className="rounded-xl bg-[#7c3aed] px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-purple-600/20 transition hover:bg-[#6d28d9]"
+              className="rounded-xl bg-purple-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-purple-600/20 transition hover:bg-purple-700"
             >
               {user ? "Go to your dashboard" : "Get started free"}
             </button>
             <a
-              href={WORDPRESS_ORG_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl border border-gray-200 bg-white px-7 py-3.5 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+              href={PLUGIN_ZIP_URL}
+              download
+              className="rounded-xl bg-purple-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-purple-600/20 transition hover:bg-purple-700"
             >
-              View on WordPress.org
+              Download plugin (.zip)
             </a>
           </div>
           <p className="mt-4 text-xs text-gray-400">
@@ -304,13 +301,14 @@ export default function WordPressPlugin() {
                 <button
                   type="button"
                   onClick={primaryCta}
-                  className="rounded-full bg-[#7c3aed] px-7 py-3 text-sm font-semibold text-white transition hover:bg-[#6d28d9]"
+                  className="rounded-full bg-purple-600 px-7 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
                 >
                   {user ? "Go to your dashboard" : "Create free account"}
                 </button>
                 <a
                   href={PLUGIN_ZIP_URL}
-                  className="rounded-full border border-gray-200 px-7 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                  download
+                  className="rounded-full bg-purple-600 px-7 py-3 text-sm font-semibold text-white transition hover:bg-purple-700"
                 >
                   Download plugin (.zip)
                 </a>

@@ -135,6 +135,17 @@ class Settings(BaseSettings):
     # LinkedIn retires a version is an env change, not a deploy.
     LINKEDIN_API_VERSION: str = "202609"
 
+    # WordPress.com OAuth app (developer.wordpress.com/apps), for connecting
+    # WordPress.com sites; self-hosted WordPress uses application passwords and
+    # needs neither. Register {BACKEND_URL}/api/sources/wordpress/callback as the
+    # app's redirect URL. Both empty = the "Connect with WordPress.com" button
+    # is disabled.
+    WORDPRESS_COM_CLIENT_ID: str = ""
+    WORDPRESS_COM_CLIENT_SECRET: str = ""
+    # Beehiiv API v2 root. Leave unset in production; point it at the local
+    # mock (backend/dev/beehiiv_mock.py) where Beehiiv itself is unreachable.
+    BEEHIIV_API_BASE_URL: str = "https://api.beehiiv.com/v2"
+
     # urlsafe-base64 32-byte Fernet key encrypting stored OAuth tokens. Unset =>
     # social publishing is disabled (see services/token_crypto.py). Rotating it
     # invalidates every stored token and forces all users to reconnect.
