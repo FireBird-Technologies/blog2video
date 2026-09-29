@@ -1,10 +1,11 @@
 .b2v-settings-page {
-  --b2v-purple: #7c3aed;
-  --b2v-purple-rgb: 124, 58, 237;
+  --b2v-purple: #9333ea;
+  --b2v-purple-rgb: 147, 51, 234;
   max-width: 1080px;
   margin: 0;
   padding: 30px 28px 50px 8px;
   color: #27232d;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .b2v-settings-page * { box-sizing: border-box; }
@@ -92,6 +93,23 @@
 .b2v-settings-page .b2v-button-secondary:hover,
 .b2v-settings-page .b2v-button-secondary:focus { border-color: var(--b2v-purple); background: rgba(var(--b2v-purple-rgb), .05); color: var(--b2v-purple); }
 .b2v-settings-page .b2v-button-quiet { border: 0; background: transparent; color: #716b78; }
+.b2v-settings-page .b2v-disconnect-button {
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid #e9d5ff;
+  border-radius: 9px;
+  background: #fff;
+  color: #7e22ce;
+  font-size: 13px;
+  font-weight: 600;
+}
+.b2v-settings-page .b2v-disconnect-button:hover,
+.b2v-settings-page .b2v-disconnect-button:focus {
+  border-color: #d8b4fe;
+  background: #faf5ff;
+  color: #7e22ce;
+  box-shadow: 0 0 0 2px rgba(147, 51, 234, .14);
+}
 
 .b2v-connect-note { margin: 17px 0 0; color: #8a8490; font-size: 11px; }
 .b2v-approval-status { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; color: #77717e; font-size: 11px; }
@@ -130,4 +148,14 @@
   .b2v-connect-actions form,
   .b2v-connect-actions .button,
   .b2v-connect-actions form .button { width: 100%; }
+}
+
+/* Keep the connection flow compact even when shared React button styles change. */
+#b2v-settings-react-root .b2v-primary.b2v-slim,
+#b2v-settings-react-root .b2v-secondary.b2v-slim {
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  line-height: 1.2;
 }

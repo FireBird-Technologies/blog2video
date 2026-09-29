@@ -9,6 +9,8 @@
     description: "Embed any Blog2Video project. Add multiple blocks to use multiple videos in one post.",
     attributes: {
       embedUrl: { type: "string", default: "" },
+      projectId: { type: "integer", default: 0 },
+      projectName: { type: "string", default: "" },
       aspectRatio: { type: "string", default: "16:9" }
     },
     edit: function (props) {
