@@ -244,6 +244,32 @@ export default function BlogPostPage() {
                 />
               </div>
             )}
+            {post.slug === "connect-wordpress-to-blog2video" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/7GiCh5luubQ"
+                  title="How to Connect WordPress to Blog2Video (Full Tutorial)"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
+            {post.slug === "connect-beehiiv-to-blog2video" && (
+              <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src="https://www.youtube.com/embed/RfYx_y0OQOk"
+                  title="How to Connect Beehiiv to Blog2Video (Full Tutorial)"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
             {post.slug === "connect-ghost-to-blog2video" && (
               <div style={{ margin: "32px 0", borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
                 <iframe

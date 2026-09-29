@@ -17,6 +17,217 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "connect-wordpress-to-blog2video",
+    title: "How to Connect WordPress to Blog2Video, No Plugin Needed",
+    description:
+      "Connect your WordPress blog to Blog2Video with an application password. Five steps, no plugin, and every post, draft or private, becomes one click from a video.",
+    category: "Integrations",
+    publishedAt: "2026-09-29",
+    readTime: "4 min read",
+    heroEyebrow: "Tutorial",
+    heroTitle: "Connect WordPress to Blog2Video in 5 steps",
+    heroDescription:
+      "Create an application password, paste it into Blog2Video, and turn any WordPress post into a video. No plugin needed.",
+    primaryKeyword: "connect wordpress to blog2video",
+    keywordVariant: "wordpress blog to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/blogs/connect-ghost-to-blog2video",
+      "/blogs/connect-beehiiv-to-blog2video",
+    ],
+    sections: [
+      {
+        heading: "Five steps, no plugin",
+        paragraphs: [
+          "Blog2Video connects to a self-hosted WordPress site with an application password, a feature built into WordPress. There is nothing to install. The video shows the whole flow, and the written steps are below.",
+        ],
+        bullets: [
+          "Add an application password",
+          "Copy it once",
+          "Paste and connect",
+          "Pick your posts",
+          "Send the video back to WordPress",
+        ],
+      },
+      {
+        heading: "1. Add an application password in WordPress",
+        paragraphs: [
+          "In your WordPress dashboard go to Users, then Profile. Scroll down to Application Passwords, type Blog2Video as the name, and click Add New Application Password.",
+        ],
+      },
+      {
+        heading: "2. Copy it now, WordPress shows it once",
+        paragraphs: [
+          "WordPress shows the new password one time only. Copy it straight away, along with your site address and your username. If you close the message before copying, you have to create a new password.",
+        ],
+      },
+      {
+        heading: "3. Paste and connect in Blog2Video",
+        paragraphs: [
+          "In Blog2Video open the Connect tab and choose WordPress. Enter your site URL and username, paste the application password, and click Connect. Your site needs https. The password is stored encrypted.",
+          "If your site is hosted on WordPress.com, skip the password: use Connect with WordPress.com, sign in with your account, and choose the site.",
+        ],
+      },
+      {
+        heading: "4. Pick your posts",
+        paragraphs: [
+          "Click New, open the Connect tab, and your WordPress posts appear, drafts and private posts included. Tick one or several. Each becomes its own video.",
+        ],
+      },
+      {
+        heading: "5. Send the video back to WordPress",
+        paragraphs: [
+          "Click the WordPress icon on the finished project. Create a new draft or add the video to the original post, at the top or bottom. Blog2Video adds it the best way your site allows: the video file itself, an embedded player, or a click-to-watch thumbnail.",
+        ],
+      },
+      {
+        heading: "Connect once, done",
+        paragraphs: [
+          "No plugin, no copying links. Try it at blog2video.app.",
+        ],
+        ctaPath: "/",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to install a plugin?",
+        answer:
+          "No. The application password is a built-in WordPress feature. (There is also an optional Blog2Video WordPress plugin.)",
+      },
+      {
+        question: "What if I use WordPress.com?",
+        answer:
+          "Use the Connect with WordPress.com button instead. It signs you in with one click and needs no password.",
+      },
+      {
+        question: "Why can't I see my password again?",
+        answer:
+          "WordPress only shows an application password once. Create a new one if you lose it.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect WordPress to Blog2Video, No Plugin Needed",
+        angle:
+          "Integration tutorial for WordPress bloggers searching for a no-plugin way to turn posts into video.",
+      },
+      {
+        channel: "video",
+        title: "How to Connect WordPress to Blog2Video (Full Tutorial)",
+        angle:
+          "Screen-recorded walkthrough of the five steps, from creating the application password to sending the video back to WordPress.",
+      },
+    ],
+  },
+  {
+    slug: "connect-beehiiv-to-blog2video",
+    title: "How to Connect Beehiiv to Blog2Video and Put Video in Your Newsletter",
+    description:
+      "Connect your Beehiiv newsletter to Blog2Video with an API key. Turn any post into a video and add a click-to-watch thumbnail your readers can tap.",
+    category: "Integrations",
+    publishedAt: "2026-09-29",
+    readTime: "5 min read",
+    heroEyebrow: "Tutorial",
+    heroTitle: "Connect Beehiiv to Blog2Video in 5 steps",
+    heroDescription:
+      "Create an API key in Beehiiv, connect it to Blog2Video, and turn every newsletter post into a video with a thumbnail your readers can tap.",
+    primaryKeyword: "connect beehiiv to blog2video",
+    keywordVariant: "beehiiv newsletter to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/blogs/connect-ghost-to-blog2video",
+      "/blogs/connect-wordpress-to-blog2video",
+    ],
+    sections: [
+      {
+        heading: "Five steps, one API key",
+        paragraphs: [
+          "Blog2Video reads your Beehiiv posts through an API key, so you never paste a link by hand. The video follows the key from Beehiiv to Blog2Video and then follows the finished video all the way to a reader's phone. The written steps are below.",
+        ],
+        bullets: [
+          "Create an API key in Beehiiv",
+          "Copy it once",
+          "Paste and connect",
+          "Pick your posts",
+          "Send the video back to Beehiiv",
+        ],
+      },
+      {
+        heading: "1. Create an API key in Beehiiv",
+        paragraphs: [
+          "In Beehiiv open Settings, then Workspace settings, then API. Click Create new API key and name it Blog2Video.",
+        ],
+      },
+      {
+        heading: "2. Copy the key, Beehiiv shows it once",
+        paragraphs: [
+          "Beehiiv displays the new key one time. Copy it before you close the window. If you lose it, create another.",
+        ],
+      },
+      {
+        heading: "3. Paste and connect in Blog2Video",
+        paragraphs: [
+          "In Blog2Video open the Connect tab and choose Beehiiv. Paste your API key and click Connect. If your workspace has several publications, pick the one you want and click Connect publication. The key is stored encrypted.",
+        ],
+      },
+      {
+        heading: "4. Pick your posts",
+        paragraphs: [
+          "Click New, open the Connect tab, and your Beehiiv posts show up, drafts and premium posts included. Tick one or several. Each becomes its own video.",
+        ],
+      },
+      {
+        heading: "5. Send the video back to Beehiiv",
+        paragraphs: [
+          "Email can't play video, so Beehiiv gets a click-to-watch thumbnail: readers tap it and the video plays in their browser. Click the Beehiiv icon on the finished project. On a Beehiiv Max or Enterprise plan, Blog2Video adds the thumbnail to your post for you, as a new draft or in the original post. On any other plan, click Copy for editor to copy the newsletter block, then paste it into the Beehiiv editor.",
+        ],
+      },
+      {
+        heading: "Connect once, done",
+        paragraphs: [
+          "Connect once and every Beehiiv post is one click from a video. Try it at blog2video.app.",
+        ],
+        ctaPath: "/",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Can I add videos to Beehiiv posts on any plan?",
+        answer:
+          "Automatic adding needs Max or Enterprise. On other plans you copy the newsletter block and paste it into the editor yourself.",
+      },
+      {
+        question: "Can readers play the video inside the email?",
+        answer:
+          "No. Email can't play video. Readers tap the thumbnail and the video opens in their browser.",
+      },
+      {
+        question: "What if I have more than one publication?",
+        answer:
+          "Blog2Video asks which one to connect after you paste the key.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect Beehiiv to Blog2Video and Put Video in Your Newsletter",
+        angle:
+          "Integration tutorial for Beehiiv newsletter writers who want video in their posts.",
+      },
+      {
+        channel: "video",
+        title: "How to Connect Beehiiv to Blog2Video (Full Tutorial)",
+        angle:
+          "Screen-recorded walkthrough following the API key from Beehiiv to Blog2Video, then the finished video to a reader's phone.",
+      },
+    ],
+  },
+  {
     slug: "connect-ghost-to-blog2video",
     title: "How to Connect Ghost to Blog2Video (Step by Step)",
     description:
