@@ -2,7 +2,7 @@
   "$schema": "https://schemas.wp.org/trunk/block.json",
   "apiVersion": 3,
   "name": "blog2video/video",
-  "version": "0.14.13",
+  "version": "0.14.14",
   "title": "Blog2Video",
   "category": "embed",
   "icon": "format-video",
@@ -26,6 +26,6 @@
       "default": "16:9"
     }
   },
-  "editorScript": "b2v-editor-block",
-  "style": "b2v-player"
+  "editorScript": "blog2video-editor-block",
+  "style": "blog2video-player"
 }

@@ -10,7 +10,7 @@ declare const wp: {
 
 declare global {
   interface Window {
-    B2VAdmin: {
+    Blog2VideoAdmin: {
       projectId: number;
       projectName: string;
       hasEmbed: boolean;
@@ -20,14 +20,14 @@ declare global {
       logoUrl: string;
       appUrl: string;
     };
-    B2VInitAdmin?: () => boolean;
-    B2VGenerate?: () => void;
-    B2VSetActiveProject?: (projectId: number, projectName: string) => void;
-    B2VResolveFailed?: () => void;
+    Blog2VideoInitAdmin?: () => boolean;
+    Blog2VideoGenerate?: () => void;
+    Blog2VideoSetActiveProject?: (projectId: number, projectName: string) => void;
+    Blog2VideoResolveFailed?: () => void;
   }
 }
 
-const config = window.B2VAdmin;
+const config = window.Blog2VideoAdmin;
 const activeProjectId = Number(config.projectId) > 0 ? Number(config.projectId) : 0;
 const activeProjectName = activeProjectId > 0 && config.projectName
   ? config.projectName
@@ -180,15 +180,15 @@ function AdminApp() {
   const [aspectRatio, setAspectRatio] = wp.element.useState<"landscape" | "portrait">("landscape");
   const [voiceTab, setVoiceTab] = wp.element.useState<"voice" | "music">("voice");
   wp.element.useLayoutEffect(() => {
-    window.B2VSetActiveProject = (projectId, projectName) => {
+    window.Blog2VideoSetActiveProject = (projectId, projectName) => {
       setActiveProject({
         id: Number(projectId) || 0,
         name: projectName || "Selected Blog2Video project",
       });
     };
-    window.B2VResolveFailed = () => setResolveFailed(true);
-    window.B2VInitAdmin?.();
-    return () => { delete window.B2VSetActiveProject; delete window.B2VResolveFailed; };
+    window.Blog2VideoResolveFailed = () => setResolveFailed(true);
+    window.Blog2VideoInitAdmin?.();
+    return () => { delete window.Blog2VideoSetActiveProject; delete window.Blog2VideoResolveFailed; };
   }, []);
   const goToStep2 = () => {
     const url = document.getElementById("b2v-source-url") as HTMLInputElement | null;
@@ -261,7 +261,7 @@ function AdminApp() {
           <div className="mt-3" hidden={voiceTab !== "voice"}><span className="b2v-label mb-2 block text-xs font-semibold text-slate-700">Voice preview</span><div id="b2v-wizard-voice-loading" className="b2v-inline-loading"><span />Loading your voices…</div><div id="b2v-wizard-voice-list" className="b2v-wizard-voice-list" /><p id="b2v-wizard-voice-empty" className="b2v-help" hidden>No saved voices are available. Select “No voiceover” or add a voice in Blog2Video.</p></div>
           <div className="mt-3" hidden={voiceTab !== "music"}><Field label="Background music"><select className="b2v-control" data-b2v="bgm_track_id" id="b2v-wizard-music-track"><option value="">No background music</option></select></Field><div className="mt-3"><Field label="Music volume"><input className="w-full" type="range" data-b2v="bgm_volume" id="b2v-wizard-music-volume" min="0" max="1" step="0.05" defaultValue="0.1" /></Field></div></div>
           <input type="hidden" data-b2v="captions_enabled" value="" />
-          <div id="b2v-generate-actions" className="b2v-wizard-nav b2v-actions" hidden={hasProject}><button type="button" className="b2v-wizard-back" onClick={() => setStep(2)}><span aria-hidden="true">←</span> Back</button><button type="button" className="b2v-wizard-next" id="b2v-generate" onClick={() => { window.B2VInitAdmin?.(); window.B2VGenerate?.(); }}><span id="b2v-generate-label">Generate video</span></button></div>
+          <div id="b2v-generate-actions" className="b2v-wizard-nav b2v-actions" hidden={hasProject}><button type="button" className="b2v-wizard-back" onClick={() => setStep(2)}><span aria-hidden="true">←</span> Back</button><button type="button" className="b2v-wizard-next" id="b2v-generate" onClick={() => { window.Blog2VideoInitAdmin?.(); window.Blog2VideoGenerate?.(); }}><span id="b2v-generate-label">Generate video</span></button></div>
         </section>
         <div id="b2v-render-actions" className="b2v-actions flex gap-2" hidden={!hasProject}><button type="button" className={`${purpleButton} flex-1`} id="b2v-embed" disabled>Add video to post</button><button type="button" className={`${purpleButton} flex-1`} id="b2v-render" hidden>Render video</button></div>
         <div id="b2v-status-card" className="b2v-status-card rounded-2xl border border-slate-200 bg-white p-4" aria-live="polite" hidden={!config.lastStatus}><div><strong id="b2v-status" className="text-sm text-slate-900">{config.lastStatus}</strong><div id="b2v-progress" className="b2v-progress mt-3 h-1.5 overflow-hidden rounded-full bg-brand-100" hidden><span className="block h-full bg-brand-600" /></div><div id="b2v-upgrade-slot" className="b2v-upgrade-slot mt-3" hidden><a href={`${config.appUrl}/signin?redirect=%2Fsubscription`} target="_blank" rel="noopener" className={purpleButton} id="b2v-upgrade-link">Upgrade plan</a></div></div></div>
@@ -283,7 +283,7 @@ if (root) {
       if (initAttempts < 120) window.requestAnimationFrame(initializeController);
       return;
     }
-    const initialized = window.B2VInitAdmin?.();
+    const initialized = window.Blog2VideoInitAdmin?.();
     if (initialized === false && initAttempts < 120) {
       window.requestAnimationFrame(initializeController);
     }

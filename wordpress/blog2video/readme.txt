@@ -4,7 +4,7 @@ Tags: video, ai, blog, embed, gutenberg
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.14.13
+Stable tag: 0.14.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -74,8 +74,10 @@ See https://blog2video.app/privacy/ and https://blog2video.app/terms.
 
 == Changelog ==
 
-= 0.14.13 =
+= 0.14.14 =
 
+* Security and compatibility: all global functions, classes, constants, options, post meta keys, hooks, script and style handles, and JavaScript objects now use the unique `blog2video_` / `Blog2Video_` prefix. Existing connections and project links are migrated automatically.
+* Security: every REST route now declares its own permission check that requires the user to be able to edit the post.
 * Added the Blog2Video WordPress settings and post-editor interfaces.
 * Added project selection, scene editing, project settings, rendering, downloading, and single-video embedding.
 * Added site-scoped authorization and quota-related error handling.
@@ -83,6 +85,7 @@ See https://blog2video.app/privacy/ and https://blog2video.app/terms.
 
 == Upgrade Notice ==
 
+= 0.14.14 =
 
 Upgrade for a smoother WordPress experience, improved video creation and editing features, better output quality, stronger upload validation, and important reliability and bug fixes.
 

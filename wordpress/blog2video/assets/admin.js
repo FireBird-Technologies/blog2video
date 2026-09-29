@@ -1,11 +1,11 @@
-window.B2VInitAdmin = function () {
+window.Blog2VideoInitAdmin = function () {
   "use strict";
   var panel = document.getElementById("b2v-panel");
   if (!panel || !window.wp || !wp.apiFetch) return false;
   if (panel.dataset.b2vInitialized === "true") return true;
-  var postId = Number(B2VAdmin.postId);
-  var base = B2VAdmin.root + postId;
-  var APP_URL = String(B2VAdmin.appUrl || "https://blog2video.app").replace(/\/$/, "");
+  var postId = Number(Blog2VideoAdmin.postId);
+  var base = Blog2VideoAdmin.root + postId;
+  var APP_URL = String(Blog2VideoAdmin.appUrl || "https://blog2video.app").replace(/\/$/, "");
   var BILLING_URL = APP_URL + "/signin?redirect=" + encodeURIComponent("/subscription");
   var status = document.getElementById("b2v-status");
   var statusCard = document.getElementById("b2v-status-card");
@@ -135,7 +135,7 @@ window.B2VInitAdmin = function () {
   var musicAudio;
   var settingsLoaded = false;
   var timer;
-  var embedded = Boolean(B2VAdmin.hasEmbed);
+  var embedded = Boolean(Blog2VideoAdmin.hasEmbed);
   var catalogPromise;
   var videoStylesPromise;
   var accountPromise;
@@ -204,7 +204,7 @@ window.B2VInitAdmin = function () {
       showOperation("Creating your video", sourceType && sourceType.value === "url" ? "Reading the supplied article…" : "Reading the saved post content…");
       return wp.apiFetch({ path: base + "/generate", method: "POST", data: values() });
     }).then(function (data) {
-      if (Number(data.project_id) !== Number(B2VAdmin.projectId)) embedded = false;
+      if (Number(data.project_id) !== Number(Blog2VideoAdmin.projectId)) embedded = false;
       markProjectAvailable(data.project_id, data.project_name);
       uploadStagedLogo(base);
       message("Creating your video…", false, true);
@@ -223,7 +223,7 @@ window.B2VInitAdmin = function () {
 
   // React calls this directly, so the first click never depends on a listener
   // being attached after the button has already appeared.
-  window.B2VGenerate = handleGenerateClick;
+  window.Blog2VideoGenerate = handleGenerateClick;
 
   // Gutenberg places meta boxes inside containers that establish their own
   // positioning/overflow context. Keeping a fixed modal inside that tree clips it
@@ -298,7 +298,7 @@ window.B2VInitAdmin = function () {
       root.querySelectorAll('iframe[title="Blog2Video preview"], iframe[title="Blog2Video player"]').forEach(function (frame) {
         try {
           var url = new URL(frame.src, window.location.href);
-          url.searchParams.set("b2v_refresh", String(Date.now()));
+          url.searchParams.set("blog2video_refresh", String(Date.now()));
           frame.src = url.toString();
         } catch (error) {}
       });
@@ -331,18 +331,18 @@ window.B2VInitAdmin = function () {
   }
 
   function markProjectAvailable(projectId, projectName) {
-    if (projectId) B2VAdmin.projectId = Number(projectId);
-    if (projectName) B2VAdmin.projectName = projectName;
-    B2VAdmin.hasProject = Number(B2VAdmin.projectId) > 0;
-    if (window.B2VSetActiveProject && B2VAdmin.hasProject) {
-      window.B2VSetActiveProject(Number(B2VAdmin.projectId), B2VAdmin.projectName || "Selected Blog2Video project");
+    if (projectId) Blog2VideoAdmin.projectId = Number(projectId);
+    if (projectName) Blog2VideoAdmin.projectName = projectName;
+    Blog2VideoAdmin.hasProject = Number(Blog2VideoAdmin.projectId) > 0;
+    if (window.Blog2VideoSetActiveProject && Blog2VideoAdmin.hasProject) {
+      window.Blog2VideoSetActiveProject(Number(Blog2VideoAdmin.projectId), Blog2VideoAdmin.projectName || "Selected Blog2Video project");
     }
-    if (activeProjectName) activeProjectName.textContent = B2VAdmin.projectName || "Selected Blog2Video project";
-    if (activeProjectId) activeProjectId.textContent = Number(B2VAdmin.projectId) ? "Project #" + Number(B2VAdmin.projectId) : "Choose an existing video or create a new one below.";
-    if (editorLink && Number(B2VAdmin.projectId)) editorLink.href = APP_URL + "/project/" + Number(B2VAdmin.projectId);
-    if (refineCard && Number(B2VAdmin.projectId)) refineCard.hidden = false;
-    if (projectSettingsCard && Number(B2VAdmin.projectId)) projectSettingsCard.hidden = false;
-    if (Number(B2VAdmin.projectId)) {
+    if (activeProjectName) activeProjectName.textContent = Blog2VideoAdmin.projectName || "Selected Blog2Video project";
+    if (activeProjectId) activeProjectId.textContent = Number(Blog2VideoAdmin.projectId) ? "Project #" + Number(Blog2VideoAdmin.projectId) : "Choose an existing video or create a new one below.";
+    if (editorLink && Number(Blog2VideoAdmin.projectId)) editorLink.href = APP_URL + "/project/" + Number(Blog2VideoAdmin.projectId);
+    if (refineCard && Number(Blog2VideoAdmin.projectId)) refineCard.hidden = false;
+    if (projectSettingsCard && Number(Blog2VideoAdmin.projectId)) projectSettingsCard.hidden = false;
+    if (Number(Blog2VideoAdmin.projectId)) {
       if (renderActions) renderActions.hidden = false;
       lockSettingsGrid();
       if (sourceSection) sourceSection.hidden = true;
@@ -353,14 +353,14 @@ window.B2VInitAdmin = function () {
   }
 
   function applyInitialProjectState() {
-    var hasProject = Number(B2VAdmin.projectId) > 0;
+    var hasProject = Number(Blog2VideoAdmin.projectId) > 0;
     if (hasProject) {
-      markProjectAvailable(B2VAdmin.projectId, B2VAdmin.projectName);
+      markProjectAvailable(Blog2VideoAdmin.projectId, Blog2VideoAdmin.projectName);
       return;
     }
 
-    B2VAdmin.projectId = 0;
-    B2VAdmin.projectName = "";
+    Blog2VideoAdmin.projectId = 0;
+    Blog2VideoAdmin.projectName = "";
     if (activeProjectName) activeProjectName.textContent = "No project selected";
     if (activeProjectId) activeProjectId.textContent = "Choose an existing video or create a new one below.";
     if (generateWarning) generateWarning.hidden = false;
@@ -390,11 +390,11 @@ window.B2VInitAdmin = function () {
   }
 
   function isLimitError(error) {
-    return Boolean(error && error.code === "b2v_video_limit");
+    return Boolean(error && error.code === "blog2video_video_limit");
   }
 
   function isUpgradeError(error) {
-    return Boolean(error && ["b2v_video_limit", "b2v_upgrade_required"].includes(error.code));
+    return Boolean(error && ["blog2video_video_limit", "blog2video_upgrade_required"].includes(error.code));
   }
 
   function toggleUpgradeSlot(error) {
@@ -428,7 +428,7 @@ window.B2VInitAdmin = function () {
   function showUpgradePrompt(error) {
     message(errorText(error), true);
     toggleUpgradeSlot(error);
-    if (isLimitError(error) && !Number(B2VAdmin.projectId)) {
+    if (isLimitError(error) && !Number(Blog2VideoAdmin.projectId)) {
       accountDetails = Object.assign({}, accountDetails || {}, { can_create_video: false });
       generate.disabled = false;
       generate.setAttribute("aria-disabled", "true");
@@ -445,13 +445,13 @@ window.B2VInitAdmin = function () {
     generate.setAttribute("aria-disabled", "true");
     if (generateLabel) generateLabel.textContent = "Video limit reached";
     message(detail, true);
-    toggleUpgradeSlot({ code: "b2v_video_limit" });
+    toggleUpgradeSlot({ code: "blog2video_video_limit" });
     if (openModal !== false) showQuotaModal(detail);
   }
 
   function applyAccountQuota(account) {
     accountDetails = account || null;
-    if (!accountDetails || Number(B2VAdmin.projectId)) return;
+    if (!accountDetails || Number(Blog2VideoAdmin.projectId)) return;
     if (accountDetails.can_create_video === false) {
       // Mark the action clearly, but wait until the user clicks it before
       // opening a blocking modal. This avoids an unsolicited popup whenever
@@ -525,7 +525,7 @@ window.B2VInitAdmin = function () {
     var visible = availableProjects.filter(projectMatches);
     projectEmpty.hidden = visible.length > 0;
     visible.forEach(function (project) {
-      var active = Number(project.id) === Number(B2VAdmin.projectId);
+      var active = Number(project.id) === Number(Blog2VideoAdmin.projectId);
       var row = document.createElement("article");
       row.className = "b2v-project-row" + (active ? " is-active" : "");
       var top = document.createElement("div");
@@ -605,7 +605,7 @@ window.B2VInitAdmin = function () {
       availableProjects = availableProjects.concat(items);
       projectLibraryPage = page;
       projectLibraryHasMore = availableProjects.length < total;
-      var current = availableProjects.find(function (project) { return Number(project.id) === Number(B2VAdmin.projectId); });
+      var current = availableProjects.find(function (project) { return Number(project.id) === Number(Blog2VideoAdmin.projectId); });
       if (current) markProjectAvailable(current.id, current.name);
       renderProjectLibrary();
       if (openWhenReady) projectSearch.focus();
@@ -704,7 +704,7 @@ window.B2VInitAdmin = function () {
       templateSelect.appendChild(option);
     }
     option.textContent = text(item.name, id);
-    if (libraryTemplateChangeIsLive && Number(B2VAdmin.projectId)) {
+    if (libraryTemplateChangeIsLive && Number(Blog2VideoAdmin.projectId)) {
       closeLibrary();
       requestTemplateChange(id, text(item.name, id));
       return;
@@ -812,7 +812,7 @@ window.B2VInitAdmin = function () {
     var accent = accentText.includes("brit") || accentText.includes("england") ? "british" : "american";
     var voiceId = item.voice_id || "";
     var voiceLabel = text(item.name, gender === "none" ? "No voice" : gender + " · " + accent);
-    if (libraryVoiceChangeIsLive && Number(B2VAdmin.projectId)) {
+    if (libraryVoiceChangeIsLive && Number(Blog2VideoAdmin.projectId)) {
       closeLibrary();
       requestVoiceChange(gender, accent, voiceId, voiceLabel);
       return;
@@ -1211,7 +1211,7 @@ window.B2VInitAdmin = function () {
     if (!url) return;
     var link = document.createElement("a");
     link.href = url + (url.indexOf("?") === -1 ? "?" : "&") + "cb=" + Date.now();
-    link.setAttribute("download", (B2VAdmin.projectName || "video").replace(/\s+/g, "_") + ".mp4");
+    link.setAttribute("download", (Blog2VideoAdmin.projectName || "video").replace(/\s+/g, "_") + ".mp4");
     link.target = "_blank";
     document.body.appendChild(link);
     link.click();
@@ -1634,7 +1634,7 @@ window.B2VInitAdmin = function () {
   }
 
   function hasExistingVideo() {
-    if (embedded || Boolean(B2VAdmin.hasEmbed)) return true;
+    if (embedded || Boolean(Blog2VideoAdmin.hasEmbed)) return true;
     if (window.wp.data && window.wp.blocks) {
       return Boolean(findVideoBlock(wp.data.select("core/block-editor").getBlocks()));
     }
@@ -1642,7 +1642,7 @@ window.B2VInitAdmin = function () {
   }
 
   function restoreProjectFromEmbeddedBlock(attempt) {
-    // B2VAdmin.projectId may already be set optimistically (from the block's own
+    // Blog2VideoAdmin.projectId may already be set optimistically (from the block's own
     // saved attribute, written by PHP without a network call) — that is not the
     // same as this WordPress connection actually being linked to the project on
     // the backend. Always resolve/link once per load so requests like /status
@@ -1666,7 +1666,7 @@ window.B2VInitAdmin = function () {
       data: { embed_url: embedUrl }
     }).then(function (project) {
       embedded = true;
-      B2VAdmin.hasEmbed = true;
+      Blog2VideoAdmin.hasEmbed = true;
       markProjectAvailable(project.project_id, project.name);
       var dispatch = wp.data.dispatch("core/block-editor");
       if (dispatch && dispatch.updateBlockAttributes) {
@@ -1682,7 +1682,7 @@ window.B2VInitAdmin = function () {
       pollGeneration();
     }).catch(function (error) {
       message("Could not load the embedded video project. " + errorText(error), true);
-      if (window.B2VResolveFailed) window.B2VResolveFailed();
+      if (window.Blog2VideoResolveFailed) window.Blog2VideoResolveFailed();
     });
   }
 
@@ -1701,17 +1701,17 @@ window.B2VInitAdmin = function () {
         var existingBlock = findVideoBlock(wp.data.select("core/block-editor").getBlocks());
         var blockAttributes = {
           embedUrl: data.preview_url,
-          projectId: Number(B2VAdmin.projectId) || 0,
-          projectName: B2VAdmin.projectName || ""
+          projectId: Number(Blog2VideoAdmin.projectId) || 0,
+          projectName: Blog2VideoAdmin.projectName || ""
         };
         if (existingBlock && dispatch && dispatch.updateBlockAttributes) {
           dispatch.updateBlockAttributes(existingBlock.clientId, blockAttributes);
-          message("“" + (B2VAdmin.projectName || "Video") + "” updated in the existing block. Click Update to publish it.");
+          message("“" + (Blog2VideoAdmin.projectName || "Video") + "” updated in the existing block. Click Update to publish it.");
           return;
         }
         if (dispatch && dispatch.insertBlocks) {
           dispatch.insertBlocks(wp.blocks.createBlock("blog2video/video", blockAttributes));
-          message("“" + (B2VAdmin.projectName || "Video") + "” added as a new block. Click Update to publish it.");
+          message("“" + (Blog2VideoAdmin.projectName || "Video") + "” added as a new block. Click Update to publish it.");
           return;
         }
       }
@@ -1799,7 +1799,7 @@ window.B2VInitAdmin = function () {
     // Generation remains protected by the backend quota gate even if this
     // display-only preflight request is temporarily unavailable.
   });
-  if (Number(B2VAdmin.projectId)) {
+  if (Number(Blog2VideoAdmin.projectId)) {
     loadProjectLibrary(false);
   }
   render.addEventListener("click", function () {
@@ -1823,7 +1823,7 @@ window.B2VInitAdmin = function () {
   // until restoreProjectFromEmbeddedBlock() confirms the WordPress↔project link on
   // the backend; polling status against it too early 404s. Only auto-poll here for
   // a project id we already know is backend-confirmed (no unresolved embed).
-  if (status.textContent.trim() || (Number(B2VAdmin.projectId) && !B2VAdmin.hasEmbed)) pollGeneration();
+  if (status.textContent.trim() || (Number(Blog2VideoAdmin.projectId) && !Blog2VideoAdmin.hasEmbed)) pollGeneration();
   panel.dataset.b2vInitialized = "true";
   return true;
 };

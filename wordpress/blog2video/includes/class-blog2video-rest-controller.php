@@ -2,10 +2,10 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class B2V_REST_Controller {
+class Blog2Video_REST_Controller {
 	private $api;
 
-	public function __construct( B2V_API_Client $api ) {
+	public function __construct( Blog2Video_API_Client $api ) {
 		$this->api = $api;
 		add_action( 'rest_api_init', array( $this, 'routes' ) );
 		add_action( 'add_meta_boxes', array( $this, 'meta_box' ) );
@@ -13,46 +13,251 @@ class B2V_REST_Controller {
 	}
 
 	public function routes() {
-		$args = array( 'permission_callback' => array( $this, 'permission' ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/generate', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'generate' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'status' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/render', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'render' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/render-status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'render_status' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/embed', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'embed' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/embed', array_merge( $args, array( 'methods' => 'DELETE', 'callback' => array( $this, 'remove_embed' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/catalog', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'catalog' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/video-styles', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'video_styles' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/account', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'account' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/library', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'project_library' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/select', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'select_project' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/resolve-embed', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'resolve_embed' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/editor', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'editor_data' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/layouts', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'layouts' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/template', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'change_template' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/template-status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'template_change_status' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/voice', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'change_voice' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/voice-status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'voice_change_status' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'upload_logo' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array_merge( $args, array( 'methods' => 'DELETE', 'callback' => array( $this, 'delete_logo' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array_merge( $args, array( 'methods' => 'PATCH', 'callback' => array( $this, 'update_logo' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/settings', array_merge( $args, array( 'methods' => 'PATCH', 'callback' => array( $this, 'update_settings' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/music-tracks', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'music_tracks' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/(?P<scene_id>\d+)', array_merge( $args, array( 'methods' => 'PUT', 'callback' => array( $this, 'update_scene' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/(?P<scene_id>\d+)/image', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'update_scene_image' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/(?P<scene_id>\d+)', array_merge( $args, array( 'methods' => 'DELETE', 'callback' => array( $this, 'delete_scene' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/reorder', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'reorder_scenes' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/(?P<scene_id>\d+)/regenerate', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'regenerate_scene' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/add', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'add_scene' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/add-status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'add_scene_status' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/regenerate', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'regenerate_script' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/status', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'script_status' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/preview', array_merge( $args, array( 'methods' => 'GET', 'callback' => array( $this, 'script_preview' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/verify', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'verify_script' ) ) ) );
-		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/retry', array_merge( $args, array( 'methods' => 'POST', 'callback' => array( $this, 'retry_script' ) ) ) );
-	}
-
-	public function permission( WP_REST_Request $request ) {
-		return current_user_can( 'edit_post', absint( $request['id'] ) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/generate', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'generate' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/status', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'status' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/render', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'render' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/render-status', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'render_status' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/embed', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'embed' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/embed', array(
+			'methods' => 'DELETE',
+			'callback' => array( $this, 'remove_embed' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/catalog', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'catalog' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/video-styles', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'video_styles' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/account', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'account' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/library', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'project_library' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/select', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'select_project' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/projects/resolve-embed', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'resolve_embed' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/editor', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'editor_data' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/layouts', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'layouts' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/template', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'change_template' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/template-status', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'template_change_status' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/voice', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'change_voice' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/voice-status', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'voice_change_status' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'upload_logo' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array(
+			'methods' => 'DELETE',
+			'callback' => array( $this, 'delete_logo' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/logo', array(
+			'methods' => 'PATCH',
+			'callback' => array( $this, 'update_logo' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/settings', array(
+			'methods' => 'PATCH',
+			'callback' => array( $this, 'update_settings' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/music-tracks', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'music_tracks' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/(?P<scene_id>\d+)', array(
+			'methods' => 'PUT',
+			'callback' => array( $this, 'update_scene' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/(?P<scene_id>\d+)/image', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'update_scene_image' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/(?P<scene_id>\d+)', array(
+			'methods' => 'DELETE',
+			'callback' => array( $this, 'delete_scene' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/reorder', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'reorder_scenes' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/(?P<scene_id>\d+)/regenerate', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'regenerate_scene' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/add', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'add_scene' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/scenes/add-status', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'add_scene_status' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/regenerate', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'regenerate_script' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/status', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'script_status' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/preview', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'script_preview' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/verify', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'verify_script' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
+		register_rest_route( 'blog2video/v1', '/posts/(?P<id>\d+)/script/retry', array(
+			'methods' => 'POST',
+			'callback' => array( $this, 'retry_script' ),
+			'permission_callback' => function ( $request ) {
+				return current_user_can( 'edit_post', absint( $request['id'] ) );
+			},
+		) );
 	}
 
 	private function response( $value ) {
@@ -64,8 +269,8 @@ class B2V_REST_Controller {
 	}
 
 	private function project_id( $post_id ) {
-		$id = absint( get_post_meta( $post_id, '_b2v_project_id', true ) );
-		return $id ?: new WP_Error( 'b2v_no_project', __( 'Generate the video first.', 'blog2video' ), array( 'status' => 409 ) );
+		$id = absint( get_post_meta( $post_id, '_blog2video_project_id', true ) );
+		return $id ?: new WP_Error( 'blog2video_no_project', __( 'Generate the video first.', 'blog2video' ), array( 'status' => 409 ) );
 	}
 
 	private function find_video_block( $blocks ) {
@@ -125,14 +330,14 @@ class B2V_REST_Controller {
 		$attrs = $block && ! empty( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : array();
 		$embed_url = isset( $attrs['embedUrl'] ) ? esc_url_raw( (string) $attrs['embedUrl'], array( 'http', 'https' ) ) : '';
 		if ( $embed_url ) {
-			update_post_meta( $post_id, '_b2v_embed_url', $embed_url );
+			update_post_meta( $post_id, '_blog2video_embed_url', $embed_url );
 		}
 
 		$block_project_id = isset( $attrs['projectId'] ) ? absint( $attrs['projectId'] ) : 0;
 		if ( $block_project_id ) {
-			update_post_meta( $post_id, '_b2v_project_id', $block_project_id );
+			update_post_meta( $post_id, '_blog2video_project_id', $block_project_id );
 			if ( ! empty( $attrs['projectName'] ) ) {
-				update_post_meta( $post_id, '_b2v_project_name', sanitize_text_field( (string) $attrs['projectName'] ) );
+				update_post_meta( $post_id, '_blog2video_project_name', sanitize_text_field( (string) $attrs['projectName'] ) );
 			}
 		}
 	}
@@ -147,8 +352,8 @@ class B2V_REST_Controller {
 		$source_type = 'url' === $request->get_param( 'source_type' ) ? 'url' : 'post';
 		$source_url  = esc_url_raw( (string) $request->get_param( 'source_url' ), array( 'http', 'https' ) );
 		$snapshot = 'url' === $source_type
-			? B2V_Post_Extractor::url_snapshot( $post_id, $source_url )
-			: B2V_Post_Extractor::snapshot( $post_id );
+			? Blog2Video_Post_Extractor::url_snapshot( $post_id, $source_url )
+			: Blog2Video_Post_Extractor::snapshot( $post_id );
 		if ( is_wp_error( $snapshot ) ) {
 			return $this->response( $snapshot );
 		}
@@ -183,14 +388,14 @@ class B2V_REST_Controller {
 		$payload['idempotency_key'] = hash( 'sha256', home_url() . '|' . $post_id . '|' . $payload['content_hash'] . '|' . wp_json_encode( array_diff_key( $payload, $snapshot ) ) );
 		$result = $this->api->request( 'POST', 'projects', $payload, true, array( 'Idempotency-Key' => $payload['idempotency_key'] ) );
 		if ( ! is_wp_error( $result ) && ! empty( $result['project_id'] ) ) {
-			$previous_project_id = absint( get_post_meta( $post_id, '_b2v_project_id', true ) );
+			$previous_project_id = absint( get_post_meta( $post_id, '_blog2video_project_id', true ) );
 			if ( $previous_project_id && $previous_project_id !== absint( $result['project_id'] ) ) {
-				delete_post_meta( $post_id, '_b2v_embed_url' );
-				delete_post_meta( $post_id, '_b2v_video_url' );
+				delete_post_meta( $post_id, '_blog2video_embed_url' );
+				delete_post_meta( $post_id, '_blog2video_video_url' );
 			}
-			update_post_meta( $post_id, '_b2v_project_id', absint( $result['project_id'] ) );
-			update_post_meta( $post_id, '_b2v_project_name', sanitize_text_field( $payload['title'] ) );
-			update_post_meta( $post_id, '_b2v_content_hash', $payload['content_hash'] );
+			update_post_meta( $post_id, '_blog2video_project_id', absint( $result['project_id'] ) );
+			update_post_meta( $post_id, '_blog2video_project_name', sanitize_text_field( $payload['title'] ) );
+			update_post_meta( $post_id, '_blog2video_content_hash', $payload['content_hash'] );
 			$result['project_name'] = sanitize_text_field( $payload['title'] );
 		}
 		return $this->response( $result );
@@ -201,7 +406,7 @@ class B2V_REST_Controller {
 		$id      = $this->project_id( $post_id );
 		if ( is_wp_error( $id ) ) { return $this->response( $id ); }
 		$result = $this->api->request( 'GET', "projects/{$id}/status" );
-		if ( ! is_wp_error( $result ) ) { update_post_meta( $post_id, '_b2v_last_status', sanitize_key( $result['status'] ?? '' ) ); }
+		if ( ! is_wp_error( $result ) ) { update_post_meta( $post_id, '_blog2video_last_status', sanitize_key( $result['status'] ?? '' ) ); }
 		return $this->response( $result );
 	}
 
@@ -214,7 +419,7 @@ class B2V_REST_Controller {
 		$post_id = absint( $request['id'] );
 		$id      = $this->project_id( $post_id );
 		$result  = is_wp_error( $id ) ? $id : $this->api->request( 'GET', "projects/{$id}/render-status" );
-		if ( ! is_wp_error( $result ) && ! empty( $result['r2_video_url'] ) ) { update_post_meta( $post_id, '_b2v_video_url', esc_url_raw( $result['r2_video_url'] ) ); }
+		if ( ! is_wp_error( $result ) && ! empty( $result['r2_video_url'] ) ) { update_post_meta( $post_id, '_blog2video_video_url', esc_url_raw( $result['r2_video_url'] ) ); }
 		return $this->response( $result );
 	}
 
@@ -223,10 +428,10 @@ class B2V_REST_Controller {
 		$id      = $this->project_id( $post_id );
 		$result  = is_wp_error( $id ) ? $id : $this->api->request( 'POST', "projects/{$id}/embed" );
 		if ( ! is_wp_error( $result ) && ! empty( $result['preview_url'] ) ) {
-			update_post_meta( $post_id, '_b2v_embed_url', esc_url_raw( $result['preview_url'] ) );
-			update_post_meta( $post_id, '_b2v_project_id', absint( $id ) );
+			update_post_meta( $post_id, '_blog2video_embed_url', esc_url_raw( $result['preview_url'] ) );
+			update_post_meta( $post_id, '_blog2video_project_id', absint( $id ) );
 			if ( ! empty( $result['project_name'] ) ) {
-				update_post_meta( $post_id, '_b2v_project_name', sanitize_text_field( $result['project_name'] ) );
+				update_post_meta( $post_id, '_blog2video_project_name', sanitize_text_field( $result['project_name'] ) );
 			}
 		}
 		return $this->response( $result );
@@ -234,7 +439,7 @@ class B2V_REST_Controller {
 
 	public function remove_embed( WP_REST_Request $request ) {
 		$post_id = absint( $request['id'] );
-		delete_post_meta( $post_id, '_b2v_embed_url' );
+		delete_post_meta( $post_id, '_blog2video_embed_url' );
 		return $this->response( array( 'removed' => true ) );
 	}
 
@@ -261,14 +466,14 @@ class B2V_REST_Controller {
 		$post_id = absint( $request['id'] );
 		$project_id = absint( $request->get_param( 'project_id' ) );
 		if ( ! $project_id ) {
-			return $this->response( new WP_Error( 'b2v_project_required', __( 'Choose a project.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_project_required', __( 'Choose a project.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->api->request( 'POST', "library/projects/{$project_id}/link", array( 'external_post_id' => (string) $post_id ) );
 		if ( ! is_wp_error( $result ) ) {
-			update_post_meta( $post_id, '_b2v_project_id', $project_id );
-			update_post_meta( $post_id, '_b2v_project_name', sanitize_text_field( $result['name'] ?? '' ) );
-			delete_post_meta( $post_id, '_b2v_embed_url' );
-			delete_post_meta( $post_id, '_b2v_video_url' );
+			update_post_meta( $post_id, '_blog2video_project_id', $project_id );
+			update_post_meta( $post_id, '_blog2video_project_name', sanitize_text_field( $result['name'] ?? '' ) );
+			delete_post_meta( $post_id, '_blog2video_embed_url' );
+			delete_post_meta( $post_id, '_blog2video_video_url' );
 		}
 		return $this->response( $result );
 	}
@@ -277,13 +482,13 @@ class B2V_REST_Controller {
 		$post_id = absint( $request['id'] );
 		$embed_url = esc_url_raw( (string) $request->get_param( 'embed_url' ), array( 'http', 'https' ) );
 		if ( ! $embed_url ) {
-			return $this->response( new WP_Error( 'b2v_embed_url_required', __( 'The embedded video URL is missing.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_embed_url_required', __( 'The embedded video URL is missing.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->resolve_embed_project( $post_id, $embed_url );
 		if ( ! is_wp_error( $result ) && ! empty( $result['project_id'] ) ) {
-			update_post_meta( $post_id, '_b2v_project_id', absint( $result['project_id'] ) );
-			update_post_meta( $post_id, '_b2v_project_name', sanitize_text_field( isset( $result['name'] ) ? $result['name'] : '' ) );
-			update_post_meta( $post_id, '_b2v_embed_url', $embed_url );
+			update_post_meta( $post_id, '_blog2video_project_id', absint( $result['project_id'] ) );
+			update_post_meta( $post_id, '_blog2video_project_name', sanitize_text_field( isset( $result['name'] ) ? $result['name'] : '' ) );
+			update_post_meta( $post_id, '_blog2video_embed_url', $embed_url );
 		}
 		return $this->response( $result );
 	}
@@ -326,14 +531,14 @@ class B2V_REST_Controller {
 		$files = $request->get_file_params();
 		$file  = isset( $files['logo'] ) && is_array( $files['logo'] ) ? $files['logo'] : null;
 		if ( ! $file || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || empty( $file['tmp_name'] ) ) {
-			return $this->response( new WP_Error( 'b2v_logo_missing', __( 'Choose a logo image to upload.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_logo_missing', __( 'Choose a logo image to upload.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		$actual_size = is_readable( $file['tmp_name'] ) ? filesize( $file['tmp_name'] ) : false;
 		if ( false === $actual_size ) {
-			return $this->response( new WP_Error( 'b2v_logo_unreadable', __( 'The uploaded logo could not be read.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_logo_unreadable', __( 'The uploaded logo could not be read.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		if ( $actual_size > 2 * MB_IN_BYTES ) {
-			return $this->response( new WP_Error( 'b2v_logo_too_large', __( 'Logo file too large. Maximum size is 2 MB.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_logo_too_large', __( 'Logo file too large. Maximum size is 2 MB.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->api->upload( "projects/{$id}/logo", 'file', $file );
 		return $this->response( $result );
@@ -374,14 +579,14 @@ class B2V_REST_Controller {
 		$files = $request->get_file_params();
 		$file  = isset( $files['image'] ) && is_array( $files['image'] ) ? $files['image'] : null;
 		if ( ! $file || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || empty( $file['tmp_name'] ) ) {
-			return $this->response( new WP_Error( 'b2v_image_missing', __( 'Choose an image to upload.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_image_missing', __( 'Choose an image to upload.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		$actual_size = is_readable( $file['tmp_name'] ) ? filesize( $file['tmp_name'] ) : false;
 		if ( false === $actual_size ) {
-			return $this->response( new WP_Error( 'b2v_image_unreadable', __( 'The uploaded image could not be read.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_image_unreadable', __( 'The uploaded image could not be read.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		if ( $actual_size > 5 * MB_IN_BYTES ) {
-			return $this->response( new WP_Error( 'b2v_image_too_large', __( 'Image file too large. Maximum size is 5 MB.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_image_too_large', __( 'Image file too large. Maximum size is 5 MB.', 'blog2video' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->api->upload( "projects/{$id}/scenes/" . absint( $request['scene_id'] ) . '/image', 'image', $file );
 		return $this->response( $result );
@@ -444,7 +649,7 @@ class B2V_REST_Controller {
 
 	public function meta_box() {
 		foreach ( get_post_types( array( 'show_ui' => true ), 'names' ) as $type ) {
-			if ( post_type_supports( $type, 'editor' ) ) { add_meta_box( 'b2v-video', 'Blog2Video', array( $this, 'box' ), $type, 'side', 'high' ); }
+			if ( post_type_supports( $type, 'editor' ) ) { add_meta_box( 'blog2video-video', 'Blog2Video', array( $this, 'box' ), $type, 'side', 'high' ); }
 		}
 	}
 
@@ -458,18 +663,18 @@ class B2V_REST_Controller {
 		return;
 		?>
 		<div id="b2v-panel">
-		<div class="b2v-intro"><img class="b2v-logo" src="<?php echo esc_url( B2V_URL . 'assets/b2v-logo.png' ); ?>" alt="<?php esc_attr_e( 'Blog2Video', 'blog2video' ); ?>"><div><strong><?php esc_html_e( 'Create your video', 'blog2video' ); ?></strong><span><?php esc_html_e( 'Turn this post or any article into a ready-to-share video.', 'blog2video' ); ?></span></div></div>
-		<div class="b2v-project-context" id="b2v-project-context"><div class="b2v-project-context-copy"><span><?php esc_html_e( 'Active video project', 'blog2video' ); ?></span><strong id="b2v-active-project-name"><?php echo esc_html( get_post_meta( $post->ID, '_b2v_project_name', true ) ?: __( 'No project selected', 'blog2video' ) ); ?></strong><small id="b2v-active-project-id"><?php $active_project_id = absint( get_post_meta( $post->ID, '_b2v_project_id', true ) ); echo $active_project_id ? esc_html( 'Project #' . $active_project_id ) : esc_html__( 'Choose an existing video or create a new one below.', 'blog2video' ); ?></small></div><button type="button" class="b2v-project-switch" id="b2v-browse-projects"><?php esc_html_e( 'Browse videos', 'blog2video' ); ?><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6"></path></svg></button></div>
+		<div class="b2v-intro"><img class="b2v-logo" src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt="<?php esc_attr_e( 'Blog2Video', 'blog2video' ); ?>"><div><strong><?php esc_html_e( 'Create your video', 'blog2video' ); ?></strong><span><?php esc_html_e( 'Turn this post or any article into a ready-to-share video.', 'blog2video' ); ?></span></div></div>
+		<div class="b2v-project-context" id="b2v-project-context"><div class="b2v-project-context-copy"><span><?php esc_html_e( 'Active video project', 'blog2video' ); ?></span><strong id="b2v-active-project-name"><?php echo esc_html( get_post_meta( $post->ID, '_blog2video_project_name', true ) ?: __( 'No project selected', 'blog2video' ) ); ?></strong><small id="b2v-active-project-id"><?php $active_project_id = absint( get_post_meta( $post->ID, '_blog2video_project_id', true ) ); echo $active_project_id ? esc_html( 'Project #' . $active_project_id ) : esc_html__( 'Choose an existing video or create a new one below.', 'blog2video' ); ?></small></div><button type="button" class="b2v-project-switch" id="b2v-browse-projects"><?php esc_html_e( 'Browse videos', 'blog2video' ); ?><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6"></path></svg></button></div>
 
-		<?php $b2v_has_project = (bool) get_post_meta( $post->ID, '_b2v_project_id', true ); ?>
-		<div class="b2v-section" id="b2v-source-section" <?php echo $b2v_has_project ? 'hidden' : ''; ?>>
+		<?php $blog2video_has_project = (bool) get_post_meta( $post->ID, '_blog2video_project_id', true ); ?>
+		<div class="b2v-section" id="b2v-source-section" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>>
 			<label class="b2v-label" for="b2v-source-type"><?php esc_html_e( 'Content source', 'blog2video' ); ?></label>
 			<select data-b2v="source_type" id="b2v-source-type"><option value="post"><?php esc_html_e( 'Current post content', 'blog2video' ); ?></option><option value="url"><?php esc_html_e( 'Web page URL', 'blog2video' ); ?></option></select>
 			<div id="b2v-source-url-wrap" hidden><label class="b2v-label" for="b2v-source-url"><?php esc_html_e( 'Article URL', 'blog2video' ); ?></label><input type="url" data-b2v="source_url" id="b2v-source-url" placeholder="https://example.com/article"><span class="b2v-help"><?php esc_html_e( 'The video will be attached to this WordPress post.', 'blog2video' ); ?></span></div>
 			<span class="b2v-help" id="b2v-post-source-help"><?php esc_html_e( 'Save the post first so its latest text is used.', 'blog2video' ); ?></span>
 		</div>
 
-		<div class="b2v-section b2v-settings-grid" id="b2v-settings-grid" <?php echo $b2v_has_project ? 'hidden' : ''; ?>>
+		<div class="b2v-section b2v-settings-grid" id="b2v-settings-grid" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>>
 			<div class="b2v-field b2v-field-wide"><span class="b2v-label"><?php esc_html_e( 'Template', 'blog2video' ); ?></span><select data-b2v="template" id="b2v-template" class="b2v-data-field" tabindex="-1" aria-hidden="true"><option value="default">Geometric Explainer</option><option value="newspaper">Newspaper</option><option value="magazine">Magazine</option><option value="nightfall">Nightfall</option><option value="whiteboard">Stick Man</option><option value="matrix">Matrix</option><option value="spotlight">Spotlight</option><option value="newscast">Newscast</option></select><button type="button" class="b2v-choice-button" id="b2v-browse-templates"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 4v16M8 10h13"></path></svg><span class="b2v-choice-copy"><small><?php esc_html_e( 'Selected template', 'blog2video' ); ?></small><strong id="b2v-selected-template"><?php esc_html_e( 'Geometric Explainer', 'blog2video' ); ?></strong></span><svg class="b2v-choice-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg></button></div>
 			<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Style', 'blog2video' ); ?></span><select data-b2v="video_style"><option value="auto">Auto</option><option value="explainer">Explainer</option><option value="promotional">Promotional</option><option value="storytelling">Storytelling</option></select></label>
 			<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Length', 'blog2video' ); ?></span><select data-b2v="video_length"><option value="auto">Auto</option><option value="short">Short</option><option value="medium">Medium</option><option value="detailed">Detailed</option></select></label>
@@ -478,27 +683,27 @@ class B2V_REST_Controller {
 			<div class="b2v-toggles b2v-field-wide"><label><input type="checkbox" data-b2v="captions_enabled"><span><?php esc_html_e( 'Captions', 'blog2video' ); ?></span></label><label><input type="checkbox" data-b2v="stock_footage_enabled"><span><?php esc_html_e( 'Stock footage', 'blog2video' ); ?></span></label></div>
 		</div>
 
-		<div class="b2v-generate-warning" id="b2v-generate-warning" <?php echo $b2v_has_project ? 'hidden' : ''; ?>><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg><span><?php esc_html_e( 'This video will only be created once. To make a different video from this post later, create a new post — this generation cannot be redone or changed afterward.', 'blog2video' ); ?></span></div>
+		<div class="b2v-generate-warning" id="b2v-generate-warning" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg><span><?php esc_html_e( 'This video will only be created once. To make a different video from this post later, create a new post — this generation cannot be redone or changed afterward.', 'blog2video' ); ?></span></div>
 
-		<div class="b2v-actions" id="b2v-generate-actions" <?php echo $b2v_has_project ? 'hidden' : ''; ?>><button type="button" class="button button-primary" id="b2v-generate"><span id="b2v-generate-label"><?php esc_html_e( 'Generate video', 'blog2video' ); ?></span></button></div>
+		<div class="b2v-actions" id="b2v-generate-actions" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>><button type="button" class="button button-primary" id="b2v-generate"><span id="b2v-generate-label"><?php esc_html_e( 'Generate video', 'blog2video' ); ?></span></button></div>
 		<div class="b2v-actions" id="b2v-render-actions">
 			<button type="button" class="button button-primary" id="b2v-render" hidden><span><?php esc_html_e( 'Render video', 'blog2video' ); ?></span></button>
 			<button type="button" class="button button-primary" id="b2v-embed" disabled><?php esc_html_e( 'Add video to post', 'blog2video' ); ?></button>
 		</div>
 
-		<div id="b2v-status-card" class="b2v-status-card" aria-live="polite" <?php echo get_post_meta( $post->ID, '_b2v_last_status', true ) ? '' : 'hidden'; ?>><span class="b2v-status-icon" aria-hidden="true"></span><div><strong id="b2v-status"><?php echo esc_html( get_post_meta( $post->ID, '_b2v_last_status', true ) ); ?></strong><div class="b2v-progress" id="b2v-progress" hidden><span></span></div><div id="b2v-upgrade-slot" class="b2v-upgrade-slot" hidden><a href="<?php echo esc_url( $this->api->app_url() . '/signin?redirect=%2Fsubscription' ); ?>" target="_blank" rel="noopener" class="button button-primary" id="b2v-upgrade-link"><?php esc_html_e( 'Upgrade plan', 'blog2video' ); ?></a></div></div></div>
+		<div id="b2v-status-card" class="b2v-status-card" aria-live="polite" <?php echo get_post_meta( $post->ID, '_blog2video_last_status', true ) ? '' : 'hidden'; ?>><span class="b2v-status-icon" aria-hidden="true"></span><div><strong id="b2v-status"><?php echo esc_html( get_post_meta( $post->ID, '_blog2video_last_status', true ) ); ?></strong><div class="b2v-progress" id="b2v-progress" hidden><span></span></div><div id="b2v-upgrade-slot" class="b2v-upgrade-slot" hidden><a href="<?php echo esc_url( $this->api->app_url() . '/signin?redirect=%2Fsubscription' ); ?>" target="_blank" rel="noopener" class="button button-primary" id="b2v-upgrade-link"><?php esc_html_e( 'Upgrade plan', 'blog2video' ); ?></a></div></div></div>
 
-		<button type="button" class="button b2v-download-button" id="b2v-download-video" data-video-url="<?php echo esc_url( get_post_meta( $post->ID, '_b2v_video_url', true ) ); ?>" <?php echo get_post_meta( $post->ID, '_b2v_video_url', true ) ? '' : 'hidden'; ?>><?php esc_html_e( 'Download video', 'blog2video' ); ?></button>
+		<button type="button" class="button b2v-download-button" id="b2v-download-video" data-video-url="<?php echo esc_url( get_post_meta( $post->ID, '_blog2video_video_url', true ) ); ?>" <?php echo get_post_meta( $post->ID, '_blog2video_video_url', true ) ? '' : 'hidden'; ?>><?php esc_html_e( 'Download video', 'blog2video' ); ?></button>
 
-		<div class="b2v-refine-card" id="b2v-refine-card" <?php echo get_post_meta( $post->ID, '_b2v_project_id', true ) ? '' : 'hidden'; ?>><div><strong><?php esc_html_e( 'Scene-by-scene editing', 'blog2video' ); ?></strong><p><?php esc_html_e( 'Edit each scene’s text, narration, visual direction, layout and timing. Add, delete, reorder or regenerate individual scenes without leaving WordPress.', 'blog2video' ); ?></p></div><button type="button" class="button b2v-editor-link" id="b2v-editor"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg><span><?php esc_html_e( 'Open scene editor', 'blog2video' ); ?></span></button></div>
+		<div class="b2v-refine-card" id="b2v-refine-card" <?php echo get_post_meta( $post->ID, '_blog2video_project_id', true ) ? '' : 'hidden'; ?>><div><strong><?php esc_html_e( 'Scene-by-scene editing', 'blog2video' ); ?></strong><p><?php esc_html_e( 'Edit each scene’s text, narration, visual direction, layout and timing. Add, delete, reorder or regenerate individual scenes without leaving WordPress.', 'blog2video' ); ?></p></div><button type="button" class="button b2v-editor-link" id="b2v-editor"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg><span><?php esc_html_e( 'Open scene editor', 'blog2video' ); ?></span></button></div>
 
-		<div class="b2v-refine-card" id="b2v-project-settings-card" <?php echo get_post_meta( $post->ID, '_b2v_project_id', true ) ? '' : 'hidden'; ?>><div><strong><?php esc_html_e( 'Project settings', 'blog2video' ); ?></strong><p><?php esc_html_e( 'Logo, colors, font, captions and background music for this video.', 'blog2video' ); ?></p></div><button type="button" class="button b2v-editor-link" id="b2v-open-project-settings"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg><span><?php esc_html_e( 'Edit project', 'blog2video' ); ?></span></button></div>
+		<div class="b2v-refine-card" id="b2v-project-settings-card" <?php echo get_post_meta( $post->ID, '_blog2video_project_id', true ) ? '' : 'hidden'; ?>><div><strong><?php esc_html_e( 'Project settings', 'blog2video' ); ?></strong><p><?php esc_html_e( 'Logo, colors, font, captions and background music for this video.', 'blog2video' ); ?></p></div><button type="button" class="button b2v-editor-link" id="b2v-open-project-settings"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg><span><?php esc_html_e( 'Edit project', 'blog2video' ); ?></span></button></div>
 
 		<div class="b2v-editor-modal" id="b2v-project-settings-modal" role="dialog" aria-modal="true" aria-labelledby="b2v-project-settings-title" hidden>
 			<div class="b2v-editor-backdrop" data-b2v-close-project-settings></div>
 			<div class="b2v-editor-dialog b2v-project-settings-dialog">
 				<div class="b2v-editor-header">
-					<div class="b2v-editor-brand"><img src="<?php echo esc_url( B2V_URL . 'assets/b2v-logo.png' ); ?>" alt=""><div><strong id="b2v-project-settings-title"><?php esc_html_e( 'Project settings', 'blog2video' ); ?></strong><span><?php esc_html_e( 'Logo, colors, font, captions and music', 'blog2video' ); ?></span></div></div>
+					<div class="b2v-editor-brand"><img src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt=""><div><strong id="b2v-project-settings-title"><?php esc_html_e( 'Project settings', 'blog2video' ); ?></strong><span><?php esc_html_e( 'Logo, colors, font, captions and music', 'blog2video' ); ?></span></div></div>
 					<div class="b2v-editor-header-actions"><button type="button" class="b2v-icon-close" data-b2v-close-project-settings aria-label="<?php esc_attr_e( 'Close', 'blog2video' ); ?>">×</button></div>
 				</div>
 				<div class="b2v-project-settings-body">
@@ -616,7 +821,7 @@ class B2V_REST_Controller {
 			<div class="b2v-editor-backdrop" data-b2v-close-editor></div>
 			<div class="b2v-editor-dialog">
 				<div class="b2v-editor-header">
-					<div class="b2v-editor-brand"><img src="<?php echo esc_url( B2V_URL . 'assets/b2v-logo.png' ); ?>" alt=""><div><strong id="b2v-editor-title"><?php esc_html_e( 'Scene-by-scene video editor', 'blog2video' ); ?></strong><span id="b2v-editor-project-label"><?php $editor_name = (string) get_post_meta( $post->ID, '_b2v_project_name', true ); $editor_id = absint( get_post_meta( $post->ID, '_b2v_project_id', true ) ); echo esc_html( $editor_name && $editor_id ? $editor_name . ' · Project #' . $editor_id : __( 'Edit this video directly in WordPress', 'blog2video' ) ); ?></span></div></div>
+					<div class="b2v-editor-brand"><img src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt=""><div><strong id="b2v-editor-title"><?php esc_html_e( 'Scene-by-scene video editor', 'blog2video' ); ?></strong><span id="b2v-editor-project-label"><?php $editor_name = (string) get_post_meta( $post->ID, '_blog2video_project_name', true ); $editor_id = absint( get_post_meta( $post->ID, '_blog2video_project_id', true ) ); echo esc_html( $editor_name && $editor_id ? $editor_name . ' · Project #' . $editor_id : __( 'Edit this video directly in WordPress', 'blog2video' ) ); ?></span></div></div>
 					<div class="b2v-editor-header-actions"><button type="button" class="b2v-editor-done" data-b2v-close-editor><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8"></path></svg><span><?php esc_html_e( 'Done', 'blog2video' ); ?></span></button><button type="button" class="b2v-icon-close b2v-editor-close" data-b2v-close-editor aria-label="<?php esc_attr_e( 'Close editor', 'blog2video' ); ?>">×</button></div>
 				</div>
 				<div class="b2v-native-editor">
@@ -647,35 +852,35 @@ class B2V_REST_Controller {
 		$screen = get_current_screen();
 		if ( ! $screen || ! $screen->post_type ) { return; }
 		$asset_version = static function ( $file ) {
-			$modified = filemtime( B2V_DIR . 'assets/' . $file );
-			return $modified ? (string) $modified : B2V_VERSION;
+			$modified = filemtime( BLOG2VIDEO_DIR . 'assets/' . $file );
+			return $modified ? (string) $modified : BLOG2VIDEO_VERSION;
 		};
-		wp_enqueue_style( 'b2v-admin', B2V_URL . 'assets/admin.css', array(), $asset_version( 'admin.css' ) );
-		wp_enqueue_style( 'b2v-react-ui', B2V_URL . 'assets/react-ui.css', array( 'b2v-admin' ), $asset_version( 'react-ui.css' ) );
-		wp_enqueue_script( 'b2v-admin', B2V_URL . 'assets/admin.js', array( 'wp-api-fetch', 'wp-data', 'wp-blocks' ), $asset_version( 'admin.js' ), true );
-		wp_enqueue_script( 'b2v-react-admin', B2V_URL . 'assets/react-admin.js', array( 'b2v-admin', 'wp-element' ), $asset_version( 'react-admin.js' ), true );
+		wp_enqueue_style( 'blog2video-admin', BLOG2VIDEO_URL . 'assets/admin.css', array(), $asset_version( 'admin.css' ) );
+		wp_enqueue_style( 'blog2video-react-ui', BLOG2VIDEO_URL . 'assets/react-ui.css', array( 'blog2video-admin' ), $asset_version( 'react-ui.css' ) );
+		wp_enqueue_script( 'blog2video-admin', BLOG2VIDEO_URL . 'assets/admin.js', array( 'wp-api-fetch', 'wp-data', 'wp-blocks' ), $asset_version( 'admin.js' ), true );
+		wp_enqueue_script( 'blog2video-react-admin', BLOG2VIDEO_URL . 'assets/react-admin.js', array( 'blog2video-admin', 'wp-element' ), $asset_version( 'react-admin.js' ), true );
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: identifies which post is loaded in this admin screen, same as WordPress core's own use of $_GET['post']; no state is changed.
 		$post_id = isset( $_GET['post'] ) ? absint( wp_unslash( $_GET['post'] ) ) : absint( get_the_ID() );
-		$project_id = absint( get_post_meta( $post_id, '_b2v_project_id', true ) );
+		$project_id = absint( get_post_meta( $post_id, '_blog2video_project_id', true ) );
 		if ( ! $project_id && $post_id ) {
 			// Network-free: read whatever the embedded block already carries so the
 			// page never blocks on a backend call. The authoritative resolution by
 			// embed URL happens asynchronously, in the browser, via resolve_embed().
 			$this->restore_embedded_project_from_block( $post_id );
-			$project_id = absint( get_post_meta( $post_id, '_b2v_project_id', true ) );
+			$project_id = absint( get_post_meta( $post_id, '_blog2video_project_id', true ) );
 		}
-		wp_localize_script( 'b2v-admin', 'B2VAdmin', array(
+		wp_localize_script( 'blog2video-admin', 'Blog2VideoAdmin', array(
 			'postId'      => $post_id,
 			'projectId'   => $project_id,
-			'projectName' => $project_id ? (string) get_post_meta( $post_id, '_b2v_project_name', true ) : '',
+			'projectName' => $project_id ? (string) get_post_meta( $post_id, '_blog2video_project_name', true ) : '',
 			'root'        => '/blog2video/v1/posts/',
 			'mediaBase'   => $this->api->base_url(),
 			'appUrl'      => $this->api->app_url(),
-			'hasEmbed'    => (bool) get_post_meta( $post_id, '_b2v_embed_url', true ),
+			'hasEmbed'    => (bool) get_post_meta( $post_id, '_blog2video_embed_url', true ),
 			'hasProject'  => $project_id > 0,
-			'lastStatus'  => (string) get_post_meta( $post_id, '_b2v_last_status', true ),
-			'videoUrl'    => (string) get_post_meta( $post_id, '_b2v_video_url', true ),
-			'logoUrl'     => B2V_URL . 'assets/b2v-logo.png',
+			'lastStatus'  => (string) get_post_meta( $post_id, '_blog2video_last_status', true ),
+			'videoUrl'    => (string) get_post_meta( $post_id, '_blog2video_video_url', true ),
+			'logoUrl'     => BLOG2VIDEO_URL . 'assets/b2v-logo.png',
 		) );
 	}
 }

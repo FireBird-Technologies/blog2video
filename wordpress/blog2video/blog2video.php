@@ -3,7 +3,7 @@
  * Plugin Name: Blog2Video
  * Plugin URI: https://blog2video.app/wordpress-plugin
  * Description: Turn WordPress posts into narrated videos and embed them back into the post.
- * Version: 0.14.13
+ * Version: 0.14.14
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: Blog2Video
@@ -14,30 +14,50 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'B2V_VERSION', '0.14.13' );
-define( 'B2V_FILE', __FILE__ );
-define( 'B2V_DIR', plugin_dir_path( __FILE__ ) );
-define( 'B2V_URL', plugin_dir_url( __FILE__ ) );
+define( 'BLOG2VIDEO_VERSION', '0.14.14' );
+define( 'BLOG2VIDEO_FILE', __FILE__ );
+define( 'BLOG2VIDEO_DIR', plugin_dir_path( __FILE__ ) );
+define( 'BLOG2VIDEO_URL', plugin_dir_url( __FILE__ ) );
 
-require_once B2V_DIR . 'includes/class-b2v-api-client.php';
-require_once B2V_DIR . 'includes/class-b2v-post-extractor.php';
-require_once B2V_DIR . 'includes/class-b2v-settings.php';
-require_once B2V_DIR . 'includes/class-b2v-rest-controller.php';
-require_once B2V_DIR . 'includes/class-b2v-block.php';
+require_once BLOG2VIDEO_DIR . 'includes/class-blog2video-api-client.php';
+require_once BLOG2VIDEO_DIR . 'includes/class-blog2video-post-extractor.php';
+require_once BLOG2VIDEO_DIR . 'includes/class-blog2video-settings.php';
+require_once BLOG2VIDEO_DIR . 'includes/class-blog2video-rest-controller.php';
+require_once BLOG2VIDEO_DIR . 'includes/class-blog2video-block.php';
+
+/** Move data saved under the old short "b2v" prefix to the blog2video_ prefix (runs once). */
+function blog2video_migrate_legacy_data() {
+	if ( get_option( 'blog2video_data_migrated' ) ) {
+		return;
+	}
+	global $wpdb;
+	foreach ( array( 'connection', 'pending_connection', 'auto_embed' ) as $name ) {
+		$old = get_option( 'b2v_' . $name, null );
+		if ( null !== $old && false === get_option( 'blog2video_' . $name, false ) ) {
+			update_option( 'blog2video_' . $name, $old, false );
+		}
+		delete_option( 'b2v_' . $name );
+	}
+	foreach ( array( 'project_id', 'project_name', 'content_hash', 'editor_url', 'last_status', 'video_url', 'embed_url' ) as $key ) {
+		$wpdb->update( $wpdb->postmeta, array( 'meta_key' => '_blog2video_' . $key ), array( 'meta_key' => '_b2v_' . $key ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	}
+	update_option( 'blog2video_data_migrated', '1', false );
+}
 
 /** Boot after WordPress has loaded pluggable APIs. */
-function b2v_boot_plugin() {
-	$api = new B2V_API_Client();
-	new B2V_Settings( $api );
-	new B2V_REST_Controller( $api );
-	new B2V_Block();
+function blog2video_boot_plugin() {
+	blog2video_migrate_legacy_data();
+	$api = new Blog2Video_API_Client();
+	new Blog2Video_Settings( $api );
+	new Blog2Video_REST_Controller( $api );
+	new Blog2Video_Block();
 }
-add_action( 'plugins_loaded', 'b2v_boot_plugin' );
+add_action( 'plugins_loaded', 'blog2video_boot_plugin' );
 
 register_activation_hook(
 	__FILE__,
 	static function () {
-		add_option( 'b2v_auto_embed', '1' );
+		add_option( 'blog2video_auto_embed', '1' );
 	}
 );
 

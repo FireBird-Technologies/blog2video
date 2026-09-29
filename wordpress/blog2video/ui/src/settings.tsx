@@ -9,7 +9,7 @@ declare const wp: {
 
 declare global {
   interface Window {
-    B2VSettings: {
+    Blog2VideoSettings: {
       connected: boolean;
       pending: boolean;
       approvalUrl: string;
@@ -21,11 +21,11 @@ declare global {
       notice: string;
       logoUrl: string;
     };
-    B2VInitSettings?: () => void;
+    Blog2VideoInitSettings?: () => void;
   }
 }
 
-const config = window.B2VSettings;
+const config = window.Blog2VideoSettings;
 
 function HiddenFormFields({ action, nonce }: { action: string; nonce: string }) {
   return <><input type="hidden" name="action" value={action} /><input type="hidden" name="_wpnonce" value={nonce} /></>;
@@ -69,7 +69,7 @@ function SettingsApp() {
 
         <div className="b2v-settings-panel-body px-6 py-7 sm:px-10">
           {config.connected ? (
-            <div className="b2v-connected-actions"><a href={config.createPostUrl} className={`${connectionPrimary} b2v-connection-action`}>Create a post</a><form className="b2v-disconnect-form" method="post" action={config.adminPostUrl}><HiddenFormFields action="b2v_disconnect" nonce={config.disconnectNonce} /><button type="submit" className="b2v-danger b2v-slim b2v-connection-primary b2v-connection-action" aria-label="Disconnect Blog2Video account">Disconnect account</button></form></div>
+            <div className="b2v-connected-actions"><a href={config.createPostUrl} className={`${connectionPrimary} b2v-connection-action`}>Create a post</a><form className="b2v-disconnect-form" method="post" action={config.adminPostUrl}><HiddenFormFields action="blog2video_disconnect" nonce={config.disconnectNonce} /><button type="submit" className="b2v-danger b2v-slim b2v-connection-primary b2v-connection-action" aria-label="Disconnect Blog2Video account">Disconnect account</button></form></div>
           ) : config.pending ? (
             <div><div className="b2v-connection-action-wrap"><a href={config.approvalUrl} target="_blank" rel="noopener noreferrer" className={`${connectionPrimary} b2v-connection-action`} aria-busy={openingApproval} aria-disabled={openingApproval} onClick={openApproval}>{openingApproval ? <><i className="b2v-button-spinner" aria-hidden="true" />Opening approval…</> : <>Approve <span aria-hidden="true">↗</span></>}</a></div><p id="b2v-approval-status" className="b2v-approval-status mt-4"><i className="b2v-approval-spinner" aria-hidden="true" /><span>Waiting for approval…</span></p></div>
           ) : (
@@ -84,7 +84,7 @@ function SettingsApp() {
 const root = document.getElementById("b2v-settings-react-root");
 if (root) {
   wp.element.createRoot(root).render(<SettingsApp />);
-  window.setTimeout(() => window.B2VInitSettings?.(), 0);
+  window.setTimeout(() => window.Blog2VideoInitSettings?.(), 0);
 }
 
 export {};
