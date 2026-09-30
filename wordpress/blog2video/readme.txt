@@ -1,5 +1,5 @@
 === Blog2Video ===
-Contributors: humera12
+Contributors: arslans1997, humera12
 Tags: video, ai, blog, embed, gutenberg
 Requires at least: 6.2
 Tested up to: 7.1
@@ -76,7 +76,7 @@ See https://blog2video.app/privacy/ and https://blog2video.app/terms.
 
 = 0.14.14 =
 
-* Security and compatibility: all global functions, classes, constants, options, post meta keys, hooks, script and style handles, and JavaScript objects now use the unique `blog2video_` / `Blog2Video_` prefix. Existing connections and project links are migrated automatically.
+* Security and compatibility: all global functions, classes, constants, options, post meta keys, hooks, script and style handles, and JavaScript objects now use the unique `blog2video_` / `Blog2Video_` prefix.
 * Security: every REST route now declares its own permission check that requires the user to be able to edit the post.
 * Added the Blog2Video WordPress settings and post-editor interfaces.
 * Added project selection, scene editing, project settings, rendering, downloading, and single-video embedding.
