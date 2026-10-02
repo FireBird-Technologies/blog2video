@@ -85,7 +85,8 @@ export default defineConfig({
       // Override with DEV_API_TARGET to point the dev server at a different
       // backend — e.g. a throwaway SQLite instance, so local UI work never
       // writes to the shared database this defaults to.
-      "/api": {
+      // Regex, not the "/api" prefix: that would also swallow the /api-docs page.
+      "^/api/": {
         target: process.env.DEV_API_TARGET || "http://localhost:8000",
         changeOrigin: true,
       },

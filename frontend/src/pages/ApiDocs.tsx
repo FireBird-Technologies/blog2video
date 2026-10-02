@@ -1,15 +1,12 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
-import {
-  BACKEND_URL,
-  getApiDocs,
-  type ApiDocBlock,
-  type ApiDocEndpoint,
-  type ApiDocs as ApiDocsData,
-} from "../api/client";
+import { BACKEND_URL } from "../api/client";
+import { apiDocs as docs, type ApiDocBlock, type ApiDocEndpoint } from "../content/apiDocs";
 import { useAuth } from "../hooks/useAuth";
-import { isPaidPlan } from "../lib/plan";
+import PublicHeader from "../components/public/PublicHeader";
+import PublicFooter from "../components/public/PublicFooter";
+import Seo from "../components/seo/Seo";
+import { apiDocsSchema } from "../seo/schema";
 
 const METHOD_STYLES: Record<string, string> = {
   GET: "bg-sky-50 text-sky-700 ring-sky-200",
@@ -27,9 +24,9 @@ function anchorFor(e: ApiDocEndpoint): string {
   return `${e.method}-${e.path}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-/** Renders `code` spans inside prose written in the docs catalog. */
+/** Renders `code` spans and ==highlighted== text inside prose written in the docs catalog. */
 function Rich({ text }: { text: string }) {
-  const parts = text.split(/(`[^`]+`)/g);
+  const parts = text.split(/(`[^`]+`|==[^=]+==)/g);
   return (
     <>
       {parts.map((part, i) =>
@@ -37,6 +34,10 @@ function Rich({ text }: { text: string }) {
           <code key={i} className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[0.85em] text-gray-800">
             {part.slice(1, -1)}
           </code>
+        ) : part.startsWith("==") && part.endsWith("==") ? (
+          <span key={i} className="font-medium text-purple-700">
+            {part.slice(2, -2)}
+          </span>
         ) : (
           <Fragment key={i}>{part}</Fragment>
         ),
@@ -47,24 +48,6 @@ function Rich({ text }: { text: string }) {
 
 function asText(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2);
-}
-
-function curlFor(e: ApiDocEndpoint): string {
-  if (typeof e.request_example === "string" && e.request_example.startsWith("curl")) {
-    return e.request_example.replace(/\$B2V/g, baseUrl()).replace(/\$KEY/g, "$B2V_API_KEY");
-  }
-  const path = e.path.replace(/\{([a-z_]+)\}/g, (_m, name: string) => name.toUpperCase());
-  const lines = [`curl -X ${e.method} "${baseUrl()}${path}"`, `  -H "Authorization: Bearer $B2V_API_KEY"`];
-  if (e.body?.content_type === "application/json" && e.request_example && typeof e.request_example === "object") {
-    lines.push(`  -H "Content-Type: application/json"`);
-    lines.push(`  -d '${JSON.stringify(e.request_example)}'`);
-  } else if (e.body && e.body.content_type !== "application/json") {
-    for (const f of e.body.fields.filter((x) => x.required)) {
-      const isFile = f.type.startsWith("file");
-      lines.push(`  -F ${f.name}=${isFile ? "@path/to/file" : "VALUE"}`);
-    }
-  }
-  return lines.join(" \\\n");
 }
 
 function useCopy(): [string | null, (id: string, text: string) => void] {
@@ -168,13 +151,6 @@ function EndpointCard({
           {e.method}
         </span>
         <code className="break-all font-mono text-sm text-gray-900">{e.path}</code>
-        <button
-          type="button"
-          onClick={() => onCopy(`curl-${id}`, curlFor(e))}
-          className="ml-auto rounded-md border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600 hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"
-        >
-          {copied === `curl-${id}` ? "Copied" : "Copy as cURL"}
-        </button>
       </div>
       <h3 className="mt-3 text-base font-semibold text-gray-900">{e.summary}</h3>
       {e.description && (
@@ -294,29 +270,13 @@ function GuideBlock({ block, copied, onCopy, id }: { block: ApiDocBlock; copied:
   );
 }
 
-/** The endpoint reference (guides, sidebar, search, endpoint cards). Paid plans only. */
-export function ApiReference({ onLoaded }: { onLoaded?: () => void }) {
-  const [docs, setDocs] = useState<ApiDocsData | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "upgrade" | "error">("loading");
+/** The endpoint reference (guides, sidebar, search, endpoint cards), from content/apiDocs.ts. */
+function ApiReference() {
   const [query, setQuery] = useState("");
   const [copied, copy] = useCopy();
 
-  useEffect(() => {
-    getApiDocs()
-      .then((res) => {
-        setDocs(res.data);
-        setState("ready");
-        onLoaded?.();
-      })
-      .catch((err) => {
-        setState(axios.isAxiosError(err) && err.response?.status === 403 ? "upgrade" : "error");
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once; onLoaded may be a fresh closure each render
-  }, []);
-
   const q = query.trim().toLowerCase();
   const sections = useMemo(() => {
-    if (!docs) return [];
     if (!q) return docs.sections;
     return docs.sections
       .map((s) => ({
@@ -326,28 +286,8 @@ export function ApiReference({ onLoaded }: { onLoaded?: () => void }) {
         ),
       }))
       .filter((s) => s.endpoints.length > 0);
-  }, [docs, q]);
+  }, [q]);
   const total = sections.reduce((n, s) => n + s.endpoints.length, 0);
-
-  if (state === "loading") {
-    return (
-      <div className="space-y-4">
-        <div className="h-40 animate-pulse rounded-xl bg-gray-100" />
-        <div className="h-40 animate-pulse rounded-xl bg-gray-100" />
-      </div>
-    );
-  }
-
-  // Free plans: the API keys page already shows the upgrade prompt.
-  if (state === "upgrade") return null;
-
-  if (state === "error" || !docs) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        Couldn't load the API reference. Please refresh the page.
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -419,11 +359,6 @@ export function ApiReference({ onLoaded }: { onLoaded?: () => void }) {
                 </div>
               </section>
             ))}
-          {!q && (
-            <p className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">
-              <Rich text={docs.public_note} />
-            </p>
-          )}
 
           <div className="sticky top-16 z-10 -mx-1 bg-white/90 px-1 py-2 backdrop-blur">
             <input
@@ -460,59 +395,44 @@ export function ApiReference({ onLoaded }: { onLoaded?: () => void }) {
   );
 }
 
-/** API Documentation page (/account/api-docs), linked from the API keys page. */
+const SEO_DESCRIPTION =
+  "Blog2Video API reference: create, edit and render narrated videos from your own app with an API key.";
+
+/** Public API Documentation page (/api-docs), linked from the landing navbar and the app navbar. */
 export default function ApiDocs() {
   const { user } = useAuth();
 
-  if (user && !isPaidPlan(user.plan)) {
-    return (
-      <div className="glass-card mx-auto max-w-2xl p-8 text-center">
-        <h1 className="text-xl font-semibold text-gray-900">API access requires a paid plan</h1>
-        <p className="text-sm text-gray-400 mt-2">
-          Upgrade to access the API documentation and create API keys.
-        </p>
-        <Link
-          to="/subscription"
-          className="mt-5 inline-flex px-5 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-        >
-          View Plans
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-6xl mx-auto pb-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Link
-            to="/account/api-keys"
-            className="text-xs text-gray-400 hover:text-gray-900 transition-colors mb-4 flex w-fit items-center gap-1"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to API Keys
-          </Link>
-          <h1 className="text-2xl font-semibold text-gray-900">API Documentation</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Reference for all endpoints available to API keys. Paths are relative to{" "}
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-700">{baseUrl()}</code>.
-          </p>
+    <div className="min-h-screen bg-white">
+      <Seo title="API Documentation" description={SEO_DESCRIPTION} path="/api-docs" schema={apiDocsSchema()} />
+      <PublicHeader />
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto pb-12">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">API Documentation</h1>
+              <p className="text-sm text-gray-400 mt-1">
+                Reference for all endpoints available to API keys. Paths are relative to{" "}
+                <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-700">{baseUrl()}</code>.
+                The API is included with every paid plan.
+              </p>
+            </div>
+            <Link
+              to={user ? "/account/api-keys" : "/signup"}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              {user ? "Manage API Keys" : "Get an API key"}
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+          </div>
+          <div className="mt-8">
+            <ApiReference />
+          </div>
         </div>
-        <Link
-          to="/account/api-keys"
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-        >
-          Manage API Keys
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </Link>
       </div>
-      <div className="mt-8">
-        <ApiReference />
-      </div>
+      <PublicFooter />
     </div>
   );
 }

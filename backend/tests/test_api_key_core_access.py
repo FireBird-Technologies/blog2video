@@ -174,11 +174,11 @@ def test_api_key_can_manage_video_styles(client, paid_user, auth):
     assert client.delete(f"/api/video-styles/custom/{style_id}", headers=headers).status_code == 200
 
 
-def test_api_key_reaches_ai_editing(client, db_session, paid_user, auth):
-    headers = _api_key(client, paid_user, auth)
+def test_ai_editing_chat_is_app_only(client, db_session, paid_user, auth):
     project, _ = _project(db_session, paid_user)
-    history = client.get(f"/api/projects/{project.id}/chat/history", headers=headers)
-    assert history.status_code == 200, history.text
+    history = f"/api/projects/{project.id}/chat/history"
+    assert client.get(history, headers=_api_key(client, paid_user, auth)).status_code == 403
+    assert client.get(history, headers=auth(paid_user)).status_code == 200
 
 
 # ─── Voice design ────────────────────────────────────────────────────────────

@@ -42,7 +42,7 @@ from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
 from app.services import elevenlabs_keys
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, video_styles, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets, wordpress_integration, extension_integration, integrations, content_sources, public_api, api_keys, api_docs
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, video_styles, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets, wordpress_integration, extension_integration, integrations, content_sources, public_api, api_keys
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -733,7 +733,7 @@ async def lifespan(app: FastAPI):
 
 # FastAPI's auto-generated reference lists every endpoint, including internal
 # ones, so it is off unless PUBLIC_OPENAPI_DOCS is set (e.g. in a local .env).
-# Paid users get the curated reference at /api/api-docs instead.
+# The curated public reference is the frontend's /api-docs page instead.
 _openapi_on = settings.PUBLIC_OPENAPI_DOCS
 app = FastAPI(
     title="Blog2Video API",
@@ -858,7 +858,6 @@ app.include_router(wordpress_integration.router)
 app.include_router(extension_integration.router)
 app.include_router(public_api.router)
 app.include_router(api_keys.router)
-app.include_router(api_docs.router)
 app.include_router(unsubscribe.router)
 app.include_router(affiliate.router)
 app.include_router(stock_data.router)

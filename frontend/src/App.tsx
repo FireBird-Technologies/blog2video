@@ -225,6 +225,7 @@ function AppRoutes() {
             (corePages.ts) with inbound links from several others. */}
         <Route path="/pdf2video" element={<PdfLanding />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/api-docs" element={<ApiDocs />} />
         {/* Full-page sign-in / sign-up. Two paths, one component, so "Sign up"
             is directly linkable rather than reachable only via a toggle. */}
         <Route path="/signin" element={<AuthPage mode="signin" />} />
@@ -285,16 +286,7 @@ function AppRoutes() {
             token and redirect an unauthenticated user to sign in, then auto-accept
             on return. */}
         <Route path="/invite/:token" element={<AcceptInvite />} />
-        <Route
-          path="/account/api-docs"
-          element={
-            <ProtectedRoute>
-              <main className="max-w-7xl mx-auto px-6 py-8">
-                <ApiDocs />
-              </main>
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/account/api-docs" element={<Navigate to="/api-docs" replace />} />
         <Route
           path="/account/api-keys"
           element={

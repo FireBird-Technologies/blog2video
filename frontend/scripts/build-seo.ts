@@ -27,6 +27,7 @@ import {
   type JsonLdInput,
 } from "../src/seo/jsonLd";
 import {
+  apiDocsSchema,
   blogIndexSchema,
   blogPostSchema,
   contactSchema,
@@ -307,6 +308,16 @@ function getSeoPayload(routePath: string): SeoPayload {
         "Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans.",
       path: routePath,
       schema: pricingSchema(),
+    };
+  }
+
+  if (routePath === "/api-docs") {
+    return {
+      title: "API Documentation",
+      description:
+        "Blog2Video API reference: create, edit and render narrated videos from your own app with an API key.",
+      path: routePath,
+      schema: apiDocsSchema(),
     };
   }
 

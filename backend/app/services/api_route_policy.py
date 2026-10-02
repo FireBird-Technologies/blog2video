@@ -4,7 +4,7 @@
 session JWT reaches everything, as before. An API key reaches every
 video-creation and editing feature listed in ``API_KEY_ROUTES``: projects,
 generation, scenes, images, voiceovers, templates (including creating custom
-templates), video styles, music, avatars, AI editing, rendering and downloads.
+templates), video styles, music, avatars, rendering and downloads.
 ``API_KEY_NEVER`` lists what stays app-only (API keys, account, billing,
 collaboration, publishing, content sources, template studio, free tools...),
 and those answer 403.
@@ -13,8 +13,8 @@ Matching is on the route TEMPLATE FastAPI resolved for the request
 (``/api/projects/{project_id}/scenes/{scene_id}``) plus the HTTP method, never
 on the raw URL, so path tricks cannot widen the list.
 
-The public API docs (app/api_docs/catalog.py) document exactly this list; a test
-keeps the two in step.
+The public API docs (frontend/src/content/apiDocs.ts) document exactly this
+list; tests/test_api_docs.py keeps the two in step.
 """
 from __future__ import annotations
 
@@ -35,7 +35,6 @@ API_KEY_ROUTES: frozenset[tuple[str, str]] = frozenset({
     ("PATCH", P),
     ("DELETE", P),
     ("PATCH", f"{P}/update-project"),
-    ("POST", f"{P}/upload-documents"),
     ("POST", f"{P}/logo"),
     ("DELETE", f"{P}/logo"),
     ("PATCH", f"{P}/assets/{{asset_id}}/exclude"),
@@ -86,11 +85,6 @@ API_KEY_ROUTES: frozenset[tuple[str, str]] = frozenset({
     # Templates
     ("POST", f"{P}/change-template-regenerate-layouts"),
     ("GET", f"{P}/template-change-status"),
-    ("GET", f"{P}/custom-templates"),
-    ("GET", f"{P}/custom-templates/{{template_id}}/code"),
-    ("GET", f"{P}/crafted-templates"),
-    ("GET", f"{P}/crafted-templates/{{template_id}}"),
-    ("GET", f"{P}/voices"),
     # Avatars
     ("POST", f"{P}/avatar-batch/authorize"),
     ("POST", f"{P}/scenes/{{scene_id}}/avatar"),
@@ -113,7 +107,7 @@ API_KEY_ROUTES: frozenset[tuple[str, str]] = frozenset({
     ("GET", f"{P}/render-still"),
     ("POST", f"{P}/render-stills"),
     ("POST", "/api/embed/token/{project_id}"),
-    # Catalog: templates, voices, styles, music, data
+    # Catalog: templates, voices, styles, music
     ("GET", "/api/crafted-templates"),
     ("GET", "/api/crafted-templates/{template_id}"),
     ("GET", "/api/custom-templates"),
@@ -132,7 +126,6 @@ API_KEY_ROUTES: frozenset[tuple[str, str]] = frozenset({
     ("GET", "/api/video-styles"),
     ("PUT", "/api/video-styles/selection"),
     ("GET", "/api/background-music/tracks"),
-    ("GET", "/api/stock-data"),
     # Custom templates: create (from a URL, document or prompt), generate, edit
     ("POST", "/api/custom-templates"),
     ("POST", "/api/custom-templates/extract-theme"),
@@ -168,16 +161,10 @@ API_KEY_ROUTES: frozenset[tuple[str, str]] = frozenset({
     ("PUT", "/api/video-styles/pin"),
     ("PATCH", "/api/video-styles/your-style"),
     ("DELETE", "/api/video-styles/your-style"),
-    # AI editing
-    ("POST", f"{P}/chat"),
-    ("GET", f"{P}/chat/history"),
-    ("POST", f"{P}/script-review/scenes/{{scene_id}}/ai-preview"),
     # Downloads
     ("GET", f"{P}/download-studio"),
     ("GET", "/api/templates/free-download/{slug}"),
     ("GET", "/api/templates/free-download-all"),
-    # Preferences
-    ("DELETE", "/api/auth/me/script-preferences"),
 })
 
 # Signed-in endpoints an API key may NEVER call. They stay app-only. Every
@@ -190,7 +177,6 @@ API_KEY_NEVER: frozenset[tuple[str, str]] = frozenset({
     ("DELETE", "/api/api-keys/{key_id}"),
     ("GET", "/api/api-keys/{key_id}/reveal"),
     ("POST", "/api/api-keys/{key_id}/rotate"),
-    ("GET", "/api/api-docs"),
     ("POST", "/api/integrations/extension/v1/connections/approve"),
     ("POST", "/api/integrations/wordpress/v1/connections/approve"),
     # Account lifecycle
@@ -278,6 +264,23 @@ API_KEY_NEVER: frozenset[tuple[str, str]] = frozenset({
     # no idempotency key. API callers create with POST /api/v1/videos instead.
     ("POST", "/api/projects"),
     ("POST", "/api/projects/bulk"),
+    # Attaches documents to an empty (status `created`) project, which a key can't
+    # produce: /upload extracts at once and /api/v1/videos starts generating.
+    ("POST", f"{P}/upload-documents"),
+    # Legacy alias of DELETE /api/video-styles/your-style, which keys use instead.
+    ("DELETE", "/api/auth/me/script-preferences"),
+    # AI editing by instruction (chat) and AI scene rewrites during script review.
+    ("POST", f"{P}/chat"),
+    ("GET", f"{P}/chat/history"),
+    ("POST", f"{P}/script-review/scenes/{{scene_id}}/ai-preview"),
+    # Collaborator views of the project owner's templates and voices. A key only
+    # reaches its owner's projects, so the direct /api/custom-templates,
+    # /api/crafted-templates and /api/voices/saved routes cover these.
+    ("GET", f"{P}/custom-templates"),
+    ("GET", f"{P}/custom-templates/{{template_id}}/code"),
+    ("GET", f"{P}/crafted-templates"),
+    ("GET", f"{P}/crafted-templates/{{template_id}}"),
+    ("GET", f"{P}/voices"),
     # Not product features: feedback that emails the team, onboarding, internal
     # observability, and a local-dev-only Remotion launcher.
     ("POST", f"{P}/review"),
