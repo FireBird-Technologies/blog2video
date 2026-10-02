@@ -2,8 +2,8 @@
   "routes": [
     { "handle": "filesystem" },
     {
-      "src": "^/preview/(.*)$",
-      "dest": "/index.html",
+      "src": "^/(embed|preview)/(.*)$",
+      "dest": "/embed/index.html",
       "headers": {
         "X-Frame-Options": "ALLOWALL",
         "Content-Security-Policy": "frame-ancestors *"

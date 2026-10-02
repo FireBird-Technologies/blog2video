@@ -7,8 +7,31 @@ const isCloudflare = !!process.env.CF_PAGES;
 const isVercel = !!process.env.VERCEL;
 const isCI = isCloudflare || isVercel;
 
+// The standalone video player (embed/index.html) answers /embed/<token> and the
+// older /preview/<token>. Production hosting rewrites those paths to it
+// (public/_redirects, vercel.json); this does the same for the dev server.
+const embedPlayerRewrite = {
+  name: "embed-player-rewrite",
+  configureServer(server: { middlewares: { use: (fn: (req: { url?: string }, res: unknown, next: () => void) => void) => void } }) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url && /^\/(embed|preview)\/[^/.]+/.test(req.url)) {
+        req.url = "/embed/index.html";
+      }
+      next();
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), embedPlayerRewrite],
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        embed: path.resolve(__dirname, "embed/index.html"),
+      },
+    },
+  },
   resolve: {
     // Array form required so RegExp entries can co-exist with string entries.
     // The sibling `remotion-video/` workspace is pulled in via the

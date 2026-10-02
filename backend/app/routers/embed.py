@@ -2,12 +2,14 @@ import json
 from typing import Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.auth import get_current_user
 from app.models.project import Project
 from app.models.user import User
@@ -70,7 +72,14 @@ def generate_embed_token(
 
 
 @router.get("/project/{token}")
-def get_embed_project(token: str, db: Session = Depends(get_db)) -> JSONResponse:
+def get_embed_project(token: str, lite: bool = False, db: Session = Depends(get_db)) -> JSONResponse:
+    """The project for the public player.
+
+    ``lite=1`` is the player's live refresh: the same project fields, without the
+    template code (``crafted_template``, ``custom_template_code``,
+    ``layout_prop_schema`` are null). The player keeps the code it loaded first
+    and asks for the full payload again only when ``template`` changes.
+    """
     project = db.query(Project).filter(Project.embed_token == token).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -79,7 +88,21 @@ def get_embed_project(token: str, db: Session = Depends(get_db)) -> JSONResponse
     custom_template_code: Optional[dict] = None
     layout_prop_schema: Optional[dict] = None
 
-    if is_crafted_template(project.template):
+    if lite:
+        # Theme only: it is part of the project payload the player styles with.
+        if is_crafted_template(project.template):
+            if not validate_crafted_template_access(project.template, project.user_id, db):
+                raise HTTPException(status_code=403, detail="Crafted template access revoked for this project")
+            package = load_crafted_template_package(
+                template_id=project.template, user_id=project.user_id, db=db, require_entitlement=True,
+            )
+            project.custom_theme = (package or {}).get("theme")
+        elif is_custom_template(project.template):
+            data = _load_custom_template_data(project.template, db=db, user_id=project.user_id)
+            project.custom_theme = data["theme"] if data else None
+        else:
+            project.custom_theme = None
+    elif is_crafted_template(project.template):
         if not validate_crafted_template_access(project.template, project.user_id, db):
             raise HTTPException(status_code=403, detail="Crafted template access revoked for this project")
         package = load_crafted_template_package(
@@ -162,3 +185,39 @@ def get_embed_project(token: str, db: Session = Depends(get_db)) -> JSONResponse
     payload["layout_prop_schema"] = layout_prop_schema
     headers = {"Access-Control-Allow-Origin": "*"}
     return JSONResponse(content=payload, headers=headers)
+
+
+@router.websocket("/project/{token}/live")
+async def embed_project_live(websocket: WebSocket, token: str):
+    """Read-only live channel for a public preview.
+
+    Pushes the same ``edit`` / ``project_reloaded`` messages collaborators get,
+    so the /embed/<token> player can refetch GET /project/{token} the moment the owner
+    (or an API caller) changes the video. Knowing the embed token is the only
+    requirement, exactly as for the preview itself; nothing sent here is
+    accepted. Rooms are in-process, like collaboration (see collab_ws.py).
+    """
+    from app.routers.collab_ws import collab_manager
+
+    db = SessionLocal()
+    try:
+        project = db.query(Project.id).filter(Project.embed_token == token).first()
+    finally:
+        db.close()
+    if project is None:
+        await websocket.close(code=4404)
+        return
+    project_id = project[0]
+
+    await websocket.accept()
+    collab_manager.bind_loop(asyncio.get_running_loop())
+    collab_manager.add_viewer(project_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        collab_manager.remove_viewer(project_id, websocket)

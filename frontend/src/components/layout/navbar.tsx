@@ -66,7 +66,15 @@ const Navbar = () => {
           >
             Billing
           </Link>
-{/* 
+
+          {/* API keys link */}
+          <Link
+            to="/account/api-keys"
+            className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors"
+          >
+            API keys
+          </Link>
+{/*
           <Link
             to="/template-studio"
             className="hidden sm:block text-xs text-gray-400 hover:text-purple-600 transition-colors"
@@ -102,6 +110,7 @@ const Navbar = () => {
                   </Link>
                   <Link to="/template-showcase" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Templates</Link>
                   <Link to="/subscription" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Billing</Link>
+                  <Link to="/account/api-keys" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">API keys</Link>
                   <div className="px-4 py-2.5 text-xs text-gray-400 border-t border-gray-100 mt-1">
                     {user.videos_used_this_period}/{user.video_limit} videos used
                   </div>

@@ -423,7 +423,7 @@ def get_tool_definitions() -> list[Tool]:
             name="get_preview_url",
             description=(
                 "Return a shareable preview link so the user can watch a project's video in "
-                "the browser (mints or reuses the project's public /preview/<token> URL). "
+                "the browser (mints or reuses the project's public /embed/<token> URL). "
                 "Use after the project has been generated (e.g. via create_video)."
             ),
             inputSchema={

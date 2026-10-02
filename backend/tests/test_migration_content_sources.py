@@ -126,9 +126,127 @@ def test_source_site_revision_adds_column_idempotently(tmp_path):
     assert "source_site" not in _columns(engine, "projects")
 
 
-def test_source_site_revision_is_the_head():
+def test_source_site_revision_is_followed_by_public_api():
     children = [
         p.name for p in _REV.parent.glob("*.py")
         if 'down_revision = "add_project_source_site"' in p.read_text()
+    ]
+    assert children == ["add_public_api.py"]
+
+
+_API_REV = _REV.parent / "add_public_api.py"
+
+
+def test_public_api_revision_is_idempotent_and_reversible(tmp_path):
+    spec = importlib.util.spec_from_file_location("rev_public_api", _API_REV)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.down_revision == "add_project_source_site"
+    engine = sa.create_engine(f"sqlite:///{tmp_path / 'api.db'}")
+    with engine.begin() as conn:
+        conn.execute(sa.text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
+        conn.execute(sa.text("CREATE TABLE projects (id INTEGER PRIMARY KEY)"))
+
+    def run(fn):
+        with engine.begin() as conn:
+            ctx = MigrationContext.configure(conn)
+            with Operations.context(ctx):
+                getattr(mod, fn)()
+
+    run("upgrade")
+    run("upgrade")
+    tables = set(sa.inspect(engine).get_table_names())
+    assert {"api_keys", "api_project_links"} <= tables
+    # The partner-app integration is gone: none of its columns are created.
+    assert "billing_source" not in _columns(engine, "users")
+    link_cols = _columns(engine, "api_project_links")
+    assert "partner_slug" not in link_cols and "partner_quota_state" not in link_cols
+    assert "external_user_id" in link_cols
+    run("downgrade")
+    tables = set(sa.inspect(engine).get_table_names())
+    assert "api_keys" not in tables and "api_project_links" not in tables
+
+
+def test_public_api_revision_is_followed_by_key_encryption():
+    children = [
+        p.name for p in _REV.parent.glob("*.py")
+        if 'down_revision = "add_public_api"' in p.read_text()
+    ]
+    assert children == ["add_api_key_encrypted.py"]
+
+
+def test_api_key_encrypted_revision_is_idempotent_and_the_head(tmp_path):
+    spec = importlib.util.spec_from_file_location("rev_api_key_enc", _REV.parent / "add_api_key_encrypted.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.down_revision == "add_public_api"
+    engine = sa.create_engine(f"sqlite:///{tmp_path / 'enc.db'}")
+    with engine.begin() as conn:
+        # api_keys as add_public_api created it: no key_encrypted yet.
+        conn.execute(sa.text("CREATE TABLE api_keys (id INTEGER PRIMARY KEY, key_hash VARCHAR(64))"))
+
+    def run(fn):
+        with engine.begin() as conn:
+            ctx = MigrationContext.configure(conn)
+            with Operations.context(ctx):
+                getattr(mod, fn)()
+
+    run("upgrade")
+    run("upgrade")
+    assert "key_encrypted" in _columns(engine, "api_keys")
+    run("downgrade")
+    assert "key_encrypted" not in _columns(engine, "api_keys")
+
+    children = [
+        p.name for p in _REV.parent.glob("*.py")
+        if 'down_revision = "add_api_key_encrypted"' in p.read_text()
+    ]
+    assert children == ["drop_partner_app.py"]
+
+
+def test_drop_partner_app_cleans_up_an_old_partner_schema(tmp_path):
+    spec = importlib.util.spec_from_file_location("rev_drop_partner", _REV.parent / "drop_partner_app.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.down_revision == "add_api_key_encrypted"
+    engine = sa.create_engine(f"sqlite:///{tmp_path / 'partner.db'}")
+    with engine.begin() as conn:
+        # The shape the old add_public_api left behind, with a service account.
+        conn.execute(sa.text(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, email VARCHAR(255), is_active BOOLEAN, "
+            "auth_provider VARCHAR(16), billing_source VARCHAR(16) NOT NULL DEFAULT 'blog2video')"
+        ))
+        conn.execute(sa.text("INSERT INTO users VALUES (1, 'real@example.com', 1, 'google', 'blog2video')"))
+        conn.execute(sa.text("INSERT INTO users VALUES (2, 'svc@partner.invalid', 1, 'partner', 'partner')"))
+        conn.execute(sa.text(
+            "CREATE TABLE api_project_links (id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, "
+            "external_user_id VARCHAR(255), partner_slug VARCHAR(64), "
+            "partner_quota_state VARCHAR(16) NOT NULL DEFAULT 'none')"
+        ))
+        conn.execute(sa.text("CREATE INDEX ix_api_project_links_partner_slug ON api_project_links (partner_slug)"))
+        conn.execute(sa.text("INSERT INTO api_project_links VALUES (1, 10, 'u1', 'acme', 'charged')"))
+
+    def run(fn):
+        with engine.begin() as conn:
+            ctx = MigrationContext.configure(conn)
+            with Operations.context(ctx):
+                getattr(mod, fn)()
+
+    run("upgrade")
+    run("upgrade")
+    assert "billing_source" not in _columns(engine, "users")
+    assert _columns(engine, "api_project_links") == {"id", "project_id", "external_user_id"}
+    with engine.connect() as conn:
+        rows = dict(
+            (r.id, (bool(r.is_active), r.auth_provider))
+            for r in conn.execute(sa.text("SELECT id, is_active, auth_provider FROM users"))
+        )
+        assert conn.execute(sa.text("SELECT external_user_id FROM api_project_links")).scalar() == "u1"
+    assert rows == {1: (True, "google"), 2: (False, "email")}
+    run("downgrade")  # a no-op, but must not fail
+
+    children = [
+        p.name for p in _REV.parent.glob("*.py")
+        if 'down_revision = "drop_partner_app"' in p.read_text()
     ]
     assert children == []
