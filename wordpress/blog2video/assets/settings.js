@@ -1,8 +1,8 @@
-window.B2VInitSettings = function () {
+window.Blog2VideoInitSettings = function () {
   "use strict";
 
   var status = document.getElementById("b2v-approval-status");
-  if (!status || !window.B2VSettings) return;
+  if (!status || !window.Blog2VideoSettings) return;
 
   var stopped = false;
   var failures = 0;
@@ -16,10 +16,10 @@ window.B2VInitSettings = function () {
   function poll() {
     if (stopped) return;
     var body = new URLSearchParams();
-    body.set("action", "b2v_connection_status");
-    body.set("nonce", B2VSettings.nonce);
+    body.set("action", "blog2video_connection_status");
+    body.set("nonce", Blog2VideoSettings.nonce);
 
-    fetch(B2VSettings.ajaxUrl, {
+    fetch(Blog2VideoSettings.ajaxUrl, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },

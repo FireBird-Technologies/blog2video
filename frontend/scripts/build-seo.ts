@@ -416,6 +416,23 @@ function getSeoPayload(routePath: string): SeoPayload {
     };
   }
 
+  if (routePath === "/privacy") {
+    return {
+      title: "Privacy Policy",
+      description: "Learn how Blog2Video collects, uses, and protects your personal information.",
+      path: routePath,
+    };
+  }
+
+  if (routePath === "/terms") {
+    return {
+      title: "Terms of Service",
+      description:
+        "Read the Terms of Service for Blog2Video, the blog-to-video workflow platform by FireBird Technologies.",
+      path: routePath,
+    };
+  }
+
   return {
     title: siteName,
     description: "Turn written content into polished videos.",
@@ -564,6 +581,34 @@ async function buildPrerenderedPages() {
   }
 }
 
+// Legal pages are plain React pages with the policy text inline in JSX, not content
+// objects, so render the real components to static HTML. Without this, crawlers and
+// validators that don't run JavaScript (e.g. OpenAI's plugin submission check) only
+// see the empty app shell at /privacy and /terms.
+async function buildLegalPages() {
+  const React = (await import("react")).default;
+  (globalThis as { React?: unknown }).React = React;
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { MemoryRouter } = await import("react-router-dom");
+  const template = applyBrandFavicon(
+    sanitizeTemplate(await readFile(path.join(distDir, "index.html"), "utf8"))
+  );
+
+  const pages: [string, () => Promise<{ default: React.ComponentType }>][] = [
+    ["/privacy", () => import("../src/pages/PrivacyPolicy")],
+    ["/terms", () => import("../src/pages/TermsOfService")],
+  ];
+  for (const [routePath, load] of pages) {
+    const { default: Page } = await load();
+    const appHtml = renderToStaticMarkup(
+      React.createElement(MemoryRouter, { initialEntries: [routePath] }, React.createElement(Page))
+    );
+    const filePath = toFilePath(routePath);
+    await ensureDirFor(filePath);
+    await writeFile(filePath, injectRenderedMarkup(template, appHtml, buildHeadTags(routePath)), "utf8");
+  }
+}
+
 // A sitemap should only advertise canonical URLs. Pages that consolidate onto a
 // different URL stay crawlable but are not submitted for indexing.
 function isCanonicalPath(routePath: string) {
@@ -651,6 +696,7 @@ Sitemap: ${siteUrl}/sitemap-index.xml
 
 async function main() {
   await buildPrerenderedPages();
+  await buildLegalPages();
   await buildSeoFiles();
 }
 

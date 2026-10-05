@@ -3,6 +3,8 @@ import ReactDOM from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import useJustLoggedIn from "../hooks/useJustLoggedIn";
+import { useOutOfVideosOffer } from "../hooks/useOutOfVideosOffer";
+import OutOfVideosOfferModal from "./OutOfVideosOfferModal";
 
 /**
  * Global watcher that pops a one-time "what's new" modal on login, announcing
@@ -13,6 +15,9 @@ import useJustLoggedIn from "../hooks/useJustLoggedIn";
  * The `useJustLoggedIn` hook owns that distinction (and the reading/consuming of
  * the underlying session flag), so several login-only surfaces can coexist
  * without racing each other over who deletes it first.
+ *
+ * Exception: a free user with no videos left gets the out-of-videos discount
+ * offer (OutOfVideosOfferModal) instead of the announcement.
  *
  * To announce a new update, edit the UPDATE const below — it is the only thing
  * that should need to change.
@@ -41,6 +46,8 @@ export default function MarketingDesignerPopup() {
   // `user` object changing identity after refreshUser on Dashboard) must not
   // re-open the popup.
   const dismissedRef = useRef(false);
+  const offer = useOutOfVideosOffer();
+  const openOffer = offer.openOnLogin;
 
   useEffect(() => {
     if (!user) return;
@@ -51,8 +58,16 @@ export default function MarketingDesignerPopup() {
     // a marketing interruption here would derail the connection flow.
     if (location.pathname.startsWith("/wordpress-connect")) return;
 
+    // A free user with no videos left can't act on a feature announcement —
+    // show them the out-of-videos offer instead.
+    if (user.plan === "free" && user.can_create_video === false) {
+      dismissedRef.current = true;
+      openOffer();
+      return;
+    }
+
     setShow(true);
-  }, [user, justLoggedIn, location.pathname]);
+  }, [user, justLoggedIn, location.pathname, openOffer]);
 
   const close = useCallback(() => {
     dismissedRef.current = true;
@@ -78,7 +93,16 @@ export default function MarketingDesignerPopup() {
     return () => window.removeEventListener("keydown", handler);
   }, [show, close]);
 
-  if (!show) return null;
+  const offerModal = (
+    <OutOfVideosOfferModal
+      open={offer.isOpen}
+      onClose={offer.dismiss}
+      secondsRemaining={offer.secondsRemaining}
+      isWindowLive={offer.isWindowLive}
+    />
+  );
+
+  if (!show) return offerModal;
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">

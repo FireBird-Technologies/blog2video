@@ -1,0 +1,14 @@
+{
+  "name": "blog2video-wordpress-ui",
+  "private": true,
+  "scripts": {
+    "build:js": "esbuild src/admin.tsx --bundle --format=iife --target=es2019 --jsx-factory=wp.element.createElement --jsx-fragment=wp.element.Fragment --outfile=../assets/react-admin.js && esbuild src/settings.tsx --bundle --format=iife --target=es2019 --jsx-factory=wp.element.createElement --jsx-fragment=wp.element.Fragment --outfile=../assets/react-settings.js",
+    "build:css": "tailwindcss -c tailwind.config.cjs -i src/styles.css -o ../assets/react-ui.css --minify",
+    "build": "npm run build:js && npm run build:css"
+  },
+  "devDependencies": {
+    "esbuild": "0.21.5",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.9.3"
+  }
+}

@@ -39,7 +39,7 @@ _MEDIA_SETTINGS_PROPERTIES = {
 }
 
 
-def get_tool_definitions() -> list[Tool]:
+def _raw_tool_definitions() -> list[Tool]:
     return [
         # start_video is FIRST deliberately: it is the ONLY entry point for
         # "make a video from <url>". When two tool descriptions both plausibly
@@ -170,8 +170,7 @@ def get_tool_definitions() -> list[Tool]:
             description=(
                 "Use this when the user wants to see, browse, or pick a video template "
                 "(without immediately creating a video). Shows a visual gallery of every "
-                "template with real preview images. Do NOT use web search or your own "
-                "knowledge to describe templates — call this tool. "
+                "template with real preview images. "
                 "Each template has an `id` used in create_project / change_template.\n\n"
                 "This tool renders an interactive widget. Do NOT describe, enumerate, or "
                 "summarize the templates in your text reply — the widget IS the "
@@ -423,7 +422,8 @@ def get_tool_definitions() -> list[Tool]:
             name="get_preview_url",
             description=(
                 "Return a shareable preview link so the user can watch a project's video in "
-                "the browser (mints or reuses the project's public /embed/<token> URL). "
+                "the browser (mints or reuses the project's public /embed/<token> URL — "
+                "anyone who has the link can watch the video, without signing in). "
                 "Use after the project has been generated (e.g. via create_video)."
             ),
             inputSchema={
@@ -734,7 +734,9 @@ def get_tool_definitions() -> list[Tool]:
                 "Swap or move an image between two scenes. `mode='swap'` (default) "
                 "exchanges images between two scenes (use first_scene_id + "
                 "second_scene_id). `mode='move'` moves an image one-way (use "
-                "from_scene_id + to_scene_id)."
+                "from_scene_id + to_scene_id) and removes it from the source scene. "
+                "Edits the project's scenes only; no files are deleted and nothing is "
+                "sent outside Blog2Video."
             ),
             inputSchema={
                 "type": "object",
@@ -902,3 +904,42 @@ def get_tool_definitions() -> list[Tool]:
             annotations=ToolAnnotations(readOnlyHint=True),
         ),
     ]
+
+
+# Explicit MCP safety hints for every tool. OpenAI's plugin review requires all
+# three booleans on each tool, so they are applied here from one table rather
+# than hand-written on every Tool(...) literal (where they drifted/were missing).
+#   readOnly    — never changes any state.
+#   destructive — may overwrite or delete existing user data (only meaningful
+#                 when not read-only).
+#   openWorld   — reaches out to external sites/services beyond Blog2Video.
+_READ_ONLY = {
+    "setup_video", "list_templates", "list_voices", "show_settings",
+    "get_templates_json", "get_voices_json", "list_projects", "get_project",
+    "check_generation_status", "check_render_status", "check_template_change_status",
+    "check_template_code_generation_status", "list_custom_templates", "get_custom_template",
+}
+# Writes that replace or remove existing content on a project.
+_DESTRUCTIVE = {
+    "update_scene", "change_template", "change_voice", "delete_voiceover",
+    "change_language", "regenerate_scene", "update_project_settings",
+    "swap_scene_images",  # mode=move removes the image from its source scene
+}
+# Tools that fetch a user-supplied external URL.
+_OPEN_WORLD = {
+    "start_video", "auto_video", "create_project",
+    "create_template_from_url", "extract_template_theme",
+    "get_preview_url",  # mints a public, shareable link that anyone with the URL can open
+}
+
+
+def get_tool_definitions() -> list[Tool]:
+    tools = _raw_tool_definitions()
+    for tool in tools:
+        read_only = tool.name in _READ_ONLY
+        tool.annotations = ToolAnnotations(
+            readOnlyHint=read_only,
+            destructiveHint=False if read_only else tool.name in _DESTRUCTIVE,
+            openWorldHint=tool.name in _OPEN_WORLD,
+        )
+    return tools
