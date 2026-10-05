@@ -136,6 +136,75 @@ def _friendly_create_error(e: APIError) -> str | None:
     code = detail.get("code") if isinstance(detail, dict) else None
     text = str(detail)
 
+    lowered = text.lower()
+
+    if e.status_code == 401:
+        # Expired/revoked/never-valid token. The tool can't re-run OAuth itself; the user
+        # has to reconnect from the app's connection settings.
+        return (
+            "🔑 **Your Blog2Video connection has expired**\n\n"
+            "Sign in again to keep going: disconnect and reconnect Blog2Video in this app's "
+            "connection settings, then retry.\n\n"
+            "_Tell the user this and stop. Do not retry the tool._"
+        )
+
+    if e.status_code == 403 and code == "custom_template_limit":
+        created = detail.get("created")
+        limit = detail.get("limit")
+        count = f" ({created} of {limit} used)" if created is not None and limit is not None else ""
+        return (
+            "🚫 **Custom template limit reached**\n\n"
+            f"You've used all the custom templates your plan includes{count}. Deleting an "
+            "existing template doesn't free up a slot.\n\n"
+            "**What you can do:** Upgrade your plan or add more custom-template credits at "
+            "https://blog2video.app/pricing, or use one of your existing templates.\n\n"
+            "_Tell the user this in your own words and stop. Do not retry._"
+        )
+
+    if e.status_code == 429 and "ai generation limit" in lowered:
+        return (
+            "⏳ **Daily AI generation limit reached**\n\n"
+            f"{text}\n\n"
+            "**What you can do:** Try again tomorrow. Existing templates and projects still "
+            "work in the meantime.\n\n"
+            "_Tell the user this and stop. Do not retry today._"
+        )
+
+    if e.status_code == 403 and "ai editing limit" in lowered:
+        return (
+            "🚫 **AI editing credits used up**\n\n"
+            f"{text}\n\n"
+            "**What you can do:** Upgrade your plan or buy more AI edit credits at "
+            "https://blog2video.app/pricing, then try again. Smaller edits cost fewer "
+            "credits than regenerating the voiceover.\n\n"
+            "_Tell the user this in your own words and stop. Do not retry._"
+        )
+
+    if e.status_code == 403 and "video limit" in lowered:
+        # "Video limit reached (N). Upgrade your plan or buy more credits to ..." for the
+        # caller's own quota, or "The project owner's video limit (N) has been reached ..."
+        # on a shared project (the owner pays, so the collaborator can't fix it themselves).
+        owner = "owner" in lowered
+        what_now = (
+            "Ask the project owner to upgrade their plan or add credits, then try again."
+            if owner else
+            "Upgrade your plan or buy more video credits at https://blog2video.app/pricing, then try again."
+        )
+        return (
+            "🚫 **Video limit reached**\n\n"
+            + ("The project owner has used all the videos included in their plan."
+               if owner else "You've used all the videos included in your plan, so a new video can't be created right now.")
+            + f"\n\n**What you can do:** {what_now}\n\n"
+            "_Tell the user this in your own words and stop. Do not retry or call other "
+            "video tools — they will be refused until the limit is raised._"
+        )
+    if e.status_code == 403 and "requires a paid subscription" in lowered:
+        return (
+            "🔒 **This option needs a paid plan**\n\n"
+            f"{text}\n\n"
+            "Choose a different option, or upgrade at https://blog2video.app/pricing. "
+            "_Tell the user this and let them pick._"
+        )
     if e.status_code == 403 and (code == "video_length_requires_paid" or "video_length_requires_paid" in text):
         return (
             "⚠️ **Detailed** and **More detailed** lengths need a paid plan.\n\n"
@@ -369,7 +438,10 @@ def dispatch(
 
         return _err(f"Unknown tool: {name}")
     except APIError as e:
-        return _err(e.detail)
+        # Plan/limit refusals read as plain-language messages in the chat, for every tool
+        # (generate, render, change template, ...), not just create_project.
+        friendly = _friendly_create_error(e)
+        return _md(friendly) if friendly else _err(e.detail)
     except PollTimeout as e:
         return _err(str(e))
     except Exception as e:
