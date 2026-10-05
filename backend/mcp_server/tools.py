@@ -49,8 +49,8 @@ def _raw_tool_definitions() -> list[Tool]:
         Tool(
             name="start_video",
             description=(
-                "THE ONLY tool to call when a user asks to make/create/generate/turn a blog "
-                "post or URL into a video. Call it IMMEDIATELY on the first such request — "
+                "Entry point for turning a blog post or URL into a video. Use it for the first such "
+                "request — "
                 "do not call auto_video, setup_video, create_video or create_project first; "
                 "those are internal steps this tool routes to.\n\n"
                 "TWO-STEP. Step 1: call with ONLY `blog_url` and no `mode`. It returns a "
@@ -191,8 +191,7 @@ def _raw_tool_definitions() -> list[Tool]:
             name="list_voices",
             description=(
                 "Use this whenever the user wants to see, browse, list or pick a voice, "
-                "voiceover or narrator — this is the DEFAULT tool for any voice listing "
-                "request. Shows an interactive gallery of all available voices with audio "
+                "voiceover or narrator. Shows an interactive gallery of all available voices with audio "
                 "previews. Do NOT use `get_voices_json` for a user-facing request (it is "
                 "for automation only), and do NOT ask the user about voice gender or accent "
                 "in text — call this tool so they can hear and click to select a voice.\n\n"
@@ -474,11 +473,12 @@ def _raw_tool_definitions() -> list[Tool]:
         Tool(
             name="render_video",
             description=(
-                "Start MP4 rendering and wait silently until the download link is ready (3–8 min). "
-                "Only call this if the user explicitly says they want to download or render the video. "
-                "Polling happens internally; do NOT call check_render_status after this. "
-                "Returns the final video URL and an inline preview. "
-                "Set force_rerender=true to re-render even if a video already exists."
+                "Renders the project as an MP4 video and returns the download link when it is ready "
+                "(about 3–8 minutes). Use it when the user asks to render or download the video. "
+                "Progress is tracked internally, so check_render_status is not needed afterwards. "
+                "Returns the video URL and an inline preview. "
+                "By default an existing rendered video is reused; set force_rerender=true to "
+                "render again and replace it."
             ),
             inputSchema={
                 "type": "object",
@@ -731,12 +731,10 @@ def _raw_tool_definitions() -> list[Tool]:
         Tool(
             name="swap_scene_images",
             description=(
-                "Swap or move an image between two scenes. `mode='swap'` (default) "
-                "exchanges images between two scenes (use first_scene_id + "
-                "second_scene_id). `mode='move'` moves an image one-way (use "
-                "from_scene_id + to_scene_id) and removes it from the source scene. "
-                "Edits the project's scenes only; no files are deleted and nothing is "
-                "sent outside Blog2Video."
+                "Rearranges images between two scenes of a project. `mode='swap'` (default) "
+                "exchanges the images of two scenes (first_scene_id and second_scene_id). "
+                "`mode='move'` moves the image from from_scene_id to to_scene_id, so the "
+                "source scene no longer has it. Only the project's scenes are changed."
             ),
             inputSchema={
                 "type": "object",
@@ -756,7 +754,7 @@ def _raw_tool_definitions() -> list[Tool]:
         Tool(
             name="create_template_from_url",
             description=(
-                "THE tool to call when a user wants to create a custom template from a "
+                "Use this when a user wants to create a custom template from a "
                 "website — 'make a template from <url>', 'build a template like <site>'.\n\n"
                 "Does the WHOLE flow in ONE call: scrapes the site, extracts the brand "
                 "theme (colours, fonts, logos), saves the template, and starts code "

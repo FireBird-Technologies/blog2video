@@ -3142,5 +3142,21 @@
   "marketing:/templates/stickman_2@44dd2e30d0b0500c@20aaebd1": {
     "keep": true,
     "reason": "Describes Blog2Video stickman template feature"
+  },
+  "blog:ai-video-generators-that-are-not-slop@e1cfbdac7532b96a@20aaebd1": {
+    "keep": false,
+    "reason": "Discusses AI video generators generally, not Blog2Video specifically."
+  },
+  "blog:suit-up-blog2video-update@c12274f7ab07f43d@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video update features and workflow."
+  },
+  "blog:how-to-grow-your-substack-newsletter@46f26042d6f85b1e@20aaebd1": {
+    "keep": false,
+    "reason": "Primarily about growing Substack, not Blog2Video features."
+  },
+  "blog:substack-video-70-percent-more-subscribers@b4bfe0d579a597cd@20aaebd1": {
+    "keep": false,
+    "reason": "Primarily describes Substack features and growth, not Blog2Video."
   }
 }
