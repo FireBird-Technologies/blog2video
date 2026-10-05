@@ -28,6 +28,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models.mcp_oauth import MCPAuthCode
 from app.models.user import AuthProvider, User
+from app.routers import mcp_auth_ui
 from app.services.auth_identity import resolve_or_create_user
 from app.services.mcp_provider import BlogVideoOAuthProvider
 from mcp.server.auth.routes import create_auth_routes
@@ -214,122 +215,25 @@ async def register_root_alias():
 async def google_start(
     code: str = Query(..., description="Pending mcp_oauth_code"),
     error: str | None = Query(None),
-) -> str:
-    """Render a minimal page that runs Google's JS SDK and posts the credential
-    to /mcp/google-callback. Once the credential is verified, the page is
-    redirected back to claude.ai's redirect_uri with the OAuth code + state.
+    email: str = Query(""),
+):
+    """Sign-in page of the MCP OAuth bridge: Google button + email/password form.
 
     The `code` here is the pending mcp_oauth_codes.code (NOT the Google credential).
+    Google runs as a full-redirect OAuth flow that returns to /mcp/google-oauth-callback.
     """
-    db = SessionLocal()
-    try:
-        row = db.query(MCPAuthCode).filter(MCPAuthCode.code == code, MCPAuthCode.used == False).first()  # noqa: E712
-        if not row:
-            raise HTTPException(status_code=400, detail="Unknown or already-used authorization code")
-        if row.expires_at < datetime.utcnow():
-            raise HTTPException(status_code=400, detail="Authorization code expired")
-    finally:
-        db.close()
+    if (gone := _guard(code)) is not None:
+        return gone
 
     google_client_id = settings.GOOGLE_CLIENT_ID
     if not google_client_id:
         raise HTTPException(status_code=500, detail="GOOGLE_CLIENT_ID is not configured")
 
     backend = settings.BACKEND_URL.rstrip("/")
-    # Standard Google OAuth2 authorization URL — full redirect flow with no
-    # popup. This avoids the "popup-within-a-popup" problem (origin_mismatch
-    # from Google JS SDK) and the One Tap redirect_uri_mismatch issues.
-    # After the user signs in on accounts.google.com, Google redirects back to
-    # /mcp/google-oauth-callback?code=...&state=<pending_mcp_code>.
-    import html
-    import urllib.parse
-    error_html = f'<p class="err">{html.escape(error)}</p>' if error else ""
-    google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
-        "client_id": google_client_id,
-        "redirect_uri": f"{backend}/mcp/google-oauth-callback",
-        "response_type": "code",
-        "scope": "openid email profile",
-        "state": code,
-        "access_type": "online",
-        "prompt": "select_account",
-    })
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Connect Blog2Video to Claude</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body {{
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #fafafa;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }}
-    .card {{
-      background: white;
-      padding: 32px;
-      border-radius: 12px;
-      box-shadow: 0 2px 24px rgba(0, 0, 0, 0.06);
-      max-width: 380px;
-      text-align: center;
-    }}
-    h1 {{ font-size: 20px; margin: 0 0 8px; color: #111; }}
-    p  {{ color: #555; margin: 0 0 24px; }}
-    .btn {{
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      background: white;
-      border: 1px solid #dadce0;
-      border-radius: 4px;
-      padding: 12px 24px;
-      font-size: 14px;
-      font-weight: 500;
-      color: #3c4043;
-      text-decoration: none;
-      cursor: pointer;
-      transition: background 0.15s;
-    }}
-    .btn:hover {{ background: #f8f9fa; }}
-    .or {{ margin: 16px 0; color: #999; font-size: 13px; }}
-    .email-form {{ display: flex; flex-direction: column; gap: 10px; }}
-    .email-form input {{ padding: 11px 12px; border: 1px solid #dadce0; border-radius: 4px; font-size: 14px; }}
-    .btn.submit {{ justify-content: center; background: #111; color: #fff; border-color: #111; }}
-    .btn.submit:hover {{ background: #333; }}
-    .err {{ background: #fdecea; color: #b3261e; padding: 10px; border-radius: 6px; font-size: 13px; margin: 0 0 16px; }}
-    .hint {{ font-size: 12px; margin: 16px 0 0; }}
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Connect Blog2Video</h1>
-    <p>Sign in to let Claude access your Blog2Video account.</p>
-    {error_html}
-    <a href="{google_auth_url}" class="btn">
-      <svg width="18" height="18" viewBox="0 0 18 18">
-        <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-        <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.77-2.7.77-2.08 0-3.84-1.4-4.47-3.29H1.84v2.07A8 8 0 0 0 8.98 17z"/>
-        <path fill="#FBBC05" d="M4.51 10.53A4.8 4.8 0 0 1 4.26 9c0-.53.09-1.04.25-1.53V5.4H1.84A8 8 0 0 0 .98 9c0 1.29.31 2.51.86 3.6l2.67-2.07z"/>
-        <path fill="#EA4335" d="M8.98 3.58c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 8.98 1a8 8 0 0 0-7.14 4.4l2.67 2.07c.63-1.89 2.39-3.29 4.47-3.29z"/>
-      </svg>
-      Sign in with Google
-    </a>
-    <div class="or"><span>or</span></div>
-    <form method="post" action="{backend}/mcp/email-login" class="email-form">
-      <input type="hidden" name="code" value="{html.escape(code)}">
-      <input type="email" name="email" placeholder="Email" required autocomplete="email">
-      <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
-      <button type="submit" class="btn submit">Sign in with email</button>
-    </form>
-    <p class="hint">No account yet? <a href="{backend}/mcp/signup?code={urllib.parse.quote(code)}">Create one</a></p>
-  </div>
-</body>
-</html>"""
+    return HTMLResponse(mcp_auth_ui.login_page(
+        code=code, backend=backend, google_url=_google_auth_url(code),
+        site_url=settings.FRONTEND_URL, error=error, email=email,
+    ))
 
 
 @router.post("/google-callback-redirect")
@@ -431,7 +335,7 @@ async def email_login(request: Request):
 
     def _back(msg: str) -> RedirectResponse:
         return RedirectResponse(
-            url=f"/mcp/google-start?{urlencode({'code': code, 'error': msg})}", status_code=303
+            url=f"/mcp/google-start?{urlencode({'code': code, 'error': msg, 'email': email})}", status_code=303
         )
 
     ip_key = rate_limit.client_key(request)
@@ -503,6 +407,9 @@ def _signup_error_text(e: HTTPException) -> str:
     d = e.detail
     if isinstance(d, dict):
         code = d.get("code", "")
+        if code == "wrong_auth_provider":
+            label = d.get("provider_label") or "another sign-in method"
+            return f"This email is already registered with {label}. Go back and sign in with that instead."
         msg = _SIGNUP_ERRORS.get(code, "Something went wrong.")
         if code == "code_invalid" and d.get("attempts_remaining") is not None:
             msg += f" {d['attempts_remaining']} attempt(s) left."
@@ -510,42 +417,34 @@ def _signup_error_text(e: HTTPException) -> str:
     return _SIGNUP_ERRORS.get(str(d), "Something went wrong. Please try again.")
 
 
-def _page(title: str, inner: str) -> str:
-    return f"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>{title}</title>
-<meta name="viewport" content="width=device-width, initial-scale=1"><style>
-body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fafafa;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}}
-.card{{background:#fff;padding:32px;border-radius:12px;box-shadow:0 2px 24px rgba(0,0,0,.06);width:100%;max-width:380px;text-align:center}}
-h1{{font-size:20px;margin:0 0 8px;color:#111}} p{{color:#555;margin:0 0 20px;font-size:14px}}
-form{{display:flex;flex-direction:column;gap:10px}}
-input{{padding:11px 12px;border:1px solid #dadce0;border-radius:4px;font-size:14px}}
-button{{padding:12px;border-radius:4px;border:1px solid #111;background:#111;color:#fff;font-size:14px;font-weight:500;cursor:pointer}}
-button.link{{background:none;border:none;color:#1a56db;padding:4px}}
-.err{{background:#fdecea;color:#b3261e;padding:10px;border-radius:6px;font-size:13px}}
-.info{{background:#e8f5e9;color:#1b5e20;padding:10px;border-radius:6px;font-size:13px}}
-.hint{{font-size:12px;margin:16px 0 0}}
-</style></head><body><div class="card">{inner}</div></body></html>"""
+def _google_auth_url(code: str) -> str:
+    import urllib.parse
+    backend = settings.BACKEND_URL.rstrip("/")
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": f"{backend}/mcp/google-oauth-callback",
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": code,
+        "access_type": "online",
+        "prompt": "select_account",
+    })
 
 
-def _banner(error: str | None, info: str | None) -> str:
-    import html
-    out = ""
-    if error:
-        out += f'<p class="err">{html.escape(error)}</p>'
-    if info:
-        out += f'<p class="info">{html.escape(info)}</p>'
-    return out
+def _guard(code: str):
+    """None while the pending sign-in is usable, else a friendly HTML 'expired' page.
 
-
-def _check_pending_code(code: str) -> None:
+    These are browser pages, so an expired or already-used link must read as a
+    human message, not a raw JSON error.
+    """
     db = SessionLocal()
     try:
         row = db.query(MCPAuthCode).filter(MCPAuthCode.code == code, MCPAuthCode.used == False).first()  # noqa: E712
-        if not row:
-            raise HTTPException(status_code=400, detail="Unknown or already-used authorization code")
-        if row.expires_at < datetime.utcnow():
-            raise HTTPException(status_code=400, detail="Authorization code expired")
+        if row is None or row.expires_at < datetime.utcnow():
+            return HTMLResponse(mcp_auth_ui.expired_page(site_url=settings.FRONTEND_URL), status_code=410)
     finally:
         db.close()
+    return None
 
 
 def _signup_redirect(path: str, **params) -> RedirectResponse:
@@ -553,20 +452,15 @@ def _signup_redirect(path: str, **params) -> RedirectResponse:
     return RedirectResponse(url=f"/mcp/{path}?{urlencode({k: v for k, v in params.items() if v})}", status_code=303)
 
 
-@router.get("/signup", response_class=HTMLResponse)
-async def signup_page(code: str = Query(...), error: str | None = Query(None), email: str = Query("")) -> str:
-    import html
-    _check_pending_code(code)
-    backend = settings.BACKEND_URL.rstrip("/")
-    return _page("Create your Blog2Video account", f"""
-<h1>Create your account</h1><p>Sign up to connect Blog2Video to Claude.</p>{_banner(error, None)}
-<form method="post" action="{backend}/mcp/signup-start">
-<input type="hidden" name="code" value="{html.escape(code)}">
-<input name="name" placeholder="Name (optional)" autocomplete="name">
-<input type="email" name="email" value="{html.escape(email)}" placeholder="Email" required autocomplete="email">
-<input type="password" name="password" placeholder="Password" required autocomplete="new-password">
-<button type="submit">Send verification code</button></form>
-<p class="hint">Already have an account? <a href="{backend}/mcp/google-start?code={html.escape(code)}">Sign in</a></p>""")
+@router.get("/signup")
+async def signup_page(code: str = Query(...), error: str | None = Query(None),
+                      email: str = Query(""), name: str = Query("")):
+    if (gone := _guard(code)) is not None:
+        return gone
+    return HTMLResponse(mcp_auth_ui.signup_page(
+        code=code, backend=settings.BACKEND_URL.rstrip("/"), google_url=_google_auth_url(code),
+        site_url=settings.FRONTEND_URL, error=error, email=email, name=name,
+    ))
 
 
 @router.post("/signup-start")
@@ -583,7 +477,8 @@ async def signup_start(request: Request):
     email = (form.get("email") or "").strip().lower()
     password = form.get("password") or ""
     name = (form.get("name") or "").strip()[:255]
-    _check_pending_code(code)
+    if (gone := _guard(code)) is not None:
+        return gone
     if not _EMAIL_RE.match(email):
         return _signup_redirect("signup", code=code, error="Enter a valid email address.", email=email)
 
@@ -606,29 +501,27 @@ async def signup_start(request: Request):
         except EmailServiceError:
             raise HTTPException(status_code=502, detail="email_send_failed")
     except HTTPException as e:
-        if e.status_code == 409 and not isinstance(e.detail, dict):
-            # social-provider account: wrong_provider_error
-            return _signup_redirect("signup", code=code, email=email,
-                                    error="This email is registered with a different sign-in method (e.g. Google). Go back and use that.")
+        if e.detail == "resend_too_soon":
+            # Double-submit / back-button: a code was just sent, so go to the
+            # verify page rather than bouncing back to the form with an error.
+            return _signup_redirect("signup-verify", code=code, email=email,
+                                    info="A code was already sent. Check your inbox.", wait=60)
         return _signup_redirect("signup", code=code, email=email, error=_signup_error_text(e))
     finally:
         db.close()
-    return _signup_redirect("signup-verify", code=code, email=email, info=f"We sent a 6-digit code to {email}.")
+    return _signup_redirect("signup-verify", code=code, email=email, info="Code sent!", wait=60)
 
 
-@router.get("/signup-verify", response_class=HTMLResponse)
+@router.get("/signup-verify")
 async def signup_verify_page(code: str = Query(...), email: str = Query(...),
-                             error: str | None = Query(None), info: str | None = Query(None)) -> str:
-    import html
-    _check_pending_code(code)
-    backend = settings.BACKEND_URL.rstrip("/")
-    hidden = f'<input type="hidden" name="code" value="{html.escape(code)}"><input type="hidden" name="email" value="{html.escape(email)}">'
-    return _page("Verify your email", f"""
-<h1>Check your email</h1><p>Enter the code to finish creating your account.</p>{_banner(error, info)}
-<form method="post" action="{backend}/mcp/signup-verify">{hidden}
-<input name="otp" placeholder="Verification code" inputmode="numeric" autocomplete="one-time-code" required>
-<button type="submit">Verify &amp; connect</button></form>
-<form method="post" action="{backend}/mcp/signup-resend">{hidden}<button class="link" type="submit">Resend code</button></form>""")
+                             error: str | None = Query(None), info: str | None = Query(None),
+                             wait: int = Query(0)):
+    if (gone := _guard(code)) is not None:
+        return gone
+    return HTMLResponse(mcp_auth_ui.verify_page(
+        code=code, backend=settings.BACKEND_URL.rstrip("/"), site_url=settings.FRONTEND_URL,
+        email=email, error=error, info=info, wait=max(0, min(wait, 120)),
+    ))
 
 
 @router.post("/signup-resend")
@@ -640,7 +533,8 @@ async def signup_resend(request: Request):
     form = await request.form()
     code = form.get("code") or ""
     email = (form.get("email") or "").strip().lower()
-    _check_pending_code(code)
+    if (gone := _guard(code)) is not None:
+        return gone
     db = SessionLocal()
     try:
         rate_limit.resend_limiter.check(rate_limit.email_key(email))
@@ -667,7 +561,7 @@ async def signup_resend(request: Request):
         return _signup_redirect("signup-verify", code=code, email=email, error=_signup_error_text(e))
     finally:
         db.close()
-    return _signup_redirect("signup-verify", code=code, email=email, info="A new code was sent.")
+    return _signup_redirect("signup-verify", code=code, email=email, info="A new code is on its way.", wait=60)
 
 
 @router.post("/signup-verify")
@@ -683,7 +577,8 @@ async def signup_verify(request: Request):
     code = form.get("code") or ""
     email = (form.get("email") or "").strip().lower()
     otp = (form.get("otp") or "").strip()
-    _check_pending_code(code)
+    if (gone := _guard(code)) is not None:
+        return gone
 
     key = rate_limit.client_key(request)
     db = SessionLocal()
