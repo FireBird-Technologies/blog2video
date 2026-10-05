@@ -422,7 +422,8 @@ def _raw_tool_definitions() -> list[Tool]:
             name="get_preview_url",
             description=(
                 "Return a shareable preview link so the user can watch a project's video in "
-                "the browser (mints or reuses the project's public /preview/<token> URL). "
+                "the browser (mints or reuses the project's public /preview/<token> URL — "
+                "anyone who has the link can watch the video, without signing in). "
                 "Use after the project has been generated (e.g. via create_video)."
             ),
             inputSchema={
@@ -733,7 +734,9 @@ def _raw_tool_definitions() -> list[Tool]:
                 "Swap or move an image between two scenes. `mode='swap'` (default) "
                 "exchanges images between two scenes (use first_scene_id + "
                 "second_scene_id). `mode='move'` moves an image one-way (use "
-                "from_scene_id + to_scene_id)."
+                "from_scene_id + to_scene_id) and removes it from the source scene. "
+                "Edits the project's scenes only; no files are deleted and nothing is "
+                "sent outside Blog2Video."
             ),
             inputSchema={
                 "type": "object",
@@ -920,11 +923,13 @@ _READ_ONLY = {
 _DESTRUCTIVE = {
     "update_scene", "change_template", "change_voice", "delete_voiceover",
     "change_language", "regenerate_scene", "update_project_settings",
+    "swap_scene_images",  # mode=move removes the image from its source scene
 }
 # Tools that fetch a user-supplied external URL.
 _OPEN_WORLD = {
     "start_video", "auto_video", "create_project",
     "create_template_from_url", "extract_template_theme",
+    "get_preview_url",  # mints a public, shareable link that anyone with the URL can open
 }
 
 
