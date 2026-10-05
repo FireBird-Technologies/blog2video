@@ -477,9 +477,11 @@ async def _read_resource(uri):
         # fires before the user can interact and carries fresher data. bgm_tracks
         # has no unauthenticated fetch (the endpoint needs a JWT), and is_paid
         # fails closed so paid-only lengths stay hidden when unknown.
-        settings = {"bgm_tracks": h._BGM_CACHE, "is_paid": False}
+        # Not named `settings`: that would shadow the module-level app settings for the
+        # whole function and break the BACKEND_URL lookup used earlier in it.
+        panel_settings = {"bgm_tracks": h._BGM_CACHE, "is_paid": False}
         html = load_html("settings_panel")
-        injection = f"<script>window.__B2V_SETTINGS__={json.dumps(settings, ensure_ascii=False)};</script>"
+        injection = f"<script>window.__B2V_SETTINGS__={json.dumps(panel_settings, ensure_ascii=False)};</script>"
         html = html.replace("</head>", f"{injection}</head>", 1)
         return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
 
