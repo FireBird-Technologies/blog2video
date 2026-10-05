@@ -6,6 +6,7 @@ import shutil
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
+from fastapi.responses import PlainTextResponse
 from fastapi import FastAPI, Header, HTTPException
 
 # Ensure app loggers (e.g. app.services.elevenlabs_voice_design) emit INFO to console
@@ -871,6 +872,12 @@ app.include_router(mcp_oauth.root_router)
 app.mount("/mcp", mcp_oauth.build_sdk_starlette_app(
     extra_routes=mcp_transport.starlette_routes(),
 ))
+
+
+@app.get("/.well-known/openai-apps-challenge", response_class=PlainTextResponse)
+def openai_apps_challenge():
+    """Domain-verification token for the OpenAI plugin portal (must sit at the origin root)."""
+    return "LV1DLvrnlFqAjrZiPSNvje4EB3SXQ_Ed7xTC4UT1hXc"
 
 
 @app.get("/api/health")

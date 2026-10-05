@@ -211,7 +211,10 @@ async def register_root_alias():
 # ---------------------------------------------------------------------------
 
 @router.get("/google-start", response_class=HTMLResponse)
-async def google_start(code: str = Query(..., description="Pending mcp_oauth_code")) -> str:
+async def google_start(
+    code: str = Query(..., description="Pending mcp_oauth_code"),
+    error: str | None = Query(None),
+) -> str:
     """Render a minimal page that runs Google's JS SDK and posts the credential
     to /mcp/google-callback. Once the credential is verified, the page is
     redirected back to claude.ai's redirect_uri with the OAuth code + state.
@@ -238,7 +241,9 @@ async def google_start(code: str = Query(..., description="Pending mcp_oauth_cod
     # from Google JS SDK) and the One Tap redirect_uri_mismatch issues.
     # After the user signs in on accounts.google.com, Google redirects back to
     # /mcp/google-oauth-callback?code=...&state=<pending_mcp_code>.
+    import html
     import urllib.parse
+    error_html = f'<p class="err">{html.escape(error)}</p>' if error else ""
     google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
         "client_id": google_client_id,
         "redirect_uri": f"{backend}/mcp/google-oauth-callback",
@@ -291,12 +296,20 @@ async def google_start(code: str = Query(..., description="Pending mcp_oauth_cod
       transition: background 0.15s;
     }}
     .btn:hover {{ background: #f8f9fa; }}
+    .or {{ margin: 16px 0; color: #999; font-size: 13px; }}
+    .email-form {{ display: flex; flex-direction: column; gap: 10px; }}
+    .email-form input {{ padding: 11px 12px; border: 1px solid #dadce0; border-radius: 4px; font-size: 14px; }}
+    .btn.submit {{ justify-content: center; background: #111; color: #fff; border-color: #111; }}
+    .btn.submit:hover {{ background: #333; }}
+    .err {{ background: #fdecea; color: #b3261e; padding: 10px; border-radius: 6px; font-size: 13px; margin: 0 0 16px; }}
+    .hint {{ font-size: 12px; margin: 16px 0 0; }}
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Connect Blog2Video</h1>
-    <p>Sign in with Google to let Claude access your Blog2Video account.</p>
+    <p>Sign in to let Claude access your Blog2Video account.</p>
+    {error_html}
     <a href="{google_auth_url}" class="btn">
       <svg width="18" height="18" viewBox="0 0 18 18">
         <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/>
@@ -306,6 +319,14 @@ async def google_start(code: str = Query(..., description="Pending mcp_oauth_cod
       </svg>
       Sign in with Google
     </a>
+    <div class="or"><span>or</span></div>
+    <form method="post" action="{backend}/mcp/email-login" class="email-form">
+      <input type="hidden" name="code" value="{html.escape(code)}">
+      <input type="email" name="email" placeholder="Email" required autocomplete="email">
+      <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
+      <button type="submit" class="btn submit">Sign in with email</button>
+    </form>
+    <p class="hint">No account yet? <a href="{backend}/mcp/signup?code={urllib.parse.quote(code)}">Create one</a></p>
   </div>
 </body>
 </html>"""
@@ -389,6 +410,317 @@ async def google_callback(request: Request):
         final_redirect = f"{row.redirect_uri}{sep}{urlencode(params)}"
 
         return RedirectResponse(url=final_redirect, status_code=303)
+    finally:
+        db.close()
+
+
+@router.post("/email-login")
+async def email_login(request: Request):
+    """Email/password sign-in for the MCP bridge page (same rules as web /auth/email/login)."""
+    from urllib.parse import urlencode
+    from app.services import rate_limit
+    from app.services.auth_identity import resolve_password_user
+    from app.services.password import verify_password
+
+    form = await request.form()
+    code = form.get("code")
+    email = (form.get("email") or "").strip()
+    password = form.get("password") or ""
+    if not code or not email or not password:
+        raise HTTPException(status_code=400, detail="Missing code, email or password")
+
+    def _back(msg: str) -> RedirectResponse:
+        return RedirectResponse(
+            url=f"/mcp/google-start?{urlencode({'code': code, 'error': msg})}", status_code=303
+        )
+
+    ip_key = rate_limit.client_key(request)
+    mail_key = rate_limit.email_key(email)
+    try:
+        rate_limit.login_ip_limiter.check(ip_key)
+        rate_limit.login_email_limiter.check(mail_key)
+    except HTTPException:
+        return _back("Too many attempts. Try again later.")
+
+    db: Session = SessionLocal()
+    try:
+        row = db.query(MCPAuthCode).filter(
+            MCPAuthCode.code == code,
+            MCPAuthCode.used == False,  # noqa: E712
+        ).first()
+        if not row:
+            raise HTTPException(status_code=400, detail="Unknown or already-used authorization code")
+        if row.expires_at < datetime.utcnow():
+            raise HTTPException(status_code=400, detail="Authorization code expired")
+
+        try:
+            user = resolve_password_user(db, email=email)
+        except HTTPException as e:
+            if e.status_code == 409:
+                return _back("This email uses a different sign-in method (e.g. Google).")
+            user = None
+        if user is None or not verify_password(password, user.password_hash):
+            rate_limit.login_ip_limiter.record_failure(ip_key)
+            rate_limit.login_email_limiter.record_failure(mail_key)
+            return _back("Invalid email or password.")
+        if not user.is_active:
+            return _back("This account is deactivated. Reactivate it on the Blog2Video website.")
+
+        rate_limit.login_ip_limiter.clear(ip_key)
+        rate_limit.login_email_limiter.clear(mail_key)
+        row.user_id = user.id
+        db.commit()
+
+        params = {"code": code}
+        if row.state:
+            params["state"] = row.state
+        sep = "&" if "?" in row.redirect_uri else "?"
+        return RedirectResponse(url=f"{row.redirect_uri}{sep}{urlencode(params)}", status_code=303)
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Email sign-up inside the MCP flow (mirrors /api/auth/email/register/*)
+# ---------------------------------------------------------------------------
+
+_SIGNUP_ERRORS = {
+    "email_already_registered": "An account with this email already exists. Go back and sign in instead.",
+    "password_too_short": "Password is too short.",
+    "password_too_long": "Password is too long.",
+    "password_needs_uppercase": "Password needs an uppercase letter.",
+    "password_needs_special": "Password needs a special character.",
+    "code_invalid": "That code is incorrect.",
+    "code_expired": "That code has expired. Request a new one.",
+    "code_attempts_exceeded": "Too many wrong attempts. Request a new code.",
+    "resend_too_soon": "Please wait a moment before requesting another code.",
+    "email_send_failed": "We couldn't send the email. Try again shortly.",
+    "no_pending_registration": "No pending sign-up for this email. Start again.",
+}
+
+
+def _signup_error_text(e: HTTPException) -> str:
+    d = e.detail
+    if isinstance(d, dict):
+        code = d.get("code", "")
+        msg = _SIGNUP_ERRORS.get(code, "Something went wrong.")
+        if code == "code_invalid" and d.get("attempts_remaining") is not None:
+            msg += f" {d['attempts_remaining']} attempt(s) left."
+        return msg
+    return _SIGNUP_ERRORS.get(str(d), "Something went wrong. Please try again.")
+
+
+def _page(title: str, inner: str) -> str:
+    return f"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>{title}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><style>
+body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fafafa;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}}
+.card{{background:#fff;padding:32px;border-radius:12px;box-shadow:0 2px 24px rgba(0,0,0,.06);width:100%;max-width:380px;text-align:center}}
+h1{{font-size:20px;margin:0 0 8px;color:#111}} p{{color:#555;margin:0 0 20px;font-size:14px}}
+form{{display:flex;flex-direction:column;gap:10px}}
+input{{padding:11px 12px;border:1px solid #dadce0;border-radius:4px;font-size:14px}}
+button{{padding:12px;border-radius:4px;border:1px solid #111;background:#111;color:#fff;font-size:14px;font-weight:500;cursor:pointer}}
+button.link{{background:none;border:none;color:#1a56db;padding:4px}}
+.err{{background:#fdecea;color:#b3261e;padding:10px;border-radius:6px;font-size:13px}}
+.info{{background:#e8f5e9;color:#1b5e20;padding:10px;border-radius:6px;font-size:13px}}
+.hint{{font-size:12px;margin:16px 0 0}}
+</style></head><body><div class="card">{inner}</div></body></html>"""
+
+
+def _banner(error: str | None, info: str | None) -> str:
+    import html
+    out = ""
+    if error:
+        out += f'<p class="err">{html.escape(error)}</p>'
+    if info:
+        out += f'<p class="info">{html.escape(info)}</p>'
+    return out
+
+
+def _check_pending_code(code: str) -> None:
+    db = SessionLocal()
+    try:
+        row = db.query(MCPAuthCode).filter(MCPAuthCode.code == code, MCPAuthCode.used == False).first()  # noqa: E712
+        if not row:
+            raise HTTPException(status_code=400, detail="Unknown or already-used authorization code")
+        if row.expires_at < datetime.utcnow():
+            raise HTTPException(status_code=400, detail="Authorization code expired")
+    finally:
+        db.close()
+
+
+def _signup_redirect(path: str, **params) -> RedirectResponse:
+    from urllib.parse import urlencode
+    return RedirectResponse(url=f"/mcp/{path}?{urlencode({k: v for k, v in params.items() if v})}", status_code=303)
+
+
+@router.get("/signup", response_class=HTMLResponse)
+async def signup_page(code: str = Query(...), error: str | None = Query(None), email: str = Query("")) -> str:
+    import html
+    _check_pending_code(code)
+    backend = settings.BACKEND_URL.rstrip("/")
+    return _page("Create your Blog2Video account", f"""
+<h1>Create your account</h1><p>Sign up to connect Blog2Video to Claude.</p>{_banner(error, None)}
+<form method="post" action="{backend}/mcp/signup-start">
+<input type="hidden" name="code" value="{html.escape(code)}">
+<input name="name" placeholder="Name (optional)" autocomplete="name">
+<input type="email" name="email" value="{html.escape(email)}" placeholder="Email" required autocomplete="email">
+<input type="password" name="password" placeholder="Password" required autocomplete="new-password">
+<button type="submit">Send verification code</button></form>
+<p class="hint">Already have an account? <a href="{backend}/mcp/google-start?code={html.escape(code)}">Sign in</a></p>""")
+
+
+@router.post("/signup-start")
+async def signup_start(request: Request):
+    from app.models.email_verification import VerificationPurpose
+    from app.services import email_verification as verification, rate_limit
+    from app.services.auth_identity import assert_email_available_for_password
+    from app.services.email import email_service, EmailServiceError
+    from app.services.password import hash_password, validate_password
+    from app.routers.auth import _EMAIL_RE
+
+    form = await request.form()
+    code = form.get("code") or ""
+    email = (form.get("email") or "").strip().lower()
+    password = form.get("password") or ""
+    name = (form.get("name") or "").strip()[:255]
+    _check_pending_code(code)
+    if not _EMAIL_RE.match(email):
+        return _signup_redirect("signup", code=code, error="Enter a valid email address.", email=email)
+
+    key = rate_limit.client_key(request)
+    db = SessionLocal()
+    try:
+        rate_limit.register_limiter.check(key)
+        if assert_email_available_for_password(db, email) is not None:
+            rate_limit.register_limiter.record_failure(key)
+            raise HTTPException(status_code=409, detail={"code": "email_already_registered"})
+        validate_password(password)
+        _row, otp = verification.issue_code(
+            db, email=email, purpose=VerificationPurpose.SIGNUP,
+            pending_password_hash=hash_password(password),
+            pending_name=name or email.split("@")[0],
+        )
+        db.commit()
+        try:
+            email_service.send_verification_code_email(email, otp)
+        except EmailServiceError:
+            raise HTTPException(status_code=502, detail="email_send_failed")
+    except HTTPException as e:
+        if e.status_code == 409 and not isinstance(e.detail, dict):
+            # social-provider account: wrong_provider_error
+            return _signup_redirect("signup", code=code, email=email,
+                                    error="This email is registered with a different sign-in method (e.g. Google). Go back and use that.")
+        return _signup_redirect("signup", code=code, email=email, error=_signup_error_text(e))
+    finally:
+        db.close()
+    return _signup_redirect("signup-verify", code=code, email=email, info=f"We sent a 6-digit code to {email}.")
+
+
+@router.get("/signup-verify", response_class=HTMLResponse)
+async def signup_verify_page(code: str = Query(...), email: str = Query(...),
+                             error: str | None = Query(None), info: str | None = Query(None)) -> str:
+    import html
+    _check_pending_code(code)
+    backend = settings.BACKEND_URL.rstrip("/")
+    hidden = f'<input type="hidden" name="code" value="{html.escape(code)}"><input type="hidden" name="email" value="{html.escape(email)}">'
+    return _page("Verify your email", f"""
+<h1>Check your email</h1><p>Enter the code to finish creating your account.</p>{_banner(error, info)}
+<form method="post" action="{backend}/mcp/signup-verify">{hidden}
+<input name="otp" placeholder="Verification code" inputmode="numeric" autocomplete="one-time-code" required>
+<button type="submit">Verify &amp; connect</button></form>
+<form method="post" action="{backend}/mcp/signup-resend">{hidden}<button class="link" type="submit">Resend code</button></form>""")
+
+
+@router.post("/signup-resend")
+async def signup_resend(request: Request):
+    from app.models.email_verification import EmailVerificationCode, VerificationPurpose
+    from app.services import email_verification as verification, rate_limit
+    from app.services.email import email_service, EmailServiceError
+
+    form = await request.form()
+    code = form.get("code") or ""
+    email = (form.get("email") or "").strip().lower()
+    _check_pending_code(code)
+    db = SessionLocal()
+    try:
+        rate_limit.resend_limiter.check(rate_limit.email_key(email))
+        pending = (
+            db.query(EmailVerificationCode)
+            .filter(EmailVerificationCode.email == email,
+                    EmailVerificationCode.purpose == VerificationPurpose.SIGNUP.value,
+                    EmailVerificationCode.used.is_(False))
+            .order_by(EmailVerificationCode.created_at.desc(), EmailVerificationCode.id.desc())
+            .first()
+        )
+        if pending is None:
+            raise HTTPException(status_code=400, detail="no_pending_registration")
+        _row, otp = verification.issue_code(
+            db, email=email, purpose=VerificationPurpose.SIGNUP,
+            pending_password_hash=pending.pending_password_hash, pending_name=pending.pending_name,
+        )
+        db.commit()
+        try:
+            email_service.send_verification_code_email(email, otp)
+        except EmailServiceError:
+            raise HTTPException(status_code=502, detail="email_send_failed")
+    except HTTPException as e:
+        return _signup_redirect("signup-verify", code=code, email=email, error=_signup_error_text(e))
+    finally:
+        db.close()
+    return _signup_redirect("signup-verify", code=code, email=email, info="A new code was sent.")
+
+
+@router.post("/signup-verify")
+async def signup_verify(request: Request):
+    from urllib.parse import urlencode
+    from app.models.email_verification import VerificationPurpose
+    from app.services import email_verification as verification, rate_limit
+    from app.services.auth_identity import assert_email_available_for_password, create_password_user
+    from app.routers.auth import _bind_pending_collab_invites
+    from app.services.voice_seed import ensure_free_voices_for_user
+
+    form = await request.form()
+    code = form.get("code") or ""
+    email = (form.get("email") or "").strip().lower()
+    otp = (form.get("otp") or "").strip()
+    _check_pending_code(code)
+
+    key = rate_limit.client_key(request)
+    db = SessionLocal()
+    try:
+        try:
+            rate_limit.verify_limiter.check(key)
+            row = verification.consume_code(db, email=email, purpose=VerificationPurpose.SIGNUP, code=otp)
+            if assert_email_available_for_password(db, email) is not None:
+                raise HTTPException(status_code=409, detail={"code": "email_already_registered"})
+            user, _created = create_password_user(
+                db, email=email, name=row.pending_name or email.split("@")[0],
+                password_hash=row.pending_password_hash,
+            )
+            db.delete(row)
+            rate_limit.verify_limiter.clear(key)
+        except HTTPException as e:
+            return _signup_redirect("signup-verify", code=code, email=email, error=_signup_error_text(e))
+
+        if settings.DEFAULT_PLAN:
+            from app.models.user import PlanTier
+            try:
+                user.plan = PlanTier(settings.DEFAULT_PLAN.lower())
+            except ValueError:
+                pass
+        db.commit()
+        db.refresh(user)
+        _bind_pending_collab_invites(user, db)
+        ensure_free_voices_for_user(db, user.id)
+
+        mcp_row = db.query(MCPAuthCode).filter(MCPAuthCode.code == code, MCPAuthCode.used == False).first()  # noqa: E712
+        mcp_row.user_id = user.id
+        db.commit()
+        params = {"code": code}
+        if mcp_row.state:
+            params["state"] = mcp_row.state
+        sep = "&" if "?" in mcp_row.redirect_uri else "?"
+        return RedirectResponse(url=f"{mcp_row.redirect_uri}{sep}{urlencode(params)}", status_code=303)
     finally:
         db.close()
 
