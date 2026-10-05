@@ -11,7 +11,7 @@ Refresh + access tokens are JWTs (see app/auth.py) and are NOT stored here.
 """
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -50,6 +50,6 @@ class MCPAuthCode(Base):
     redirect_uri: Mapped[str] = mapped_column(String(2048), nullable=False)
     code_challenge: Mapped[str | None] = mapped_column(String(255), nullable=True)
     scopes: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
-    state: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    state: Mapped[str | None] = mapped_column(Text, nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
