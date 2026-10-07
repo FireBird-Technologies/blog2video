@@ -6,7 +6,7 @@ key holder that created them (tagged with the caller's own end-user id).
 Guarded so a re-run or drifted DB doesn't fail.
 
 Revision ID: add_public_api
-Revises: add_project_source_site
+Revises: mcp_oauth_codes_state_text
 Create Date: 2026-09-29
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "add_public_api"
-down_revision = "add_project_source_site"
+down_revision = "mcp_oauth_codes_state_text"
 branch_labels = None
 depends_on = None
 

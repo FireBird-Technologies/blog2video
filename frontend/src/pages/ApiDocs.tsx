@@ -228,8 +228,22 @@ function GuideBlock({ block, copied, onCopy, id }: { block: ApiDocBlock; copied:
       </p>
     );
   }
-  if (block.type === "code") {
-    return <CodeBlock label="Example" text={block.text} copyId={id} copied={copied} onCopy={onCopy} />;
+  if (block.type === "example") {
+    const hasBody = block.body !== undefined;
+    return (
+      <div className={`grid gap-3 ${hasBody ? "lg:grid-cols-2" : ""}`}>
+        {hasBody && (
+          <CodeBlock label="Body" text={asText(block.body)} copyId={`body-${id}`} copied={copied} onCopy={onCopy} />
+        )}
+        <CodeBlock
+          label={`Response · ${block.status}`}
+          text={asText(block.response)}
+          copyId={`res-${id}`}
+          copied={copied}
+          onCopy={onCopy}
+        />
+      </div>
+    );
   }
   if (block.type === "list") {
     return (

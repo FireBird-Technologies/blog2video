@@ -36,7 +36,7 @@ export interface ApiDocEndpoint {
 
 export type ApiDocBlock =
   | { type: "p"; text: string }
-  | { type: "code"; text: string }
+  | { type: "example"; body?: unknown; status: number; response: unknown }
   | { type: "list"; items: string[] }
   | { type: "table"; columns: string[]; rows: string[][] };
 
@@ -237,48 +237,87 @@ const GUIDES: ApiDocs["guides"] = [
     title: "Quick Video Creation",
     blocks: [
       {
-        type: "list",
-        items: [
-          "Create: `POST /api/v1/videos` with a `url`, or `content` and a `title`. Uses one video from your plan.",
-          "Wait: poll `GET /api/v1/videos/{id}/status` until `ready` is true.",
-          "Get it: `GET /api/v1/videos/{id}` returns the scenes and a `preview_url` you can play or embed.",
-          "Render (optional): `POST /api/v1/videos/{id}/render`, then poll it until `done`. `r2_video_url` is the MP4.",
-        ],
+        type: "p",
+        text: "==1. Create the video.== `POST /api/v1/videos` with a `url` to turn a blog post into a video, or your own `content` and a `title`. It returns a `video_id` right away and keeps working in the background.",
+      },
+      {
+        type: "example",
+        body: {
+          url: "https://example.com/blog/remote-teams",
+          template: "default",
+          video_style: "auto",
+          video_length: "short",
+          aspect_ratio: "landscape",
+          voice_gender: "female",
+          content_language: "en",
+          external_user_id: "user-42",
+        },
+        status: 202,
+        response: { video_id: 812, state: "queued" },
       },
       {
         type: "p",
-        text: "Optional fields when creating: `template`, `video_style`, `video_length`, `aspect_ratio`, `voice_gender`, `content_language` and `external_user_id`. Send an `Idempotency-Key` header to avoid creating the same video twice.",
+        text: "No URL? Send the text instead: `{\"title\": \"Why remote teams stall\", \"content\": \"Most remote teams don't fail on talent...\"}`. Every field except `url` / `content` is optional. Repeating a request with the same `Idempotency-Key` header returns the first video (`\"state\": \"existing\"`) instead of creating a new one.",
       },
-    ],
-  },
-  {
-    id: "errors",
-    title: "Errors",
-    blocks: [
-      { type: "p", text: "Errors return JSON with a `detail` field." },
-      {
-        type: "table",
-        columns: ["Status", "Meaning"],
-        rows: [
-          ["400", "Not valid right now."],
-          ["401", "Missing or invalid API key."],
-          ["402", "No videos left this period."],
-          ["403", "Not allowed on your plan, or out of credits."],
-          ["404", "Not found."],
-          ["409", "A job is already running."],
-          ["422", "Invalid fields (listed in `detail`)."],
-          ["429", "Too many requests; wait for `Retry-After`."],
-        ],
-      },
-    ],
-  },
-  {
-    id: "limits",
-    title: "Usage and background jobs",
-    blocks: [
       {
         type: "p",
-        text: "Each new video uses one video from your plan; AI features use AI-edit credits. Long jobs run in the background: poll their status at most every 2 seconds.",
+        text: "==2. Wait for it.== Poll `GET /api/v1/videos/{id}/status` every few seconds until `ready` is `true`. If `status` becomes `failed`, `error` says why.",
+      },
+      {
+        type: "example",
+        status: 200,
+        response: { video_id: 812, status: "generated", step: 5, running: false, ready: true, error: null, video_url: null },
+      },
+      {
+        type: "p",
+        text: "==3. Get the video.== `GET /api/v1/videos/{id}` returns the scenes (with voiceover URLs) and a `preview_url` you can open, or drop `embed_html` into your page. The preview updates live when you edit scenes.",
+      },
+      {
+        type: "example",
+        status: 200,
+        response: {
+          video_id: 812,
+          status: "generated",
+          ready: true,
+          preview_url: "https://blog2video.app/embed/3f9a…c21",
+          embed_html: "<iframe src=\"https://blog2video.app/embed/3f9a…c21\" …></iframe>",
+          video_url: null,
+          external_user_id: "user-42",
+          metadata: null,
+          project: {
+            id: 812,
+            name: "Why remote teams stall",
+            scenes: [
+              { id: 5011, order: 1, title: "Handoffs, not talent", narration_text: "…", voiceover_url: "https://…/scene_1.mp3" },
+            ],
+          },
+        },
+      },
+      {
+        type: "p",
+        text: "==4. Render an MP4 (optional).== `POST /api/v1/videos/{id}/render` (add `?resolution=720p` for a smaller file).",
+      },
+      {
+        type: "example",
+        status: 202,
+        response: { detail: "Render started", progress: 0, resolution: "1080p" },
+      },
+      {
+        type: "p",
+        text: "Then poll `GET /api/v1/videos/{id}/render` until `done` is `true`. `r2_video_url` is the MP4 link.",
+      },
+      {
+        type: "example",
+        status: 200,
+        response: {
+          progress: 100,
+          done: true,
+          r2_video_url: "https://media.blog2video.app/users/41/projects/812/video.mp4",
+        },
+      },
+      {
+        type: "p",
+        text: "==Options when creating:== `template` (an id from `GET /api/v1/catalog`, or `custom_<id>`), `video_style`, `video_length` (`auto`, `short`, `medium`, `detailed`), `aspect_ratio` (`landscape` or `portrait`), `voice_gender`, `content_language`, and `external_user_id` to tag the video with your own user's id.",
       },
     ],
   },
