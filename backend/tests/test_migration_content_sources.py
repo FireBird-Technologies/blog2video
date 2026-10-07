@@ -126,10 +126,12 @@ def test_source_site_revision_adds_column_idempotently(tmp_path):
     assert "source_site" not in _columns(engine, "projects")
 
 
-def test_source_site_revision_is_followed_by_public_api():
+def test_public_api_revision_follows_mcp_oauth_state_text():
+    # develop's mcp_oauth_codes_state_text landed on add_project_source_site, so
+    # the public API revision was rebased onto it to keep a single head.
     children = [
         p.name for p in _REV.parent.glob("*.py")
-        if 'down_revision = "add_project_source_site"' in p.read_text()
+        if 'down_revision = "mcp_oauth_codes_state_text"' in p.read_text()
     ]
     assert children == ["add_public_api.py"]
 
@@ -141,7 +143,7 @@ def test_public_api_revision_is_idempotent_and_reversible(tmp_path):
     spec = importlib.util.spec_from_file_location("rev_public_api", _API_REV)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    assert mod.down_revision == "add_project_source_site"
+    assert mod.down_revision == "mcp_oauth_codes_state_text"
     engine = sa.create_engine(f"sqlite:///{tmp_path / 'api.db'}")
     with engine.begin() as conn:
         conn.execute(sa.text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
