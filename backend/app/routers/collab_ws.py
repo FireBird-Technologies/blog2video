@@ -46,11 +46,20 @@ class _Conn:
         self.picture = picture
 
 
+# Content changes a public preview needs to refetch on.
+_VIEWER_MESSAGE_TYPES = {"edit", "project_reloaded"}
+
+
 class ConnectionManager:
     """In-process room registry: project_id -> set of live connections."""
 
     def __init__(self) -> None:
         self._rooms: dict[int, set[_Conn]] = defaultdict(set)
+        # Read-only public preview sockets (/api/embed/project/{token}/live).
+        # They only receive content changes, never presence/cursors/locks, and
+        # are never matched by exclude_user_id: an edit must reach the preview
+        # whoever made it.
+        self._viewers: dict[int, set[WebSocket]] = defaultdict(set)
         # The event loop the websockets run on, captured when the first client
         # connects. Sync REST endpoints use it to schedule broadcasts (they run in
         # a threadpool, off the loop) so their edits reach live collaborators.
@@ -74,7 +83,7 @@ class ConnectionManager:
         """
         loop = self._loop
         room = self._rooms.get(project_id)
-        if loop is None or not room:
+        if loop is None or not (room or self._viewers.get(project_id)):
             logger.info(
                 "[COLLAB_WS] broadcast_from_sync skipped project=%s loop=%s room_size=%d",
                 project_id, "bound" if loop else "none", len(room) if room else 0,
@@ -86,7 +95,7 @@ class ConnectionManager:
             )
             logger.info(
                 "[COLLAB_WS] broadcast_from_sync project=%s scope=%s field=%s room_size=%d",
-                project_id, message.get("scope"), message.get("field"), len(room),
+                project_id, message.get("scope"), message.get("field"), len(room) if room else 0,
             )
         except Exception as e:
             logger.warning("[COLLAB_WS] broadcast_from_sync failed project=%s: %s", project_id, e)
@@ -98,6 +107,14 @@ class ConnectionManager:
         self._rooms.get(project_id, set()).discard(conn)
         if not self._rooms.get(project_id):
             self._rooms.pop(project_id, None)
+
+    def add_viewer(self, project_id: int, ws: WebSocket) -> None:
+        self._viewers[project_id].add(ws)
+
+    def remove_viewer(self, project_id: int, ws: WebSocket) -> None:
+        self._viewers.get(project_id, set()).discard(ws)
+        if not self._viewers.get(project_id):
+            self._viewers.pop(project_id, None)
 
     def peers(self, project_id: int) -> list[dict]:
         seen: dict[int, dict] = {}
@@ -125,6 +142,13 @@ class ConnectionManager:
             except Exception:
                 # Drop dead sockets; disconnect handler will clean up too.
                 self.remove(project_id, c)
+        if message.get("type") in _VIEWER_MESSAGE_TYPES:
+            for ws in list(self._viewers.get(project_id, set())):
+                try:
+                    if ws.application_state == WebSocketState.CONNECTED:
+                        await ws.send_text(payload)
+                except Exception:
+                    self.remove_viewer(project_id, ws)
 
     async def notify_and_kick_user(self, project_id: int, user_id: int, message: dict) -> None:
         """Send a final message to a user's connections, then remove them from the room.

@@ -240,7 +240,7 @@ def _project_url(project_id: int) -> str:
 
 
 def _watch_url(project_id: int, client: "Blog2VideoClient") -> str | None:
-    """Mint (or reuse) the public /preview/<token> watch link.
+    """Mint (or reuse) the public /embed/<token> watch link.
 
     Preferred over _project_url in tool output: the editor link requires the
     viewer to be logged in as the owner, whereas this one is shareable and

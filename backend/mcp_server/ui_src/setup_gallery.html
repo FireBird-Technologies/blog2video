@@ -398,7 +398,7 @@
     var phase = "idle";
     var pid = null;            // project id, set after create_project succeeds
     var videoUrl = null;       // final MP4 URL, set after render completes
-    var watchUrl = null;       // shareable /preview/<token> link, set once generated
+    var watchUrl = null;       // shareable /embed/<token> link, set once generated
 
     function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ""; }
 
@@ -479,7 +479,7 @@
     }
 
     // Generation is done → the video is watchable immediately via a shareable
-    // /preview/<token> link. get_preview_url is widgetAccessible and takes only
+    // /embed/<token> link. get_preview_url is widgetAccessible and takes only
     // project_id, so the widget can mint it without a model turn.
     //
     // Rendering an MP4 is a separate 3-8 minute paid step, so it is demoted to
@@ -488,11 +488,11 @@
       var url = null;
       try {
         var res = await window.openai.callTool("get_preview_url", { project_id: pid });
-        // The handler returns markdown; pull the first /preview/ URL out of it.
+        // The handler returns markdown; pull the first /embed/ (or older /preview/) URL out of it.
         if (res && Array.isArray(res.content)) {
           for (var i = 0; i < res.content.length; i++) {
             var txt = (res.content[i] || {}).text || "";
-            var m = txt.match(/https?:\/\/\S*\/preview\/[A-Za-z0-9_-]+/);
+            var m = txt.match(/https?:\/\/\S*\/(?:embed|preview)\/[A-Za-z0-9_-]+/);
             if (m) { url = m[0]; break; }
           }
         }

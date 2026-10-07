@@ -137,6 +137,28 @@ export function pricingSchema() {
   ];
 }
 
+export function apiDocsSchema() {
+  return [
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      name: "Blog2Video API Documentation",
+      url: `${siteUrl}/api-docs`,
+      description:
+        "Blog2Video API reference: create, edit and render narrated videos from your own app with an API key.",
+      image: defaultOgImage,
+      publisher: {
+        "@type": "Organization",
+        name: organizationName,
+      },
+    },
+    breadcrumbList([
+      { name: "Home", path: "/" },
+      { name: "API Docs", path: "/api-docs" },
+    ]),
+  ];
+}
+
 export function contactSchema() {
   return [
     {

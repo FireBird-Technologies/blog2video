@@ -1,4 +1,4 @@
-"""The public embed player: a project's /preview/<token> page, and the iframe
+"""The public embed player: a project's /embed/<token> page, and the iframe
 snippet that puts it on another site.
 
 Shared by the embed-link endpoint (routers/embed.py) and Ghost publishing,
@@ -16,7 +16,7 @@ from app.models.project import Project
 
 
 def frontend_url() -> str:
-    """The first FRONTEND_URL origin — the base of every embed's /preview/<token>.
+    """The first FRONTEND_URL origin — the base of every embed's /embed/<token>.
 
     An embed on an https site (a Ghost post) only renders when this is https:
     an http://localhost FRONTEND_URL is blocked there as mixed content.
@@ -35,7 +35,9 @@ def ensure_embed_token(project: Project, db: Session) -> str:
 
 
 def preview_url(token: str) -> str:
-    return f"{frontend_url()}/preview/{token}"
+    # /embed/ is the standalone player (frontend/embed/index.html). Older
+    # /preview/<token> links are served by the same page.
+    return f"{frontend_url()}/embed/{token}"
 
 
 def embed_iframe_html(token: str, aspect_ratio: str | None) -> str:
