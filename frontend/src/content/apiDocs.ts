@@ -223,19 +223,13 @@ const CUSTOM_TEMPLATE = {
 
 const GUIDES: ApiDocs["guides"] = [
   {
-    id: "authentication",
-    title: "Authentication",
+    id: "quick-start",
+    title: "Quick start",
     blocks: [
       {
         type: "p",
         text: "Send your API key as `Authorization: Bearer <key>` on every request. Create keys on the API Keys page and keep them on your server. ==The API needs a paid plan.==",
       },
-    ],
-  },
-  {
-    id: "quick-flow",
-    title: "Quick Video Creation",
-    blocks: [
       {
         type: "p",
         text: "==1. Create the video.== `POST /api/v1/videos` with a `url` to turn a blog post into a video, or your own `content` and a `title`. It returns a `video_id` right away and keeps working in the background.",
@@ -1640,7 +1634,7 @@ const SECTIONS: ApiDocs["sections"] = [
   {
     id: "v1",
     title: "Simplified API (/api/v1)",
-    description: "Manage videos after creating them (see Quick Video Creation).",
+    description: "Manage videos after creating them (see Quick start).",
     endpoints: [
       ep("GET", "/api/v1/me", "Get account usage", "", {
         response: {
