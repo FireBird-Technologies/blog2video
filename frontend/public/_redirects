@@ -5,8 +5,10 @@
 /blogs/create-summary-videos-from-pdfs     https://pdf2vid.com/blogs/pdf-summarizer-or-pdf-video-summary  301
 
 # Standalone video player (embed/index.html): no app shell. Keep above the SPA fallback.
-/embed/*    /embed/index.html  200
-/preview/*  /embed/index.html  200
+# Target the pretty URL /embed/, not /embed/index.html: Pages 308s .html paths to
+# their pretty form, which makes a rewrite to them fall through to the SPA below.
+/embed/*    /embed/  200
+/preview/*  /embed/  200
 
 # SPA fallback. Keep last.
 /*  /index.html  200
