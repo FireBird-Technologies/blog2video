@@ -422,7 +422,7 @@ export default function ApiDocs() {
       <PublicHeader />
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="max-w-6xl mx-auto pb-12">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-gray-900">API Documentation</h1>
               <p className="text-sm text-gray-400 mt-1">
