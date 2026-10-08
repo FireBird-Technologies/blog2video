@@ -1,4 +1,4 @@
-=== Blog2Video ===
+=== B2V Video by FireBird ===
 Contributors: arslans1997, humera12
 Tags: video, ai, blog, embed, gutenberg
 Requires at least: 6.2
@@ -12,7 +12,7 @@ Turn WordPress posts and articles into narrated videos, edit every scene, render
 
 == Description ==
 
-Blog2Video connects WordPress to the hosted Blog2Video service. Editors can generate a video from the current saved post or a public article URL, select an existing project, edit scenes and project settings, render and download the video, and embed one Blog2Video video in the post.
+B2V Video connects WordPress to the hosted Blog2Video service. Editors can generate a video from the current saved post or a public article URL, select an existing project, edit scenes and project settings, render and download the video, and embed one Blog2Video video in the post.
 
 A Blog2Video account and internet connection are required. Video generation and some editing operations use the connected account's quota or credits. Current service options are listed at https://blog2video.app/pricing/.
 
@@ -37,10 +37,10 @@ Users can delete their account from the Account section at https://blog2video.ap
 
 == Installation ==
 
-1. Upload and activate Blog2Video.
-2. Open Settings > Blog2Video and connect a Blog2Video account.
+1. Upload and activate B2V Video.
+2. Open Settings > B2V Video and connect a Blog2Video account.
 3. Complete approval in Blog2Video.
-4. Open or create a post and use the Blog2Video editor panel.
+4. Open or create a post and use the B2V Video editor panel.
 
 Save the post before generating a video so its latest content is available.
 
@@ -52,11 +52,11 @@ Yes. This plugin connects WordPress to the hosted Blog2Video service, so an acco
 
 = Does the plugin send post content automatically? =
 
-No. Saved post content is sent when an authorized editor explicitly starts video generation from the current post. Opening the Blog2Video panel contacts the service to load account, project, template, voice, and status information.
+No. Saved post content is sent when an authorized editor explicitly starts video generation from the current post. Opening the B2V Video panel contacts the service to load account, project, template, voice, and status information.
 
 = What happens when the plugin is disconnected or uninstalled? =
 
-Disconnecting revokes this WordPress site's connection. Uninstalling removes locally stored connection settings and Blog2Video post metadata. Neither action deletes the Blog2Video account or projects stored by the hosted service.
+Disconnecting revokes this WordPress site's connection. Uninstalling removes locally stored connection settings and B2V Video post metadata. Neither action deletes the Blog2Video account or projects stored by the hosted service.
 
 = Where can I find the service policies? =
 
@@ -78,7 +78,7 @@ See https://blog2video.app/privacy/ and https://blog2video.app/terms.
 
 * Security and compatibility: all global functions, classes, constants, options, post meta keys, hooks, script and style handles, and JavaScript objects now use the unique `blog2video_` / `Blog2Video_` prefix.
 * Security: every REST route now declares its own permission check that requires the user to be able to edit the post.
-* Added the Blog2Video WordPress settings and post-editor interfaces.
+* Added the B2V Video WordPress settings and post-editor interfaces.
 * Added project selection, scene editing, project settings, rendering, downloading, and single-video embedding.
 * Added site-scoped authorization and quota-related error handling.
 * Added stricter validation for logo and scene-image uploads.

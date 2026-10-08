@@ -24,7 +24,8 @@ class Blog2Video_Post_Extractor {
 		$identity = self::post_identity( $post_id );
 		if ( is_wp_error( $identity ) ) { return $identity; }
 		$post = $identity['post'];
-		$content = apply_filters( 'the_content', $post->post_content );
+		// Core WordPress filter, intentionally not prefixed: we want the post's rendered HTML.
+		$content = apply_filters( 'the_content', $post->post_content ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 		$content = preg_replace( '#<(script|style|iframe|form|noscript)[^>]*>.*?</\\1>#is', ' ', $content );
 		$content = preg_replace( '/<!--.*?-->/s', ' ', $content );
 		$content = wp_strip_all_tags( $content, true );
