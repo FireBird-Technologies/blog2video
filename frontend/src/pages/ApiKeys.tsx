@@ -268,32 +268,34 @@ export default function ApiKeys() {
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Link
-            to="/dashboard"
-            className="text-xs text-gray-400 hover:text-gray-900 transition-colors mb-4 flex w-fit items-center gap-1"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Dashboard
-          </Link>
-          <h1 className="text-2xl font-semibold text-gray-900">API Keys</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Use API keys to access the Blog2Video API from your applications. Usage counts toward your plan,
-            including videos your app creates for its own users. Keep keys on your server.
-          </p>
-        </div>
+      <div>
         <Link
-          to="/api-docs"
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          to="/dashboard"
+          className="text-xs text-gray-400 hover:text-gray-900 transition-colors mb-4 flex w-fit items-center gap-1"
         >
-          API Documentation
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
+          Back to Dashboard
         </Link>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold text-gray-900">API Keys</h1>
+            <p className="text-sm text-gray-400 mt-1">
+              Use API keys to access the Blog2Video API from your applications. Usage counts toward your plan,
+              including videos your app creates for its own users. Keep keys on your server.
+            </p>
+          </div>
+          <Link
+            to="/api-docs"
+            className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            API Documentation
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </Link>
+        </div>
       </div>
 
       {/* Summary */}

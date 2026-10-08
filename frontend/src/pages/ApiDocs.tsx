@@ -422,8 +422,8 @@ export default function ApiDocs() {
       <PublicHeader />
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="max-w-6xl mx-auto pb-12">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-gray-900">API Documentation</h1>
               <p className="text-sm text-gray-400 mt-1">
                 Reference for all endpoints available to API keys. Paths are relative to{" "}
@@ -433,7 +433,7 @@ export default function ApiDocs() {
             </div>
             <Link
               to={user ? "/account/api-keys" : "/signup"}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
               {user ? "Manage API Keys" : "Get an API key"}
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
