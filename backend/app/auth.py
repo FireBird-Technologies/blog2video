@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -95,11 +95,30 @@ def decode_token_full(token: str) -> Optional[dict]:
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
-    """FastAPI dependency: extract and validate the current user from JWT."""
-    payload = decode_token_full(credentials.credentials)
+    """FastAPI dependency: the calling user, from one of two credentials.
+
+    - a blog2video session JWT: the web app; reaches every endpoint.
+    - a ``b2v_live_...`` API key: the key's (paid) owner, limited to the core
+      video endpoints in services/api_route_policy.py.
+
+    ``request.state.auth_kind`` records which one it was.
+    """
+    raw = credentials.credentials.strip()
+    if raw.startswith("b2v_live_"):
+        from app.services.api_route_policy import enforce_api_key
+        from app.services.public_api_auth import resolve_api_key
+
+        key, owner = resolve_api_key(raw, db)
+        enforce_api_key(request)
+        request.state.auth_kind = "api_key"
+        request.state.api_key_id = key.id
+        return owner
+
+    payload = decode_token_full(raw)
     try:
         user_id = int(payload["sub"]) if payload else 0
     except (KeyError, TypeError, ValueError):
@@ -125,4 +144,5 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
+    request.state.auth_kind = "jwt"
     return user

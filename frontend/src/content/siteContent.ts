@@ -56,6 +56,7 @@ export const topNavLinks = [
   { href: toolsHub.path, label: "Tools" },
   { href: "/help", label: "Help" },
   { href: "/blogs", label: "Blog" },
+  { href: "/api-docs", label: "API docs" },
   { href: "/pricing", label: "Pricing" },
 ];
 
@@ -199,6 +200,7 @@ export function getDisplayTitle(path: string): string {
   if (path === "/") return "Home";
   if (path === "/pricing") return "Pricing";
   if (path === "/contact") return "Contact";
+  if (path === "/api-docs") return "API Documentation";
   if (path === "/blogs") return "Blog";
   if (path === "/help") return "Help";
   if (path === toolsHub.path) return "Tools";
@@ -229,6 +231,7 @@ export function getPublicPaths(): string[] {
     "/",
     "/pricing",
     "/contact",
+    "/api-docs",
     "/blogs",
     "/help",
     toolsHub.path,
@@ -248,6 +251,9 @@ export function getPublicLinkDetails(path: string) {
   }
   if (path === "/pricing") {
     return { path, label: "Pricing", description: "Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans." };
+  }
+  if (path === "/api-docs") {
+    return { path, label: "API Docs", description: "Blog2Video API reference: create, edit and render narrated videos from your own app with an API key." };
   }
   if (path === "/contact") {
     return { path, label: "Contact", description: "Talk to Blog2Video about support, enterprise use cases, and team workflows." };

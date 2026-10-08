@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The standalone video player served at /embed/<token> and /preview/<token>.
+         It is deliberately not the web app: no router, auth, navbar, analytics or
+         OAuth, so it shows only the video whoever is signed in, and loads fast.
+         Hosting rewrites both paths here (public/_redirects, vercel.json). -->
+    <meta name="robots" content="noindex" />
+    <title>Video preview</title>
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Fonts the video templates render with. -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&family=Patrick+Hand&family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      html, body, #root { margin: 0; height: 100%; width: 100%; overflow: hidden; background: #0f172a; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/embed/main.tsx"></script>
+  </body>
+</html>

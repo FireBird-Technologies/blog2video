@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 from fastapi.responses import PlainTextResponse
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 
 # Ensure app loggers (e.g. app.services.elevenlabs_voice_design) emit INFO to console
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.database import init_db, SessionLocal
 from app.models.user import User, PlanTier, PAID_TIERS
+from app.auth import get_current_user
 from app.models.prebuilt_voice import PrebuiltVoice
 from app.models.project import Project
 from app.models.subscription import Subscription, SubscriptionStatus
@@ -42,7 +43,7 @@ from app.models.update_email_send import UpdateEmailSend
 from app.services.remotion import safe_remove_workspace, get_workspace_dir
 from app.services import r2_storage
 from app.services import elevenlabs_keys
-from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, video_styles, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets, wordpress_integration, extension_integration, integrations, content_sources
+from app.routers import projects, pipeline, chat, auth, billing, contact, custom_templates, crafted_templates, saved_voices, video_styles, template_studio, embed, unsubscribe, affiliate, support, mcp_oauth, mcp_transport, free_templates, free_tools, voice, background_music, stock_data, collaboration, collab_ws, collab_history, project_shared_assets, wordpress_integration, extension_integration, integrations, content_sources, public_api, api_keys
 from app.observability.tracing import init_tracing
 from app.observability.logging import configure_logging
 
@@ -731,11 +732,18 @@ async def lifespan(app: FastAPI):
 
 # ─── App ──────────────────────────────────────────────────────
 
+# FastAPI's auto-generated reference lists every endpoint, including internal
+# ones, so it is off unless PUBLIC_OPENAPI_DOCS is set (e.g. in a local .env).
+# The curated public reference is the frontend's /api-docs page instead.
+_openapi_on = settings.PUBLIC_OPENAPI_DOCS
 app = FastAPI(
     title="Blog2Video API",
     description="Convert blog posts into explainer videos using AI",
     version="0.2.0",
     lifespan=lifespan,
+    openapi_url="/openapi.json" if _openapi_on else None,
+    docs_url="/docs" if _openapi_on else None,
+    redoc_url="/redoc" if _openapi_on else None,
 )
 
 # Configure logging + tracing at import time (before the app starts serving)
@@ -849,6 +857,8 @@ app.include_router(background_music.router)
 app.include_router(embed.router)
 app.include_router(wordpress_integration.router)
 app.include_router(extension_integration.router)
+app.include_router(public_api.router)
+app.include_router(api_keys.router)
 app.include_router(unsubscribe.router)
 app.include_router(affiliate.router)
 app.include_router(stock_data.router)
@@ -1138,11 +1148,25 @@ def _call_elevenlabs_voice_design(voice_description: str) -> dict:
     return resp.json()
 
 
-@app.post("/api/voices/design-from-preset")
-def design_voice_from_preset(body: dict):
-    """Build a voice description from options (gender, age, persona, speed, accent) and return previews."""
-    from fastapi import HTTPException
+# Each design is a paid ElevenLabs call, so both design routes need a signed-in
+# account and share one per-account daily budget (in memory, per process).
+_VOICE_DESIGN_DAILY_LIMIT = 40
+_voice_design_counts: dict[int, tuple[float, int]] = {}  # user_id -> (window_start, count)
 
+
+def _check_voice_design_limit(user_id: int) -> None:
+    now = _time.monotonic()
+    window_start, count = _voice_design_counts.get(user_id, (now, 0))
+    if now - window_start > 86400:
+        window_start, count = now, 0
+    if count >= _VOICE_DESIGN_DAILY_LIMIT:
+        raise HTTPException(status_code=429, detail="Daily voice design limit reached. Try again tomorrow.")
+    _voice_design_counts[user_id] = (window_start, count + 1)
+
+
+@app.post("/api/voices/design-from-preset")
+def design_voice_from_preset(body: dict, user: User = Depends(get_current_user)):
+    """Build a voice description from options (gender, age, persona, speed, accent) and return previews."""
     if not settings.ELEVENLABS_API_KEY:
         raise HTTPException(status_code=503, detail="ElevenLabs API key not configured")
 
@@ -1170,6 +1194,7 @@ def design_voice_from_preset(body: dict):
     if len(description) > 1000:
         description = description[:997] + "..."
 
+    _check_voice_design_limit(user.id)
     try:
         data = _call_elevenlabs_voice_design(description)
         return data
@@ -1179,10 +1204,8 @@ def design_voice_from_preset(body: dict):
 
 
 @app.post("/api/voices/design-from-prompt")
-def design_voice_from_prompt(body: dict):
+def design_voice_from_prompt(body: dict, user: User = Depends(get_current_user)):
     """Generate voice previews from a custom text description (20–1000 characters)."""
-    from fastapi import HTTPException
-
     if not settings.ELEVENLABS_API_KEY:
         raise HTTPException(status_code=503, detail="ElevenLabs API key not configured")
 
@@ -1192,6 +1215,7 @@ def design_voice_from_prompt(body: dict):
     if len(prompt) > 1000:
         prompt = prompt[:1000]
 
+    _check_voice_design_limit(user.id)
     try:
         data = _call_elevenlabs_voice_design(prompt)
         return data

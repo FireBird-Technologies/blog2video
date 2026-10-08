@@ -48,6 +48,7 @@ from app.models.mcp_oauth import MCPClient, MCPAuthCode
 from app.models.email_verification import EmailVerificationCode, VerificationPurpose
 from app.models.wordpress_integration import WordPressConnection, WordPressProjectLink
 from app.models.extension_integration import ExtensionConnection, ExtensionProjectLink
+from app.models.public_api import ApiKey, ApiProjectLink
 
 __all__ = [
 
@@ -67,4 +68,5 @@ __all__ = [
     "EmailVerificationCode", "VerificationPurpose",
     "WordPressConnection", "WordPressProjectLink",
     "ExtensionConnection", "ExtensionProjectLink",
+    "ApiKey", "ApiProjectLink",
 ]

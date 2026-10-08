@@ -1192,6 +1192,14 @@ interface VideoPreviewProps {
   initiallyMuted?: boolean;
   /** Also hide the floating caption / playback-speed overlay buttons. */
   hideOverlayControls?: boolean;
+  /** Hide just the playback-speed overlay button. */
+  hideSpeedControl?: boolean;
+  /** Hide just the captions overlay button. */
+  hideCaptionControl?: boolean;
+  /** Hide the volume button in the playback controls bar. */
+  hideVolumeControl?: boolean;
+  /** Hide the fullscreen button in the playback controls bar. */
+  hideFullscreenControl?: boolean;
   /**
    * When playback reaches the end, hold on the last frame instead of snapping
    * back to frame 0 (Remotion's default).
@@ -2097,6 +2105,10 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
     sceneOnlyDurationSeconds,
     initiallyMuted = false,
     hideOverlayControls = false,
+    hideSpeedControl = false,
+    hideCaptionControl = false,
+    hideVolumeControl = false,
+    hideFullscreenControl = false,
     holdOnLastFrame = false,
     fillContainer = false,
   },
@@ -3272,6 +3284,8 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
           {...(holdOnLastFrame ? { moveToBeginningWhenEnded: false } : {})}
           {...(safeInitialFrame !== undefined ? { initialFrame: safeInitialFrame, clickToPlay: false, doubleClickToFullscreen: false } : {})}
           controls={!hideControls}
+          showVolumeControls={!hideVolumeControl}
+          allowFullscreen={!hideFullscreenControl}
           acknowledgeRemotionLicense
           style={{
             width: "100%",
@@ -3282,22 +3296,26 @@ const VideoPreview = forwardRef<PlayerRef | null, VideoPreviewProps>(function Vi
         />
         {!hideOverlayControls && (
           <>
-            <CaptionControl
-              captionsEnabled={savedCaptionSettings.captionsEnabled}
-              captionFontFamily={savedCaptionSettings.captionFontFamily}
-              captionFontSize={savedCaptionSettings.captionFontSize}
-              captionOffset={savedCaptionSettings.captionOffset}
-              saving={captionsSaving}
-              onSave={onCaptionSettingsChange}
-              onPreviewChange={setCaptionPreviewOverride}
-              playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
-            />
-            <PlaybackSpeedControl
-              currentSpeed={currentPlaybackSpeed}
-              saving={playbackSpeedSaving}
-              onChange={onPlaybackSpeedChange}
-              playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
-            />
+            {!hideCaptionControl && (
+              <CaptionControl
+                captionsEnabled={savedCaptionSettings.captionsEnabled}
+                captionFontFamily={savedCaptionSettings.captionFontFamily}
+                captionFontSize={savedCaptionSettings.captionFontSize}
+                captionOffset={savedCaptionSettings.captionOffset}
+                saving={captionsSaving}
+                onSave={onCaptionSettingsChange}
+                onPreviewChange={setCaptionPreviewOverride}
+                playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
+              />
+            )}
+            {!hideSpeedControl && (
+              <PlaybackSpeedControl
+                currentSpeed={currentPlaybackSpeed}
+                saving={playbackSpeedSaving}
+                onChange={onPlaybackSpeedChange}
+                playerContainerRef={playerRef as React.RefObject<PlayerRef | null>}
+              />
+            )}
           </>
         )}
       </div>

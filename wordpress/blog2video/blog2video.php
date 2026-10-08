@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: Blog2Video
+ * Plugin Name: B2V Video by FireBird
  * Plugin URI: https://blog2video.app/wordpress-plugin
  * Description: Turn WordPress posts into narrated videos and embed them back into the post.
  * Version: 0.14.14
  * Requires at least: 6.2
  * Requires PHP: 7.4
- * Author: Blog2Video
+ * Author: FireBird Technologies
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: blog2video

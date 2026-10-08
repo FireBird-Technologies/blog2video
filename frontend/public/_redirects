@@ -4,5 +4,9 @@
 /blogs/how-to-make-a-pdf-into-a-video      https://pdf2vid.com/blogs/pdf-to-video-ai-what-it-does-and-what-it-fakes  301
 /blogs/create-summary-videos-from-pdfs     https://pdf2vid.com/blogs/pdf-summarizer-or-pdf-video-summary  301
 
+# Standalone video player (embed/index.html): no app shell. Keep above the SPA fallback.
+/embed/*    /embed/index.html  200
+/preview/*  /embed/index.html  200
+
 # SPA fallback. Keep last.
 /*  /index.html  200

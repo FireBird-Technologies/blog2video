@@ -816,7 +816,7 @@ def watch_page_url(db: Session, project) -> str:
     if not project.embed_token:
         project.embed_token = secrets.token_hex(32)
         db.commit()
-    return f"{_frontend_url()}/preview/{project.embed_token}"
+    return f"{_frontend_url()}/embed/{project.embed_token}"
 
 
 @router.get("/projects/{project_id}/newsletter-snippet", response_model=NewsletterSnippetOut)
