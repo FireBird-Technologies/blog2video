@@ -17,6 +17,359 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "connect-wordpress-to-blog2video",
+    title: "How to Connect WordPress to Blog2Video, No Plugin Needed",
+    description:
+      "Connect your WordPress blog to Blog2Video with an application password. Five steps, no plugin, and every post, draft or private, becomes one click from a video.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-connect-wordpress-to-blog2video.png",
+    heroImageAlt:
+      "blog2video.app WordPress integration: WordPress connecting to a video player.",
+    publishedAt: "2026-09-29",
+    readTime: "4 min read",
+    heroEyebrow: "Tutorial",
+    heroTitle: "Connect WordPress to Blog2Video in 5 steps",
+    heroDescription:
+      "Create an application password, paste it into Blog2Video, and turn any WordPress post into a video. No plugin needed.",
+    primaryKeyword: "connect wordpress to blog2video",
+    keywordVariant: "wordpress blog to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/blogs/connect-ghost-to-blog2video",
+      "/blogs/connect-beehiiv-to-blog2video",
+    ],
+    sections: [
+      {
+        heading: "Five steps, no plugin",
+        paragraphs: [
+          "Blog2Video connects to a self-hosted WordPress site with an application password, a feature built into WordPress. There is nothing to install. The video shows the whole flow, and the written steps are below.",
+        ],
+        bullets: [
+          "Add an application password",
+          "Copy it once",
+          "Paste and connect",
+          "Pick your posts",
+          "Send the video back to WordPress",
+        ],
+      },
+      {
+        heading: "1. Add an application password in WordPress",
+        paragraphs: [
+          "In your WordPress dashboard go to Users, then Profile. Scroll down to Application Passwords, type Blog2Video as the name, and click Add New Application Password.",
+        ],
+      },
+      {
+        heading: "2. Copy it now, WordPress shows it once",
+        paragraphs: [
+          "WordPress shows the new password one time only. Copy it straight away, along with your site address and your username. If you close the message before copying, you have to create a new password.",
+        ],
+      },
+      {
+        heading: "3. Paste and connect in Blog2Video",
+        paragraphs: [
+          "In Blog2Video open the Connect tab and choose WordPress. Enter your site URL and username, paste the application password, and click Connect. Your site needs https. The password is stored encrypted.",
+          "If your site is hosted on WordPress.com, skip the password: use Connect with WordPress.com, sign in with your account, and choose the site.",
+        ],
+      },
+      {
+        heading: "4. Pick your posts",
+        paragraphs: [
+          "Click New, open the Connect tab, and your WordPress posts appear, drafts and private posts included. Tick one or several. Each becomes its own video.",
+        ],
+      },
+      {
+        heading: "5. Send the video back to WordPress",
+        paragraphs: [
+          "Click the WordPress icon on the finished project. Create a new draft or add the video to the original post, at the top or bottom. Blog2Video adds it the best way your site allows: the video file itself, an embedded player, or a click-to-watch thumbnail.",
+        ],
+      },
+      {
+        heading: "Connect once, done",
+        paragraphs: [
+          "No plugin, no copying links. Try it at blog2video.app.",
+        ],
+        ctaPath: "/",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Do I need to install a plugin?",
+        answer:
+          "No. The application password is a built-in WordPress feature. (There is also an optional Blog2Video WordPress plugin.)",
+      },
+      {
+        question: "What if I use WordPress.com?",
+        answer:
+          "Use the Connect with WordPress.com button instead. It signs you in with one click and needs no password.",
+      },
+      {
+        question: "Why can't I see my password again?",
+        answer:
+          "WordPress only shows an application password once. Create a new one if you lose it.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect WordPress to Blog2Video, No Plugin Needed",
+        angle:
+          "Integration tutorial for WordPress bloggers searching for a no-plugin way to turn posts into video.",
+      },
+      {
+        channel: "video",
+        title: "How to Connect WordPress to Blog2Video (Full Tutorial)",
+        angle:
+          "Screen-recorded walkthrough of the five steps, from creating the application password to sending the video back to WordPress.",
+      },
+    ],
+  },
+  {
+    slug: "connect-beehiiv-to-blog2video",
+    title: "How to Connect Beehiiv to Blog2Video and Put Video in Your Newsletter",
+    description:
+      "Connect your Beehiiv newsletter to Blog2Video with an API key. Turn any post into a video and add a click-to-watch thumbnail your readers can tap.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-connect-beehiiv-to-blog2video.png",
+    heroImageAlt:
+      "blog2video.app Beehiiv integration: newsletter connecting to a video player.",
+    publishedAt: "2026-09-29",
+    readTime: "5 min read",
+    heroEyebrow: "Tutorial",
+    heroTitle: "Connect Beehiiv to Blog2Video in 5 steps",
+    heroDescription:
+      "Create an API key in Beehiiv, connect it to Blog2Video, and turn every newsletter post into a video with a thumbnail your readers can tap.",
+    primaryKeyword: "connect beehiiv to blog2video",
+    keywordVariant: "beehiiv newsletter to video",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/blogs/connect-ghost-to-blog2video",
+      "/blogs/connect-wordpress-to-blog2video",
+    ],
+    sections: [
+      {
+        heading: "Five steps, one API key",
+        paragraphs: [
+          "Blog2Video reads your Beehiiv posts through an API key, so you never paste a link by hand. The video follows the key from Beehiiv to Blog2Video and then follows the finished video all the way to a reader's phone. The written steps are below.",
+        ],
+        bullets: [
+          "Create an API key in Beehiiv",
+          "Copy it once",
+          "Paste and connect",
+          "Pick your posts",
+          "Send the video back to Beehiiv",
+        ],
+      },
+      {
+        heading: "1. Create an API key in Beehiiv",
+        paragraphs: [
+          "In Beehiiv open Settings, then Workspace settings, then API. Click Create new API key and name it Blog2Video.",
+        ],
+      },
+      {
+        heading: "2. Copy the key, Beehiiv shows it once",
+        paragraphs: [
+          "Beehiiv displays the new key one time. Copy it before you close the window. If you lose it, create another.",
+        ],
+      },
+      {
+        heading: "3. Paste and connect in Blog2Video",
+        paragraphs: [
+          "In Blog2Video open the Connect tab and choose Beehiiv. Paste your API key and click Connect. If your workspace has several publications, pick the one you want and click Connect publication. The key is stored encrypted.",
+        ],
+      },
+      {
+        heading: "4. Pick your posts",
+        paragraphs: [
+          "Click New, open the Connect tab, and your Beehiiv posts show up, drafts and premium posts included. Tick one or several. Each becomes its own video.",
+        ],
+      },
+      {
+        heading: "5. Send the video back to Beehiiv",
+        paragraphs: [
+          "Email can't play video, so Beehiiv gets a click-to-watch thumbnail: readers tap it and the video plays in their browser. Click the Beehiiv icon on the finished project. On a Beehiiv Max or Enterprise plan, Blog2Video adds the thumbnail to your post for you, as a new draft or in the original post. On any other plan, click Copy for editor to copy the newsletter block, then paste it into the Beehiiv editor.",
+        ],
+      },
+      {
+        heading: "Connect once, done",
+        paragraphs: [
+          "Connect once and every Beehiiv post is one click from a video. Try it at blog2video.app.",
+        ],
+        ctaPath: "/",
+        ctaLabel: "Try Blog2Video",
+      },
+    ],
+    faq: [
+      {
+        question: "Can I add videos to Beehiiv posts on any plan?",
+        answer:
+          "Automatic adding needs Max or Enterprise. On other plans you copy the newsletter block and paste it into the editor yourself.",
+      },
+      {
+        question: "Can readers play the video inside the email?",
+        answer:
+          "No. Email can't play video. Readers tap the thumbnail and the video opens in their browser.",
+      },
+      {
+        question: "What if I have more than one publication?",
+        answer:
+          "Blog2Video asks which one to connect after you paste the key.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect Beehiiv to Blog2Video and Put Video in Your Newsletter",
+        angle:
+          "Integration tutorial for Beehiiv newsletter writers who want video in their posts.",
+      },
+      {
+        channel: "video",
+        title: "How to Connect Beehiiv to Blog2Video (Full Tutorial)",
+        angle:
+          "Screen-recorded walkthrough following the API key from Beehiiv to Blog2Video, then the finished video to a reader's phone.",
+      },
+    ],
+  },
+  {
+    slug: "connect-ghost-to-blog2video",
+    title: "How to Connect Ghost to Blog2Video (Step by Step)",
+    description:
+      "Connect your Ghost blog to Blog2Video in five steps: add a custom integration, copy the Admin API key, paste it into Blog2Video, pick any post (drafts and members-only included), and send the finished video straight back to Ghost.",
+    category: "Integrations",
+    heroImage: "/blog/blog-cover-connect-ghost-to-blog2video.png",
+    heroImageAlt:
+      "blog2video.app Ghost CMS integration: Ghost connecting to a video player.",
+    publishedAt: "2026-09-28",
+    readTime: "5 min read",
+    heroEyebrow: "Integration guide",
+    heroTitle: "Connect Ghost to Blog2Video — every post is one click from becoming a video",
+    heroDescription:
+      "Add a custom integration in Ghost Admin, paste the key into Blog2Video, and every post on your site — published or draft — shows up ready to turn into a video. Connect once, and it's done.",
+    primaryKeyword: "connect ghost to blog2video",
+    keywordVariant: "ghost cms blog to video integration",
+    relatedPaths: [
+      "/blog-to-video",
+      "/pricing",
+      "/blogs/blog2video-mcp-server-n8n",
+      "/blogs/blog2video-mcp-server-chatgpt",
+    ],
+    sections: [
+      {
+        heading: "Turn every Ghost post into a video, without copying links",
+        paragraphs: [
+          "If your blog runs on Ghost, you can connect it to Blog2Video once and then pull any post — published or draft, members-only included — straight into a new video project. No copying URLs, no exporting content by hand.",
+          "It takes five steps: add a custom integration in Ghost, copy the Admin API key, paste it into Blog2Video, pick your posts, and send the finished video back to Ghost.",
+        ],
+        bullets: [
+          "Step 1: Add a custom integration in Ghost Admin",
+          "Step 2: Copy the Admin API key and site URL",
+          "Step 3: Paste & connect in Blog2Video",
+          "Step 4: Pick your posts — drafts included",
+          "Step 5: Send the finished video back to Ghost",
+        ],
+      },
+      {
+        heading: "Step 1: Add a custom integration in Ghost",
+        paragraphs: [
+          "In Ghost Admin, go to Settings → Integrations → Add custom integration, and name it Blog2Video.",
+          "A custom integration gives Blog2Video its own set of credentials, scoped to your site, separate from any other app you've connected.",
+        ],
+      },
+      {
+        heading: "Step 2: Copy your Admin API key",
+        paragraphs: [
+          "Once the integration is created, Ghost shows an Admin API key and your site's API URL. Copy both — that's what lets Blog2Video read your posts.",
+        ],
+      },
+      {
+        heading: "Step 3: Paste & connect in Blog2Video",
+        paragraphs: [
+          "Back in Blog2Video, open the Connect tab, choose Ghost, paste your site URL and key, and hit Connect.",
+          "Your key is stored encrypted, so it's never exposed in plain text after you save it.",
+        ],
+      },
+      {
+        heading: "Step 4: Pick your posts",
+        paragraphs: [
+          "Click + New, open the Connect tab, and every Ghost post is right there — drafts and members-only posts included.",
+          "Tick one post or several; each one becomes its own video, so you can batch through a backlog in one pass instead of creating projects one link at a time.",
+        ],
+      },
+      {
+        heading: "Step 5: Send the video back to Ghost",
+        paragraphs: [
+          "Once your video is ready, click the Ghost icon. Add it to a new draft or to the original post, at the top or bottom.",
+          "You can upload the file straight to Ghost, or use an embedded player instead if your Ghost plan caps uploads.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Try Blog2Video with your Ghost blog",
+      },
+      {
+        heading: "Watch the walkthrough",
+        paragraphs: [
+          "The full five-step setup is also on video, chapter by chapter — from adding the integration in Ghost to publishing the finished video back to your post.",
+        ],
+      },
+      {
+        heading: "Why connect once instead of pasting links",
+        paragraphs: [
+          "Without a connection, turning a post into a video means opening the post, copying the URL, switching tabs, and pasting it into a new project — every single time, and it doesn't work at all for drafts or members-only content that isn't publicly reachable.",
+          "Connecting Ghost removes that friction permanently. Every post, including the ones you haven't published yet, is visible inside Blog2Video's project creator, and the finished video can go straight back to the same post it came from.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Does Blog2Video work with Ghost drafts and members-only posts?",
+        answer:
+          "Yes. Once your Ghost site is connected, drafts and members-only posts show up in the Connect tab alongside published posts, so you can turn any of them into a video.",
+      },
+      {
+        question: "Is my Ghost Admin API key stored securely?",
+        answer:
+          "Yes. Blog2Video stores the key encrypted after you connect, and it's only used to read post content and to publish videos back to your site.",
+      },
+      {
+        question: "Can I send a finished video back to more than one place in a Ghost post?",
+        answer:
+          "Yes. When you click the Ghost icon on a finished video, you can add it to a new draft or the original post, at the top or the bottom.",
+      },
+      {
+        question: "What if my Ghost plan limits file uploads?",
+        answer:
+          "Use the embedded player option instead of uploading the file directly. It links to the hosted video rather than uploading the MP4 into your Ghost media library.",
+      },
+      {
+        question: "Do I need to reconnect every time I want to make a video from a new post?",
+        answer:
+          "No. The Ghost connection is one-time setup. After that, every current and future post on the site is available in Blog2Video's project creator.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "How to Connect Ghost to Blog2Video (Step by Step)",
+        angle:
+          "Integration guide targeting Ghost bloggers searching for a way to turn posts into video without manual export.",
+      },
+      {
+        channel: "video",
+        title: "Connect Ghost to Blog2Video — 5 steps",
+        angle:
+          "Screen-recorded walkthrough of the five-step setup, chapter-marked from adding the integration to publishing the finished video back to Ghost.",
+      },
+      {
+        channel: "twitter",
+        title: "Got a blog on Ghost? Here's how to plug it into Blog2Video",
+        angle:
+          "Short-form thread version of the five steps, ending on blog2video.app.",
+      },
+    ],
+  },
+  {
     slug: "suit-up-blog2video-update",
     title: "Suit Up: Saved Video Preferences, Script Review, Direct YouTube and LinkedIn Publishing, and a Faster Blog2Video",
     description:
@@ -18557,8 +18910,303 @@ export const blogPosts: BlogPost[] = [
     ],
   },
   {
+    slug: "sora-alternatives",
+    title: "Sora Alternatives After the Shutdown: What to Use Instead",
+    description:
+      "OpenAI has closed Sora. Here is how to pick a replacement by the job you need done: cinematic clips, short social video, open-source control, or videos built from your own writing.",
+    category: "Comparison",
+    heroImageAlt:
+      "Editorial illustration of a film reel splitting into two paths, one generating clips from a prompt and one compiling a video from a written article.",
+    publishedAt: "2026-10-12",
+    readTime: "7 min read",
+    heroEyebrow: "Comparison",
+    heroTitle: "Sora is gone. Which alternative you need depends on what you were making.",
+    heroDescription:
+      "Most 'best Sora alternatives' lists rank clip generators against each other. The more useful question is whether a clip generator was ever the right tool for your video.",
+    // "sora alternative(s)" is 1,600/mo US (peaked at 4,400 in April 2026), MEDIUM competition, $7.13 CPC.
+    primaryKeyword: "sora alternatives",
+    keywordVariant: "sora alternative",
+    relatedPaths: [
+      "/blogs/what-is-ai-slop",
+      "/blogs/ai-video-generators-that-are-not-slop",
+      "/blog-to-video",
+      "/ai-blog-to-video",
+    ],
+    sections: [
+      {
+        heading: "What happened to Sora",
+        paragraphs: [
+          "OpenAI's own Sora page now states that, as of April 26, 2026, the Sora product is no longer available. The consumer app is closed, and reports from outside OpenAI say API access was scheduled to end in late September 2026. We have not found OpenAI's own notice for that second date, so check your account if you had an integration built on it.",
+          "OpenAI has not given a detailed public reason. Coverage links the decision to the cost of running video generation and a shift in focus, but that is reporting and inference, not an announcement. What matters for you is practical: if you relied on Sora, you need a replacement, and the market has plenty of them.",
+        ],
+      },
+      {
+        heading: "Start with the job, not the model",
+        paragraphs: [
+          "Sora was a text-to-video model. You describe a scene and it returns a clip. That is one job. People were also using it for several others it was never well suited to, such as explainers, product walkthroughs and article videos. Sorting your use into one of the groups below tells you where to look.",
+        ],
+        bullets: [
+          "Cinematic or creative clips: a few seconds of a scene that does not exist, with camera movement and atmosphere. This is what clip generators are for.",
+          "Short social clips: quick, stylised, often vertical footage where speed and cost per clip matter more than control.",
+          "Control and self-hosting: you want open weights, reference images, video extension, or to run the model yourself.",
+          "Editing and finishing: you already have footage and want generation inside a timeline, with inpainting or style transfer.",
+          "Videos from your own content: a blog post, newsletter, report or PDF turned into a narrated video that says what the source says.",
+        ],
+      },
+      {
+        heading: "The main clip generators to look at",
+        paragraphs: [
+          "For the first four groups, these are the products that come up repeatedly in comparisons. Most of the lists ranking them are written by vendors, so treat any 'number one' claim as an opinion, and check current pricing and free tiers on each vendor's own site before committing.",
+        ],
+        bullets: [
+          "Google Veo: generates cinematic footage, with native audio in recent versions. Usually accessed through Google's own tools rather than a standalone editor.",
+          "Kling (Kuaishou): text-to-video and image-to-video, with an API, and frequently suggested where cost per clip matters.",
+          "Runway: generation plus an editor, including video-to-video style transfer and inpainting. The most editing-oriented of the group.",
+          "Seedance (ByteDance): geared toward short-form social workflows, and often mentioned alongside CapCut.",
+          "Wan (Alibaba): available as open weights, which suits people who want to self-host or control the pipeline.",
+          "Others that appear in most lists: Vidu, Hailuo, Pika and LTX. Try the free tiers on two or three with the same prompt before deciding.",
+        ],
+      },
+      {
+        heading: "When a clip generator was the wrong tool",
+        paragraphs: [
+          "If what you wanted from Sora was an explainer, a product demo or a video of an article, a clip generator was always a poor fit. It produces footage about a subject. It does not know your numbers, your quotes or your argument, so what comes back looks plausible and says nothing specific. That is the pattern people call slop, and swapping in a better model does not fix it.",
+          "The alternative is a tool that builds the video from your source: it reads the content, splits it into scenes, and lays your headings, figures and quotes into a template a designer made. The result is a different kind of video. It will not give you a dragon flying over a city. It will give you a video that is accurate to what you wrote.",
+        ],
+        ctaPath: "/blogs/what-is-ai-slop",
+        ctaLabel: "Read: what is AI slop, and how to avoid making it",
+      },
+      {
+        heading: "If your video starts from writing",
+        paragraphs: [
+          "Blog2Video is the second kind of tool. You give it a URL, a post or a newsletter issue, and it follows your structure into a designed template with narration and captions. It is not a Sora replacement in the sense of generating cinematic clips, and we would rather say so plainly than have you discover it after signing up.",
+          "If your use case was turning written content into video, it is a better fit than any model on the list above. If your use case was generating footage of things that do not exist, use one of the generators instead.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert a blog post to video",
+      },
+      {
+        heading: "How to choose in ten minutes",
+        paragraphs: [
+          "Skip the ranking lists and run a small test. It tells you more than a feature table will.",
+        ],
+        bullets: [
+          "Write down the one video you most want to make this month, and which of the five groups it falls into.",
+          "Open the free tier of two tools in that group and give both the identical brief.",
+          "Check what you can edit afterwards. Regenerate-only tools get expensive quickly when one detail is wrong.",
+          "Check the licence and commercial-use terms before publishing anything.",
+          "For anything that has to be factually right, confirm that specifics from your source appear correctly on screen.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is Sora shut down?",
+        answer:
+          "Yes. OpenAI's Sora page says the product has been unavailable since April 26, 2026. Reports from other sources say API access was scheduled to close in late September 2026, so check your account if you built on it.",
+      },
+      {
+        question: "What is the best Sora alternative?",
+        answer:
+          "It depends on the job. For cinematic clips, look at Veo, Kling, Runway or Seedance. For open weights you can self-host, look at Wan. For videos built from a blog post, newsletter or document, a content-to-video tool is a better fit than any clip generator.",
+      },
+      {
+        question: "Is there a free Sora alternative?",
+        answer:
+          "Several clip generators offer free tiers or trial credits, though limits and terms change often. Check each vendor's current plan, and test two or three with the same prompt before paying.",
+      },
+      {
+        question: "Can ChatGPT still make videos?",
+        answer:
+          "ChatGPT does not generate video natively now that Sora is closed. It can write scripts and prompts, and it can connect to third-party video tools through integrations.",
+      },
+      {
+        question: "Is Blog2Video a Sora alternative?",
+        answer:
+          "Only for one use case. Blog2Video turns written content into a narrated video inside a designed template. It does not generate cinematic footage from a prompt, so it is not a replacement for Sora's clip generation.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Sora Alternatives After the Shutdown",
+        angle: "Pick-by-job guide that separates clip generators from content-to-video tools, with no rankings.",
+      },
+      {
+        channel: "substack",
+        title: "Sora is gone. What were you actually making?",
+        angle: "Essay version arguing that most Sora use cases were never clip-generation jobs.",
+      },
+      {
+        channel: "video",
+        title: "Sora alternatives: pick by the job",
+        angle: "Five jobs on screen, one tool family for each, and the ten-minute test.",
+      },
+      {
+        channel: "twitter",
+        title: "Sora is gone. Before you pick a replacement, ask which job you had.",
+        angle: "Thread on the five groups and the ten-minute test.",
+      },
+    ],
+  },
+  {
+    slug: "what-is-ai-slop",
+    title: "What Is AI Slop? Meaning, Examples, and How to Spot It",
+    description:
+      "AI slop is low-effort, mass-produced content made with generative AI. Here is what the term means, where it came from, real examples in text, images and video, and a checklist for spotting it.",
+    category: "Explainer",
+    heroImageAlt:
+      "Editorial illustration of a conveyor belt of near-identical AI-generated posts, images and videos flooding a feed.",
+    publishedAt: "2026-10-12",
+    readTime: "9 min read",
+    heroEyebrow: "Explainer",
+    heroTitle: "What is AI slop? The short definition, the examples, and how to spot it.",
+    heroDescription:
+      "AI slop is digital content made with generative AI that lacks effort, quality, or meaning, and is produced in volume. The word is useful because it names a production problem, not a technology.",
+    // Owns the definitional "ai slop" / "what is ai slop" intent (4.4k/mo US, LOW). The product angle lives on
+    // /blogs/ai-video-generators-that-are-not-slop, which now targets "ai slop videos".
+    primaryKeyword: "what is ai slop",
+    keywordVariant: "ai slop meaning",
+    relatedPaths: [
+      "/blogs/ai-video-generators-that-are-not-slop",
+      "/blogs/ai-videos-are-slop-unless-they-are-relevant",
+      "/blog-to-video",
+      "/custom-branded-video-templates",
+    ],
+    sections: [
+      {
+        heading: "The definition",
+        paragraphs: [
+          "AI slop is low-quality digital content made with generative artificial intelligence, usually produced in high volume, that lacks meaningful human effort, originality, or accuracy. It covers text, images, audio and video. The defining feature is not that a machine was involved. It is that nobody cared enough to check, shape, or stand behind the result.",
+          "The term borrows from the older meaning of slop, the thin swill fed to pigs. The comparison is deliberate and unflattering: something produced cheaply, in bulk, for consumption by whoever is passing. It carries a connotation similar to spam, and it has largely replaced 'AI-generated content' as the phrase people actually use when they mean the bad kind.",
+          "Merriam-Webster chose 'slop' as its 2025 word of the year, defined as digital content of low quality that is produced usually in quantity by means of artificial intelligence. That is as good a one-line definition as exists.",
+        ],
+      },
+      {
+        heading: "Where the word came from",
+        paragraphs: [
+          "The word began circulating online in 2022, when generative image tools first went mainstream and feeds started filling with odd, glossy pictures. Early use was mostly among artists and forum users who needed a word for the flood. It stuck because it was short, a little rude, and exactly the right size.",
+          "It moved into general use through 2024 and 2025, as the volume of machine-made content on social platforms became hard to ignore. By the end of 2025 it was the word dictionaries and linguists reached for when summing up the year in language.",
+        ],
+      },
+      {
+        heading: "Examples of AI slop",
+        paragraphs: [
+          "Slop looks different by format, but the pattern underneath is the same: high volume, low specificity, and a purpose that is mostly about attention or revenue rather than the reader.",
+        ],
+        bullets: [
+          "Text: mass-produced articles, hollow listicles, generic social posts, and low-effort e-books that restate what any other page on the topic says, with no original source, number, or opinion.",
+          "Images: surreal or deceptive pictures shared to bait engagement, such as the 'Shrimp Jesus' images, or fake disaster photographs that spread after real events like Hurricane Helene in 2024.",
+          "Video: automated YouTube channels and short-form clips with synthetic voices, bizarre stock-like scenes that never happened, and clickbait hooks, attached to topics they know nothing about.",
+          "Search and reviews: pages built to rank for a query rather than answer it, and product reviews written without the product.",
+          "Code: whole projects generated and submitted without anyone understanding them.",
+        ],
+      },
+      {
+        heading: "Why it matters",
+        paragraphs: [
+          "The first cost is attention. Slop clogs search results and feeds, so finding something reliable and human-made takes more effort than it used to. The second is trust: believable fakes erode confidence in genuine material, and people begin discounting everything. The third is circular. When AI systems train on large amounts of AI-generated output, quality can degrade in a feedback loop, which is sometimes described as the model eating itself.",
+          "There is a fourth cost that rarely gets named. If you publish things yourself, being mistaken for slop is a reputational risk. A reader who suspects filler stops reading, and does not give you a second try.",
+        ],
+      },
+      {
+        heading: "Is all AI content slop?",
+        paragraphs: [
+          "No, and this is the part the word tends to flatten. Slop is a description of how something was made and what it is for, not of the tool used. A person who writes a careful post and uses a model to tighten the prose has not made slop. A person who prompts a model for fifty posts a day and publishes them unread has.",
+          "The useful test is whether a human is accountable for the result. Did someone decide this was worth publishing? Could they defend a specific claim in it? Is there a source underneath it that can be pointed to? Where the answer is yes, the output is closer to assisted work than slop, however much of it a machine produced.",
+        ],
+      },
+      {
+        heading: "How to spot AI slop",
+        paragraphs: [
+          "No single tell is reliable on its own. Look for several together. The list below works across text, image and video.",
+        ],
+        bullets: [
+          "It is generic: the same statements could sit on any page about the topic, with no specific name, figure, quote, or example.",
+          "It is confidently vague: smooth sentences that say nothing checkable, with no sources.",
+          "It repeats itself: restated points, formulaic structure, and the same rhythm throughout.",
+          "Visuals have artifacts: warped hands or text, melted features, objects that do not make physical sense, backgrounds that drift.",
+          "Footage shows things that did not happen: an office, a city or a crowd that has nothing to do with the subject.",
+          "The volume is suspicious: an account or site publishing far more than one team could research.",
+          "There is no person behind it: no author, no history, no way to ask a question.",
+        ],
+      },
+      {
+        heading: "How to avoid making it",
+        paragraphs: [
+          "If you publish with AI tools, the fix is upstream of the tool. Start from something real: a post you wrote, data you collected, a document you can cite. Generation about a topic produces slop. Work built from a source tends not to, because the source supplies the specifics the model cannot invent.",
+          "For video, the same principle applies. A video compiled from your actual content, inside a template a person designed, behaves very differently from footage generated from a prompt. We wrote the longer version of that argument separately, including a thirty-second way to tell the two kinds of tool apart.",
+        ],
+        ctaPath: "/blogs/ai-video-generators-that-are-not-slop",
+        ctaLabel: "Read: the AI video generators that are not slop",
+      },
+      {
+        heading: "Turn something you already wrote into a video",
+        paragraphs: [
+          "If you have a post you are proud of, the most reliable way to stay out of slop territory is to build from it. Blog2Video takes a URL or a draft and follows your structure, headings and examples into a designed template, so every number and quote on screen traces back to your source.",
+        ],
+        ctaPath: "/blog-to-video",
+        ctaLabel: "Convert a blog post to video",
+      },
+    ],
+    faq: [
+      {
+        question: "What does AI slop mean?",
+        answer:
+          "Low-quality digital content made with generative AI, usually in large volume, that lacks meaningful human effort, originality, or accuracy. It covers text, images, audio and video.",
+      },
+      {
+        question: "Why is it called slop?",
+        answer:
+          "The word borrows from the older meaning of slop, thin swill fed to animals. It frames machine-made filler as something cheap, produced in bulk and consumed by whoever happens to be passing.",
+      },
+      {
+        question: "Is all AI-generated content slop?",
+        answer:
+          "No. Slop describes how content was made and what it is for. Work that a person has directed, checked, sourced and stands behind is assisted work. Unread, mass-produced output published for clicks is slop.",
+      },
+      {
+        question: "What are examples of AI slop?",
+        answer:
+          "Mass-produced articles and listicles, surreal bait images such as 'Shrimp Jesus', fake disaster photos, automated video channels with synthetic voices and irrelevant footage, and pages built to rank without answering the query.",
+      },
+      {
+        question: "How can you tell if something is AI slop?",
+        answer:
+          "Look for several signs together: generic wording with no checkable specifics, repetitive structure, visual artifacts, footage unrelated to the topic, suspicious publishing volume, and no accountable person behind it.",
+      },
+      {
+        question: "How do I avoid making AI slop?",
+        answer:
+          "Start from a real source such as your own writing, data or a document you can cite, then use AI for bounded jobs like structuring, rewriting and voice. Generating content about a topic with no source underneath is what produces slop.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "What Is AI Slop? Meaning, Examples, and How to Spot It",
+        angle: "Definitional pillar for the head term, linking onward to the product-angle comparison post.",
+      },
+      {
+        channel: "substack",
+        title: "The word of the year is a production problem",
+        angle: "Essay version arguing that slop describes accountability, not the tool.",
+      },
+      {
+        channel: "video",
+        title: "What is AI slop in 60 seconds",
+        angle: "Definition, three examples, and the seven-point spot-it list on screen.",
+      },
+      {
+        channel: "twitter",
+        title: "AI slop is not 'made by AI'. It is 'made by nobody'.",
+        angle: "Thread on the accountability test and the seven tells.",
+      },
+    ],
+  },
+  {
     slug: "ai-video-generators-that-are-not-slop",
-    title: "AI Slop: The AI Video Generators That Are Not Slop",
+    title: "AI Slop Videos: The AI Video Generators That Are Not Slop",
     description:
       "Slop is not a look, it is a production method. Two things separate the AI video generators that produce it from the ones that do not: programmatic rendering, and templates a human actually designed.",
     category: "Comparison",
@@ -18571,10 +19219,12 @@ export const blogPosts: BlogPost[] = [
     heroTitle: "Most AI video generators make slop. Two things separate the ones that do not.",
     heroDescription:
       "It is not the model, the voice, or the resolution. It is whether the video is compiled from your actual content, and whether a human designed the template that content lands in.",
-    // Owns "ai slop" (49.5k/mo US) for the whole network; bloghub and pdf2vid posts on the theme link here.
-    primaryKeyword: "ai slop",
+    // Product-angle post. The definitional "ai slop" / "what is ai slop" intent moved to /blogs/what-is-ai-slop
+    // on 2026-10-12 (the SERP is definitional, this page is a pitch). Targets "ai slop videos" (320/mo).
+    primaryKeyword: "ai slop videos",
     keywordVariant: "ai video generators that are not slop",
     relatedPaths: [
+      "/blogs/what-is-ai-slop",
       "/blogs/ai-videos-are-slop-unless-they-are-relevant",
       "/ai-video-generator-for-bloggers",
       "/custom-branded-video-templates",
