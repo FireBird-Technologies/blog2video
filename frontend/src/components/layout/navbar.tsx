@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import DiscountBanner from "../DiscountBanner";
+import ExploreButton from "../ExploreButton";
+import { notestackUrl } from "../../config/siblingSites";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -81,6 +83,9 @@ const Navbar = () => {
           >
             Template Studio
           </Link> */}
+
+          {/* Explore (notestack.ai) */}
+          <ExploreButton href={notestackUrl("app_navbar")} className="text-sm px-3.5 py-1.5" />
 
           {/* Usage */}
           <span className="hidden sm:block text-xs text-gray-400">

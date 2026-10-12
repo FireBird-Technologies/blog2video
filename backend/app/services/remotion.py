@@ -17,6 +17,7 @@ from app.config import settings
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
 from app.models.user import User
+from app.models.public_api import is_api_project
 from app.schemas.schemas import AVATAR_BG_ORIGINAL, avatar_bg_wants_cutout
 from app.services import r2_storage
 from app.services.email import email_service, EmailServiceError
@@ -3839,9 +3840,12 @@ def _wait_render(project_id: int, process: subprocess.Popen) -> None:
                             db.commit()
                             logger.info("[REMOTION] Project %s marked DONE (no R2)", project_id)
 
-                            # Send download-ready email (link to dashboard since no CDN URL)
+                            # Send download-ready email (link to dashboard since no CDN URL).
+                            # API-made videos never email the key holder.
                             try:
-                                if user:
+                                if user and is_api_project(db, project_id):
+                                    logger.info("[REMOTION] Project %s created via API, skipping download email", project_id)
+                                elif user:
                                     dashboard_url = f"{settings.FRONTEND_URL}/project/{project_id}"
                                     email_service.send_download_ready_email(
                                         user_email=user.email,
@@ -4052,9 +4056,12 @@ def upload_rendered_video_to_r2(project_id: int, local_path: str) -> Optional[st
                     project_id, broadcast_err,
                 )
 
-            # Send download-ready email notification to the user
+            # Send download-ready email notification to the user. API-made
+            # videos never email the key holder.
             try:
-                if user:
+                if user and is_api_project(db, project_id):
+                    logger.info("[REMOTION] Project %s created via API, skipping download email", project_id)
+                elif user:
                     email_service.send_download_ready_email(
                         user_email=user.email,
                         user_name=user.name,

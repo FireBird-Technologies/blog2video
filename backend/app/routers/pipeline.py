@@ -27,6 +27,7 @@ from app.auth import get_current_user
 from app.models.user import User, PlanTier
 from app.models.project import Project, ProjectStatus
 from app.models.scene import Scene
+from app.models.public_api import is_api_project
 from app.schemas.schemas import (
     ProjectOut,
     StudioResponse,
@@ -3787,8 +3788,11 @@ async def _generate_scenes(
             
             # Schedule follow-up email 30 min before 7-day deletion (6d 23h 30m after creation)
             scheduled_at = project.created_at + timedelta(days=6, hours=23, minutes=30)
-            # Only schedule follow-up email for unpaid users
-            if user.plan == PlanTier.FREE:
+            # Only schedule follow-up email for unpaid users, and never for
+            # API-made videos (the owner is the key holder, not the requester).
+            if is_api_project(db, project.id):
+                logger.info(f"[PIPELINE] Project {project.id}: created via API, skipping follow-up email")
+            elif user.plan == PlanTier.FREE:
                 email_service.schedule_followup_email(
                     user_email=user.email,
                     user_name=user.name,

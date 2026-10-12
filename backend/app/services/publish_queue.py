@@ -985,9 +985,13 @@ def _notify(db, job: SocialPublishJob, *, succeeded: bool) -> None:
     """
     try:
         from app.models.project import Project
+        from app.models.public_api import is_api_project
         from app.models.user import User
         from app.services.email import EmailServiceError, email_service
 
+        # API-made videos never email the key holder.
+        if is_api_project(db, job.project_id):
+            return
         user = db.query(User).filter(User.id == job.user_id).first()
         if not user or not user.email:
             return

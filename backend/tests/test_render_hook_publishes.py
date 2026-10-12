@@ -209,3 +209,38 @@ def test_a_wake_crash_does_not_cost_the_user_their_render(
     # The promotion still committed — only the nudge failed, so the dispatcher
     # picks it up on its next tick.
     assert job.status == STATUS_QUEUED
+
+
+# ─── Download email vs. API-made videos ──────────────────────────────────────
+
+def _capture_download_emails(monkeypatch) -> list:
+    sent = []
+    monkeypatch.setattr(
+        remotion.email_service, "send_download_ready_email", lambda **k: sent.append(k)
+    )
+    return sent
+
+
+def test_a_finished_render_emails_the_owner(rendered_project, monkeypatch):
+    project, video_path = rendered_project
+    sent = _capture_download_emails(monkeypatch)
+
+    remotion.upload_rendered_video_to_r2(project.id, video_path)
+
+    assert len(sent) == 1 and sent[0]["project_name"] == "Test Project"
+
+
+def test_a_finished_api_render_sends_no_email(db_session, free_user, rendered_project, monkeypatch):
+    """The owner is the API key holder, not whoever asked the partner app for the video."""
+    from app.models.public_api import ApiProjectLink
+
+    project, video_path = rendered_project
+    db_session.add(ApiProjectLink(project_id=project.id, user_id=free_user.id))
+    db_session.commit()
+    sent = _capture_download_emails(monkeypatch)
+
+    remotion.upload_rendered_video_to_r2(project.id, video_path)
+    db_session.refresh(project)
+
+    assert sent == []
+    assert project.status == ProjectStatus.DONE

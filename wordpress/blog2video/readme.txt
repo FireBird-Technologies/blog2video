@@ -91,6 +91,6 @@ Upgrade for a smoother WordPress experience, improved video creation and editing
 
 == Source code ==
 
-The human-readable React and TypeScript source for the compiled admin interface is maintained at https://github.com/FireBird-Technologies/blog2video/tree/main/wordpress/blog2video/ui and is also included in the plugin's `ui` directory.
+The human-readable React and TypeScript source for the compiled admin interface is maintained at https://github.com/FireBird-Technologies/blog2video/tree/main/wordpress/blog2video/ui.
 
 To rebuild the browser assets, run `npm install` and then `npm run build` inside `wordpress/blog2video/ui`. The build writes `react-admin.js`, `react-settings.js`, and `react-ui.css` to the plugin's `assets` directory. WordPress supplies React through `wp-element`.
