@@ -360,3 +360,46 @@ def test_preview_socket_rejects_unknown_token(client, monkeypatch, db_session):
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/api/embed/project/nope/live") as ws:
             ws.receive_text()
+
+
+# ─── No per-video emails for API-made videos ────────────────────────────────
+
+def test_is_api_project(client, db_session, paid_user, auth):
+    from app.models.public_api import is_api_project
+
+    video_id = _create(client, _api_key(client, paid_user, auth)).json()["video_id"]
+    web = Project(user_id=paid_user.id, name="Web", status=ProjectStatus.DONE)
+    db_session.add(web)
+    db_session.commit()
+
+    assert is_api_project(db_session, video_id) is True
+    assert is_api_project(db_session, web.id) is False
+
+
+def test_publish_result_is_not_emailed_for_api_videos(client, db_session, paid_user, auth, monkeypatch):
+    from types import SimpleNamespace
+
+    from app.services import email as email_module
+    from app.services import publish_queue
+
+    sent = []
+    monkeypatch.setattr(email_module.EmailService, "send_publish_succeeded_email", lambda self, **k: sent.append(k))
+    monkeypatch.setattr(email_module.EmailService, "send_publish_failed_email", lambda self, **k: sent.append(k))
+
+    api_id = _create(client, _api_key(client, paid_user, auth)).json()["video_id"]
+    web = Project(user_id=paid_user.id, name="Web", status=ProjectStatus.DONE)
+    db_session.add(web)
+    db_session.commit()
+
+    def job(project_id):
+        return SimpleNamespace(
+            project_id=project_id, user_id=paid_user.id, platform="youtube",
+            platform_post_url="https://youtu.be/x", error_message=None,
+        )
+
+    publish_queue._notify(db_session, job(api_id), succeeded=True)
+    publish_queue._notify(db_session, job(api_id), succeeded=False)
+    assert sent == []
+
+    publish_queue._notify(db_session, job(web.id), succeeded=True)
+    assert len(sent) == 1
