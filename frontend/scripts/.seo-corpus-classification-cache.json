@@ -3158,5 +3158,29 @@
   "blog:ai-video-generators-that-are-not-slop@e1cfbdac7532b96a@20aaebd1": {
     "keep": false,
     "reason": "Discusses AI video generators generally, not Blog2Video specifically."
+  },
+  "blog:connect-ghost-to-blog2video@5d6f211f3ee899c9@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video integration with Ghost"
+  },
+  "blog:sora-alternatives@811062d4b8c5a7ab@20aaebd1": {
+    "keep": false,
+    "reason": "Discusses Sora and alternatives, not Blog2Video features."
+  },
+  "blog:connect-wordpress-to-blog2video@0447485aaa63c53f@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video's WordPress integration feature."
+  },
+  "blog:what-is-ai-slop@4b3d4a958d2b49f7@20aaebd1": {
+    "keep": false,
+    "reason": "Article defines AI slop generally, not Blog2Video features."
+  },
+  "blog:connect-beehiiv-to-blog2video@4474787a6c832590@20aaebd1": {
+    "keep": true,
+    "reason": "Describes connecting Beehiiv to Blog2Video for video creation"
+  },
+  "blog:ai-video-generators-that-are-not-slop@6b18f813bd5f9868@20aaebd1": {
+    "keep": false,
+    "reason": "Discusses AI video generators generally, not Blog2Video"
   }
 }

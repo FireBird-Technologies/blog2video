@@ -9,7 +9,7 @@ tags each video with its end user's id (``ApiProjectLink.external_user_id``).
 from datetime import datetime
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.database import Base
 
@@ -58,3 +58,13 @@ class ApiProjectLink(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, index=True)
 
     project = relationship("Project", primaryjoin="foreign(ApiProjectLink.project_id) == Project.id", viewonly=True)
+
+
+def is_api_project(db: Session, project_id: int) -> bool:
+    """True when the project was created through ``/api/v1``.
+
+    Its owner is the API key holder, not the person who asked for the video, so
+    per-video emails (download ready, deletion reminder, publish result) must
+    not go to them.
+    """
+    return db.query(ApiProjectLink.id).filter(ApiProjectLink.project_id == project_id).first() is not None
