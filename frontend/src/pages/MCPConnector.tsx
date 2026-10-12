@@ -6,7 +6,7 @@ import { useState } from "react";
 import Seo from "../components/seo/Seo";
 import { useAuth } from "../hooks/useAuth";
 
-const MCP_SERVER_URL = "https://api-staging.blog2video.app/mcp/sse";
+const MCP_SERVER_URL = "https://api.blog2video.app/mcp/sse";
 
 /** `embedded` renders just the content (no page chrome/SEO) for the dashboard's Connect tab. */
 export default function MCPConnector({ embedded = false }: { embedded?: boolean }) {
