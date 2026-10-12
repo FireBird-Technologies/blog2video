@@ -557,7 +557,7 @@ function sanitizeTemplate(template: string) {
       ),
       ""
     )
-    .replace(/<div id="root">\s*<main>[\s\S]*<\/main>\s*<\/div>/i, '<div id="root"></div>');
+    .replace(/<div id="root">\s*<main[^>]*>[\s\S]*<\/main>\s*<\/div>/i, '<div id="root"></div>');
 }
 
 /**
@@ -575,9 +575,13 @@ function applyBrandFavicon(template: string) {
   return template;
 }
 
+// The prerendered markup is unstyled (Tailwind only applies to the React tree), so without this it flashes as a
+// raw wall of text until the bundle mounts and createRoot replaces it. index.html visually hides
+// [data-seo-prerender] (clipped, not display:none) so crawlers and screen readers still get the content.
 function injectRenderedMarkup(template: string, appHtml: string, head: string) {
+  const markedHtml = appHtml.replace(/^<main>/, "<main data-seo-prerender>");
   return template
-    .replace("<div id=\"root\"></div>", `<div id="root">${appHtml}</div>`)
+    .replace("<div id=\"root\"></div>", `<div id="root">${markedHtml}</div>`)
     .replace("</head>", `${head}\n</head>`);
 }
 
@@ -629,6 +633,9 @@ async function buildPrerenderedPages() {
 async function buildLegalPages() {
   const React = (await import("react")).default;
   (globalThis as { React?: unknown }).React = React;
+  // react-router's <Link> calls useLayoutEffect, which logs a warning per render on the server (150+ lines of
+  // noise per build). Layout effects never run in static markup anyway, so aliasing it to useEffect is a no-op.
+  React.useLayoutEffect = React.useEffect;
   const { renderToStaticMarkup } = await import("react-dom/server");
   const { MemoryRouter } = await import("react-router-dom");
   const template = applyBrandFavicon(

@@ -50,6 +50,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700&display=swap" rel="stylesheet">
+    <!-- scripts/build-seo.ts prerenders plain, unstyled HTML into #root for crawlers. Keep it out of sight until
+         React mounts and replaces it, otherwise it flashes as a raw list of headings and links on load. -->
+    <style>
+      [data-seo-prerender] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    </style>
   </head>
   <body class="bg-white min-h-screen">
     <div id="root"></div>
