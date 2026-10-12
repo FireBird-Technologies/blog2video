@@ -106,6 +106,18 @@
   100% { transform: translateX(0); }
 }
 
+/* ─── Explore button: twinkling night-sky stars ─────────────── */
+@keyframes explore-twinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.7); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+.explore-star {
+  animation: explore-twinkle 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .explore-star { animation: none; opacity: 0.7; }
+}
+
 /* ─── Thin scrollbar, no end arrows ─────────────────────────── */
 
 /* Firefox */

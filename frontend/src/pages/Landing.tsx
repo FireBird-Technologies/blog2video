@@ -22,6 +22,8 @@ import UserReviewsSection from "../components/UserReviewsSection";
 import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
+import ExploreButton from "../components/ExploreButton";
+import { notestackUrl } from "../config/siblingSites";
 import { homepageSchema } from "../seo/schema";
 import { LITE_MONTHLY_PRICE } from "../content/pricingContent";
 
@@ -95,7 +97,6 @@ const CAROUSEL_TEMPLATES: CoverflowTemplate[] = SHOWCASE_TEMPLATE_IDS.map((id) =
 }));
 
 const NAV_LINKS = [
-  { href: "#demo", label: "Demo" },
   { href: "#how", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
@@ -617,12 +618,13 @@ export default function Landing() {
             <div className="w-9 h-9 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
               B2V
             </div>
-            <span className="text-xl font-semibold text-gray-900">
+            <span className="text-base sm:text-xl font-semibold text-gray-900">
               Blog2Video
             </span>
           </div>
           {/* Desktop: horizontal links + login */}
           <div className="hidden md:flex items-center gap-6">
+            <ExploreButton href={notestackUrl("landing_navbar")} className="text-sm px-4 py-1.5" />
             {NAV_LINKS.map(({ href, label }) =>
               href.startsWith("#") ? (
                 <a
@@ -652,10 +654,11 @@ export default function Landing() {
           </div>
           {/* Mobile: login + dropdown trigger */}
           <div className="relative md:hidden flex items-center gap-2">
+            <ExploreButton href={notestackUrl("landing_navbar")} className="whitespace-nowrap text-sm px-3 py-1.5" />
             <button
               type="button"
               onClick={handleGenerateClick}
-              className="text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
+              className="whitespace-nowrap text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-lg transition-colors"
             >
               Sign in
             </button>
