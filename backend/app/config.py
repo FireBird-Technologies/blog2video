@@ -198,6 +198,15 @@ class Settings(BaseSettings):
     # auth. Empty disables the endpoints.
     CAPTURE_SECRET: str = ""
 
+    # Fernet key encrypting stored API keys so owners can copy them again later.
+    # Optional: when empty, one is derived from JWT_SECRET (so rotating JWT_SECRET
+    # makes existing keys un-revealable, though they keep authenticating).
+    API_KEY_ENC_KEY: str = ""
+
+    # Serve FastAPI's auto-generated /docs, /redoc and /openapi.json. Off by
+    # default: they list every endpoint publicly. Turn on locally for development.
+    PUBLIC_OPENAPI_DOCS: bool = False
+
     # Local testing override — set DEFAULT_PLAN=PRO in .env to auto-assign plan on login
     DEFAULT_PLAN: str = ""
 

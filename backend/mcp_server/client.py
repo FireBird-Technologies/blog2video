@@ -117,7 +117,7 @@ class Blog2VideoClient:
         """POST /api/embed/token/{id} -> {embed_token, preview_url}.
 
         Mints (or returns the existing) public preview token for the project.
-        preview_url is of the form {frontend}/preview/{embed_token}."""
+        preview_url is of the form {frontend}/embed/{embed_token}."""
         return self._post(f"/api/embed/token/{project_id}")
 
     # --- Reference data ---

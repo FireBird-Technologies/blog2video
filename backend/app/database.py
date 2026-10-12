@@ -180,6 +180,11 @@ def _migrate_sqlite(eng) -> None:
                         )
 
     # ─── Users table ─────────────────────────────────────────────────
+    if "api_keys" in insp.get_table_names():
+        if "key_encrypted" not in {c["name"] for c in insp.get_columns("api_keys")}:
+            with eng.begin() as conn:
+                conn.execute(text("ALTER TABLE api_keys ADD COLUMN key_encrypted TEXT"))
+
     if "users" in insp.get_table_names():
         user_cols = {c["name"] for c in insp.get_columns("users")}
         user_migrations = {

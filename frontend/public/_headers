@@ -1,3 +1,7 @@
 /preview/*
   X-Frame-Options: ALLOWALL
   Content-Security-Policy: frame-ancestors *
+
+/embed/*
+  X-Frame-Options: ALLOWALL
+  Content-Security-Policy: frame-ancestors *

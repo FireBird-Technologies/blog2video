@@ -209,7 +209,7 @@ def test_signup_issues_a_token_that_works(client, db_session, monkeypatch):
 async def test_revoked_refresh_token_cannot_mint_a_new_pair(db_session, monkeypatch):
     """Otherwise revocation undoes itself: the 30-day MCP credential would
     quietly reissue past a password change."""
-    from mcp.server.auth.provider import RefreshToken
+    from mcp.server.auth.provider import RefreshToken, TokenError
 
     import app.services.mcp_provider as mcp_provider
 
@@ -227,7 +227,9 @@ async def test_revoked_refresh_token_cannot_mint_a_new_pair(db_session, monkeypa
     )
 
     provider = mcp_provider.BlogVideoOAuthProvider()
-    with pytest.raises(ValueError):
+    # The provider rejects with mcp's TokenError (invalid_grant); older code
+    # raised ValueError.
+    with pytest.raises((TokenError, ValueError)):
         await provider.exchange_refresh_token(
             client=None,
             refresh_token=RefreshToken(

@@ -636,7 +636,7 @@ def test_snippet_html_links_thumbnail_to_watch_page(
     assert resp.status_code == 200, resp.text
     body = resp.json()
     db_session.refresh(project)
-    assert project.embed_token and body["watch_url"].endswith(f"/preview/{project.embed_token}")
+    assert project.embed_token and body["watch_url"].endswith(f"/embed/{project.embed_token}")
     assert body["thumbnail_url"].startswith("https://cdn.test/")
     assert body["watch_url"] in body["html"] and body["thumbnail_url"] in body["html"]
 
@@ -819,7 +819,7 @@ def test_publish_beehiiv_new_draft_succeeds(db_session, free_user, monkeypatch, 
     db_session.refresh(project)
     assert job.status == STATUS_SUCCEEDED
     assert job.platform_post_url == "https://n.beehiiv.com/p/x"
-    assert seen["pub"] == "pub_123" and seen["url"].endswith(f"/preview/{project.embed_token}")
+    assert seen["pub"] == "pub_123" and seen["url"].endswith(f"/embed/{project.embed_token}")
 
 
 def test_publish_ghost_5xx_on_big_upload_is_plan_limit(db_session, free_user, ghost_worker, monkeypatch):
@@ -939,7 +939,7 @@ def test_publish_ghost_embed_adds_player_without_upload(db_session, free_user, g
     assert job.status == STATUS_SUCCEEDED
     card_type, card = calls["card"]
     assert card_type == "html"
-    assert f"/preview/{project.embed_token}" in card["html"]
+    assert f"/embed/{project.embed_token}" in card["html"]
     assert "177.78%" in card["html"]  # portrait box
 
 

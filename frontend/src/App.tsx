@@ -17,6 +17,8 @@ import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import ProjectView from "./pages/ProjectView";
 import Subscription from "./pages/Subscription";
+import ApiKeys from "./pages/ApiKeys";
+import ApiDocs from "./pages/ApiDocs";
 import InviteOthers from "./pages/InviteOthers";
 import AcceptInvite from "./pages/AcceptInvite";
 import InviteDecisionModal from "./components/InviteDecisionModal";
@@ -46,7 +48,6 @@ import NotFoundPage from "./pages/NotFoundPage";
 import { marketingPages } from "./content/siteContent";
 import PasswordProtectedRoute from "./components/layout/PasswordProtectedRoute";
 import ScrollToTop from "./components/layout/ScrollToTop";
-import EmbedPreviewPage from "./pages/EmbedPreviewPage";
 import FreeTemplatesPage from "./pages/FreeTemplatesPage";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -70,9 +71,9 @@ function hasHandoffToken(search: string): boolean {
 
 function SupportWidgetForRoute() {
   const location = useLocation();
-  const presentationOnly =
-    location.pathname.startsWith("/_capture") ||
-    location.pathname.startsWith("/preview/");
+  // /embed/ and /preview/ are served by the standalone player (embed/index.html),
+  // never by this app.
+  const presentationOnly = location.pathname.startsWith("/_capture");
   return presentationOnly ? null : <SupportWidget />;
 }
 
@@ -224,6 +225,7 @@ function AppRoutes() {
             (corePages.ts) with inbound links from several others. */}
         <Route path="/pdf2video" element={<PdfLanding />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/api-docs" element={<ApiDocs />} />
         {/* Full-page sign-in / sign-up. Two paths, one component, so "Sign up"
             is directly linkable rather than reachable only via a toggle. */}
         <Route path="/signin" element={<AuthPage mode="signin" />} />
@@ -284,6 +286,17 @@ function AppRoutes() {
             token and redirect an unauthenticated user to sign in, then auto-accept
             on return. */}
         <Route path="/invite/:token" element={<AcceptInvite />} />
+        <Route path="/account/api-docs" element={<Navigate to="/api-docs" replace />} />
+        <Route
+          path="/account/api-keys"
+          element={
+            <ProtectedRoute>
+              <main className="max-w-7xl mx-auto px-6 py-8">
+                <ApiKeys />
+              </main>
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/subscription"
           element={
@@ -323,8 +336,6 @@ function AppRoutes() {
           }
         />
 
-        {/* Public embed preview — no auth required */}
-        <Route path="/preview/:token" element={<EmbedPreviewPage />} />
 
         {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />

@@ -402,6 +402,17 @@ def test_embedded_preview_restores_its_wordpress_project_link(
     assert restored.json()["project_id"] == project.id
     assert restored.json()["name"] == "Persisted embedded video"
 
+    # Current links use the standalone player path.
+    current = client.post(
+        f"{ROOT}/library/projects/resolve-embed",
+        headers=headers,
+        json={
+            "external_post_id": "embedded-post",
+            "embed_url": f"http://localhost:5173/embed/{project.embed_token}",
+        },
+    )
+    assert current.status_code == 200 and current.json()["project_id"] == project.id
+
     invalid = client.post(
         f"{ROOT}/library/projects/resolve-embed",
         headers=headers,

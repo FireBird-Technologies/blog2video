@@ -3269,6 +3269,36 @@ export const setPinnedVideoStyle = (targetRef: VideoStyleId) =>
 
 // ─── Embed API ────────────────────────────────────────────
 
+// ─── Public API keys (/api/api-keys) ─────────────────────────
+
+export interface ApiKeyInfo {
+  id: number;
+  name: string;
+  prefix: string;
+  last4: string;
+  created_at: string;
+  last_used_at: string | null;
+  /** False when no copy of the full key is stored (rotate to get a copyable one). */
+  can_reveal: boolean;
+}
+
+/** Returned on creation and rotation, with the full key. */
+export interface CreatedApiKey extends ApiKeyInfo {
+  key: string;
+}
+
+export const listApiKeys = () => api.get<ApiKeyInfo[]>("/api-keys");
+
+export const createApiKey = (name: string) => api.post<CreatedApiKey>("/api-keys", { name });
+
+export const revokeApiKey = (id: number) => api.delete(`/api-keys/${id}`);
+
+/** The full key, for the Copy button in the keys list. */
+export const revealApiKey = (id: number) => api.get<{ key: string }>(`/api-keys/${id}/reveal`);
+
+/** Replace a key: the old one stops working now; the new one is returned once. */
+export const rotateApiKey = (id: number) => api.post<CreatedApiKey>(`/api-keys/${id}/rotate`);
+
 export const generateEmbedToken = (projectId: number) =>
   api.post<{ embed_token: string; preview_url: string }>(`/embed/token/${projectId}`);
 

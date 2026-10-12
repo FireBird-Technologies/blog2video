@@ -30,6 +30,7 @@ from mcp.server.auth.provider import (
     OAuthAuthorizationServerProvider,
     OAuthToken,
     RefreshToken,
+    TokenError,
     construct_redirect_uri,
 )
 from mcp.shared.auth import OAuthClientInformationFull
@@ -184,7 +185,7 @@ class BlogVideoOAuthProvider(
                 .first()
             )
             if not row or row.used or row.user_id is None:
-                raise ValueError("Authorization code invalid or already used")
+                raise TokenError(error="invalid_grant", error_description="Authorization code invalid or already used")
             row.used = True
             db.commit()
 
@@ -226,7 +227,7 @@ class BlogVideoOAuthProvider(
     ) -> OAuthToken:
         payload = decode_token_full(refresh_token.token)
         if not payload or payload.get("typ") != "refresh":
-            raise ValueError("Invalid refresh token")
+            raise TokenError(error="invalid_grant", error_description="Invalid refresh token")
         user_id = int(payload["sub"])
         # A revoked refresh token must not mint a fresh pair, or revocation
         # would be undone by the next refresh — the 30-day credential would
@@ -237,7 +238,7 @@ class BlogVideoOAuthProvider(
         finally:
             db.close()
         if int(payload.get("tv", 0)) != tv:
-            raise ValueError("Invalid refresh token")
+            raise TokenError(error="invalid_grant", error_description="Invalid refresh token")
         new_access = create_access_token(user_id, tv)
         new_refresh = create_refresh_token(user_id, tv)
         return OAuthToken(

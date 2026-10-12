@@ -702,7 +702,7 @@ def test_worker_downgrades_to_link_when_capabilities_change(db_session, free_use
     db_session.refresh(job)
     assert job.delivery == "link" and job.status == STATUS_SUCCEEDED
     assert calls["uploads"] == []  # no media rights: the thumbnail is hotlinked
-    assert "https://cdn.test/thumb.jpg" in calls["card"] and "/preview/" in calls["card"]
+    assert "https://cdn.test/thumb.jpg" in calls["card"] and "/embed/" in calls["card"]
 
 
 def test_worker_embed_needs_no_video(db_session, free_user, wp_worker, monkeypatch):
@@ -713,7 +713,7 @@ def test_worker_embed_needs_no_video(db_session, free_user, wp_worker, monkeypat
     job = _wp_job(db_session, free_user, project, target_mode="new_draft", delivery="embed")
     monkeypatch.setattr(yt, "resolve_local_video", lambda *a, **k: pytest.fail("embed must not fetch the MP4"))
     publish_queue._publish_wordpress(db_session, job, conn, work_dir)
-    assert calls["card"].startswith("<!-- wp:html -->") and "/preview/" in calls["card"]
+    assert calls["card"].startswith("<!-- wp:html -->") and "/embed/" in calls["card"]
 
 
 def test_worker_bad_password_revokes(db_session, free_user, wp_worker, monkeypatch):

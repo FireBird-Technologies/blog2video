@@ -7,8 +7,31 @@ const isCloudflare = !!process.env.CF_PAGES;
 const isVercel = !!process.env.VERCEL;
 const isCI = isCloudflare || isVercel;
 
+// The standalone video player (embed/index.html) answers /embed/<token> and the
+// older /preview/<token>. Production hosting rewrites those paths to it
+// (public/_redirects, vercel.json); this does the same for the dev server.
+const embedPlayerRewrite = {
+  name: "embed-player-rewrite",
+  configureServer(server: { middlewares: { use: (fn: (req: { url?: string }, res: unknown, next: () => void) => void) => void } }) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url && /^\/(embed|preview)\/[^/.]+/.test(req.url)) {
+        req.url = "/embed/index.html";
+      }
+      next();
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), embedPlayerRewrite],
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        embed: path.resolve(__dirname, "embed/index.html"),
+      },
+    },
+  },
   resolve: {
     // Array form required so RegExp entries can co-exist with string entries.
     // The sibling `remotion-video/` workspace is pulled in via the
@@ -62,7 +85,8 @@ export default defineConfig({
       // Override with DEV_API_TARGET to point the dev server at a different
       // backend — e.g. a throwaway SQLite instance, so local UI work never
       // writes to the shared database this defaults to.
-      "/api": {
+      // Regex, not the "/api" prefix: that would also swallow the /api-docs page.
+      "^/api/": {
         target: process.env.DEV_API_TARGET || "http://localhost:8000",
         changeOrigin: true,
       },

@@ -53,7 +53,7 @@ from app.support.escalation import (
     short_circuit_reply,
     should_short_circuit,
 )
-from app.support.llm_client import LLMError, SupportResponse, complete_json, stream_answer
+from app.support.llm_client import LLMError, SupportResponse, complete_json, complete_text, stream_answer
 from app.support.memory_manager import (
     SUMMARIZE_EVERY_N_MESSAGES,
     get_or_create_conversation,
@@ -80,6 +80,205 @@ router = APIRouter(prefix="/api/support", tags=["support"])
 
 # --- Prompt assembly ----------------------------------------------------------
 
+PROMO_REPLY = "I don't have information about discount campaigns or promotions."
+
+# Any question touching discounts/promotions gets PROMO_REPLY verbatim, decided in code
+# rather than left to the model: the model has no data on campaigns and used to invent
+# denials ("there is no 40% off promotion") or recite discounts from blog posts.
+_PROMO_RE = re.compile(
+    r"dis+co?u?nt|dicount|discunt|descuento|rebaja|r[eé]duction|rabatt|desconto|sconto|डिस्काउंट|割引|折扣|promo|coupon|voucher|\d+\s*%\s*off|percent\s*off|\bsale\b|black\s*friday|cyber\s*monday"
+    r"|\bdeals?\b|limited[\s-]*time|special\s+offer|launch\s+offer|first[\s-]*month|referral|refer\s+a"
+    r"|bulk|volume\s+pricing|money\s+off|\bsavings\b|save\s+(?:money|\d+\s*%)|spots?\s+left|cheaper"
+    r"|student\s+pric|nonprofit\s+pric|\bfor\s+less\b|\b(?:any|current|your|are\s+there|special|what)\s+offers?\b|early[\s-]*bird|price[\s-]*match"
+    r"|how\s+much\s+(?:do|can|would|will)\s+i\s+save|(?:new\s*year|christmas|holiday|summer|festive|thanksgiving|easter)\s+(?:offer|special|pricing)"
+    r"|annual\s+(?:billing|vs\.?|versus)|(?:monthly|yearly)\s+(?:vs\.?|versus)|annual\s+or\s+monthly",
+    re.IGNORECASE,
+)
+
+# Sentences carrying discount facts are dropped from the documents before the model
+# sees them, so even a plain pricing answer can't volunteer "20% off annual billing".
+_DISCOUNT_SENTENCE_RE = re.compile(
+    r"discount|\d+\s*%|percent|\bsav(?:e|es|ing|ings)\b|bulk|referral|coupon|promo|cheaper|free videos",
+    re.IGNORECASE,
+)
+
+
+def _strip_discount_sentences(text: str) -> str:
+    kept = []
+    for line in text.split("\n"):
+        sentences = re.split(r"(?<=[.!?])\s+", line)
+        kept.append(" ".join(
+            s for s in sentences
+            if not _DISCOUNT_SENTENCE_RE.search(s)
+            # "annual billing is available…" with no price is the model's cue to say "discounted".
+            and not (re.search(r"annual|yearly", s, re.I) and "$" not in s)
+        ))
+    return "\n".join(kept)
+
+
+def is_promotion_question(message: str) -> bool:
+    return bool(_PROMO_RE.search(message or ""))
+
+
+NO_AUDIO_REPLY = (
+    "I'm sorry your video has no sound. Let's start with your browser and device:\n"
+    "1. Check the browser tab isn't muted and your device volume is up.\n"
+    "2. Check the video player's own mute button and volume slider.\n"
+    "3. Try a hard refresh or a different browser (Chrome, Safari, or Firefox).\n"
+    "4. If it's still silent, open the **Audio** tab to confirm each scene's voiceover is ready "
+    "(a green indicator), and the **Script** tab to confirm each scene has narration.\n\n"
+    "Let me know if it's still silent after these steps."
+)
+
+# Any "no audio / no sound / can't hear the voiceover" report gets NO_AUDIO_REPLY verbatim,
+# decided in code so the browser check always comes first (the model used to guess at
+# internal causes such as "voice generation failed silently").
+_AUDIO_N = r"(?:audio|sound|voice[\s-]*over|voice|narrat\w*|speech)"
+_NO_AUDIO_RE = re.compile(
+    r"\b(?:silent|muted)\b|\b(?:is|are|was)\s+mute\b|\b(?:not|n'?t)\s+hearing\b"
+    rf"|\b(?:doesn'?t|doesnt|does\s+not|don'?t|dont|do\s+not)\s+have\s+(?:any\s+)?{_AUDIO_N}"
+    rf"|\b(?:doesn'?t|doesnt|does\s+not)\s+(?:my|the|this)\s+(?:\w+\s+)?video\s+have\s+(?:any\s+)?{_AUDIO_N}"
+    rf"|\b(?:no|zero|missing|lost|without\s+any)\s+(?:\w+\s+){{0,2}}{_AUDIO_N}"
+    rf"|{_AUDIO_N}\s+(?:\w+\s+){{0,3}}(?:is\s+|was\s+|are\s+|were\s+|has\s+|have\s+)?(?:missing|not\s+(?:working|playing|generat\w*|there|coming)|isn'?t|isnt|wasn'?t|wasnt|weren'?t|werent|does\s+not\s+(?:work|play)|do\s+not\s+(?:work|play)|did\s*n'?t\s+generate|did\s+not\s+generate|doesn'?t|doesnt|won'?t|wont|disappear\w*|gone|lost|failed|broken|cuts?\s+out|only\s+works?|stopped)"
+    r"|\b(?:can'?t|cannot|cant|couldn'?t|can\s+not|don'?t|dont|didn'?t)\s+(?:\w+\s+){0,2}hear"
+    r"|\bhear\s+(?:anything|nothing|no)\b|\bnothing\s+(?:plays|to\s+hear)\b"
+    r"|\bno\s+hay\s+(?:audio|sonido)|\bsin\s+(?:audio|sonido)",
+    re.IGNORECASE,
+)
+_HOWTO_START_RE = re.compile(r"\s*(?:how|can|could|is\s+it\s+possible|do|does|what|which|where|will|should|are\s+there)\b", re.I)
+_AUDIO_OFF_INTENT_RE = re.compile(
+    r"without|turn\s+off|disable|remove|skip|option|optional|want\s+no|don'?t\s+want|choose\s+no|select\s+no"
+    r"|no[\s-]*voice[\s-]*over\s+(?:mode|option|video)|mute\s+(?:the|my)|add\b|difference|versus|\bvs\b|\bor\s+no\b|\band\s+no\b",
+    re.I,
+)
+
+
+_CHOOSE_NO_VOICE_RE = re.compile(r"\b(?:want|choose|select|pick|prefer|need|use)\b[^.?!]{0,25}\bno[\s-]*voice", re.I)
+_QUIET_RE = re.compile(r"\b(?:everything|video|it|audio|sound)\s+(?:is|was|are|seems?)\s+(?:so\s+|very\s+|too\s+)?(?:quiet|silent|mute)\b", re.I)
+
+
+def _is_voiceover_request(message: str) -> bool:
+    """The whole message asks about choosing/removing/comparing voiceover (not a broken video)."""
+    m = message or ""
+    return bool((_HOWTO_START_RE.match(m) and _AUDIO_OFF_INTENT_RE.search(m)) or _CHOOSE_NO_VOICE_RE.search(m))
+
+
+def is_no_audio_report(message: str) -> bool:
+    """Fast, high-precision check for the common wordings. Rewordings it misses are
+    handed to the model by ``resolve_canned`` — see ``_llm_is_no_audio_report``."""
+    m = message or ""
+    # "how do I make a video without voiceover" / "I want no voiceover" is a request, not a broken video.
+    if _is_voiceover_request(m):
+        return False
+    return bool(_NO_AUDIO_RE.search(m) or _QUIET_RE.search(m))
+
+
+# Cheap gate before spending a model call: only messages that mention anything audio-ish.
+_AUDIO_HINT_RE = re.compile(
+    r"audio|aduio|audoi|audeo|sound|soud|voic|vioce|narrat|narator|speech|speak|talk|\bhear|listen|quiet|silen|\bmut(?:e|ed)\b"
+    r"|volume|\btts\b|speaker|sonido|\bvoz\b|\bson\b|\bton\b|stimme|\bvoix\b|suono|\bsaid\b|\bplay",
+    re.IGNORECASE,
+)
+
+_NO_AUDIO_JUDGE_PROMPT = """You sort messages sent to the support chat of a video-creation app (it turns articles into narrated videos).
+Reply YES if the user is reporting that a video they made, previewed or exported has NO AUDIO: no sound, silent, missing/absent/failed voiceover or narration, or they can't hear it. Any wording counts, even vague ones like "audio problem" or "sound issue": slang, typos, other languages, or extra questions in the same message.
+Reply NO for everything else: how to add, change, remove or preview a voiceover or voice, making a video without voiceover, plan or feature questions, background music, or anything unrelated to a video being silent.
+Reply with exactly one word: YES or NO.
+
+Examples:
+"my video has no audio" -> YES
+"the voice track is empty" -> YES
+"why is it so quiet, nobody talks in my export" -> YES
+"tts failed" -> YES
+"no aduio in my vidoe and how do I export" -> YES
+"how do I make a video without voiceover" -> NO
+"I don't want any narration" -> NO
+"does the free plan have voiceover?" -> NO
+"which voices are available" -> NO
+"how do I create a video" -> NO
+"audio problem" -> YES
+"sound issue" -> YES
+"problem with the sound in my video" -> YES
+"my voiceover is not showing up" -> YES
+"the narrator never shows up in my video" -> YES
+"nothing is being said in my video" -> YES
+"sin voz en mi video" -> YES
+"la vidéo n'a pas de son" -> YES
+"mein Video hat keinen Ton" -> YES
+"how do I change the voice for one scene" -> NO"""
+
+
+async def _llm_is_no_audio_report(message: str) -> bool:
+    """Ask the model to judge only WHETHER this is a no-audio report; the reply itself stays fixed."""
+    try:
+        verdict = await complete_text(
+            [
+                {"role": "system", "content": _NO_AUDIO_JUDGE_PROMPT},
+                {"role": "user", "content": message},
+            ],
+            max_tokens=5,
+            temperature=0.0,
+        )
+    except LLMError as exc:
+        logger.warning("[SUPPORT] no-audio judge failed, falling through to the normal answer: %s", exc)
+        return False
+    return verdict.strip().upper().startswith("YES")
+
+
+# Splits a compound message into separate questions: sentence ends, ";", or "and/also"
+# before a new question word. "or" is deliberately NOT a split point, so "…first month,
+# or does it continue?" stays one promo question instead of leaving a dangling half.
+_CLAUSE_SPLIT_RE = re.compile(
+    r"(?<=[.!?])\s+|\s*;\s*"
+    r"|,?\s+(?:and\s+also|also|and|plus)\s+(?=(?:how|what|where|when|why|which|who|can|could|do|does|is|are|will|should|i|my|no|there)\b)",
+    re.IGNORECASE,
+)
+
+
+def split_canned(message: str) -> tuple[str, str]:
+    """Return (rest, canned): the message minus the questions that get a fixed reply.
+
+    ``canned`` joins NO_AUDIO_REPLY / PROMO_REPLY for whichever were asked ("" if
+    neither). ``rest`` is what's left for the model, or "" when nothing substantive is
+    left, in which case the caller answers with ``canned`` alone; otherwise the model
+    answers ``rest`` and ``canned`` is appended.
+    """
+    parts = [p.strip(" ,") for p in _CLAUSE_SPLIT_RE.split(message or "") if p and p.strip(" ,")]
+    # Splitting "difference between voiceover and no voiceover" at "and no" must not make "no voiceover" a report.
+    audio = [] if _is_voiceover_request(message) else [p for p in parts if is_no_audio_report(p)]
+    promo = [p for p in parts if p not in audio and _PROMO_RE.search(p)]
+    if not audio and not promo:
+        # Clause splitting can cut a sentence in two ("no audio, and no ..."); judge the whole too.
+        if is_no_audio_report(message):
+            return "", NO_AUDIO_REPLY
+        return message, ""
+    canned = "\n\n".join(r for r, hit in ((NO_AUDIO_REPLY, audio), (PROMO_REPLY, promo)) if hit)
+    rest = " ".join(p for p in parts if p not in audio and p not in promo).strip()
+    rest = re.sub(r"^(?:and\s+also|also|and|plus)\s+", "", rest, flags=re.IGNORECASE)
+    if len(re.findall(r"\w+", rest)) < 3:
+        rest = ""
+    return rest, canned
+
+
+async def resolve_canned(message: str) -> tuple[str, str]:
+    """``split_canned`` plus a model judgement for no-audio rewordings the patterns miss."""
+    parts = [p.strip(" ,") for p in _CLAUSE_SPLIT_RE.split(message or "") if p and p.strip(" ,")]
+    voiceover_request = _is_voiceover_request(message)
+    regex_audio = [] if voiceover_request else [p for p in parts if is_no_audio_report(p)]
+    promo = [p for p in parts if p not in regex_audio and _PROMO_RE.search(p)]
+    others = [p for p in parts if p not in regex_audio and p not in promo]
+    # Judged BEFORE the short-fragment cutoff below, so "audio problem. any coupons?" isn't lost.
+    judged = [] if voiceover_request else [
+        p for p in others if not regex_audio and _AUDIO_HINT_RE.search(p) and await _llm_is_no_audio_report(p)
+    ]
+    if not judged:
+        return split_canned(message)
+    others = [p for p in others if p not in judged]
+    canned = NO_AUDIO_REPLY + ("\n\n" + PROMO_REPLY if promo else "")
+    rest = re.sub(r"^(?:and\s+also|also|and|plus)\s+", "", " ".join(others).strip(), flags=re.IGNORECASE)
+    return (rest if len(re.findall(r"\w+", rest)) >= 3 else ""), canned
+
+
 SYSTEM_PROMPT_TEMPLATE = """You are the Blog2Video support assistant.
 
 IMPORTANT: You MUST respond with ONLY a valid JSON object. No prose before or after it. No markdown fences. The very first character of your response must be {{ and the last must be }}.
@@ -102,6 +301,19 @@ BE HELPFUL FIRST: If the documents contain ANYTHING relevant — even a partial 
 PARTIAL-ANSWER RULE: When the documents cover part of the question, answer that part directly in "answer", then name the specific missing piece in one short sentence. Do not open with an apology and do not refuse the whole question because one detail is missing.
 
 UNKNOWN RULE: Only when the documents contain nothing relevant at all, set "answer" to a short, human reply that names the specific thing you can't confirm and offers to put the user in touch with the team — e.g. "I'm not sure about the annual billing discount. I can pass this to our team if you'd like." Never mention documents, documentation, sources, context, or what you were "given" — the user doesn't know those exist and doesn't care. Never say "I apologise" or "I do not have enough information". Only ever OFFER to contact the team — never claim you have already sent, forwarded, escalated, or opened a ticket. Nothing is sent unless the user fills in the form themselves, so past-tense claims like "I've passed this on" or "I've opened a ticket for you" are always false. Set "citations" to [] and "ui_guidance" to []. Never guess, and never invent steps, buttons, or UI flows.
+
+PROMOTIONS RULE: For ANY question about discounts, promo codes, coupons, sales, limited-time offers, "X% off", or whether an offer is "first month only", set "answer" to 1–2 short sentences saying you don't have information about discount campaigns or promotions, and stop there — do NOT offer to contact the team unless the user asks for a person. NEVER confirm, deny, or characterise a specific promotion — never say "there is no such promotion", "that doesn't match our pricing", or "that isn't available". You do not know what campaigns exist. Do not repeat numbers, spot counts, or terms from the user's message (e.g. "40% off", "first month only") back to them — reply with the RIGHT sentence below, word for word, even if the user asks a follow-up about the same offer. This covers EVERY kind of discount — annual-billing savings, bulk or volume pricing, referral rewards, student/nonprofit pricing, promo codes — you never state or describe any of them. Even in ordinary pricing answers, give plain prices only and do not mention discounts, savings, percentages off, bulk rates, or referral rewards. Set "citations" to [] and "ui_guidance" to [].
+WRONG: "There is no 40% off promotion; only our annual plan gives 20% off."
+RIGHT: "I don't have information about discount campaigns or promotions."
+
+NO-AUDIO RULE: If the user reports no audio, no sound, a silent video, or that they can't hear the voiceover or narration (including "voiceover not playing", "no voice", "audio missing", "can't hear"), the FIRST thing to suggest is their browser and device. You MUST reply with a one-line intro and then this numbered list, one step per line, NEVER as a paragraph (even if earlier replies were paragraphs) in "answer": 1. Check the browser tab isn't muted and your device volume is up. 2. Check the video player's own mute button and volume slider. 3. Try a hard refresh or a different browser (Chrome, Safari, or Firefox). 4. If it's still silent, check the project: open the **Script** tab to confirm each scene has narration, and confirm a voice was chosen for the project. Do not state guessed internal causes as facts (e.g. "voice generation failed silently"), and do not invent steps or buttons. End by offering to help further if it's still silent.
+WRONG (never do this): First, check your browser tab isn't muted and your volume is up. Then check the player's mute button. If it's still silent, try another browser.
+RIGHT:
+If your video has no sound, start with your browser and device:
+1. Check the browser tab isn't muted and your device volume is up.
+2. Check the video player's own mute button and volume slider.
+3. Try a hard refresh or a different browser (Chrome, Safari, or Firefox).
+4. If it's still silent, check the project: open the **Script** tab to confirm each scene has narration, and confirm a voice was chosen for the project.
 
 OFF-TOPIC RULE: If the user's message has nothing to do with Blog2Video or videos — general-knowledge questions (current events, facts, people, definitions), requests to perform unrelated tasks, or random/nonsense messages — set "answer" to ONE short line redirecting to Blog2Video. Do not answer the off-topic content, do not explain who you are or what you can't do, and never invent steps, buttons, or UI flows. Set "citations" to [] and "ui_guidance" to [].
 
@@ -138,7 +350,7 @@ UI ACTION CATALOG:
 PRIOR CONVERSATION SUMMARY:
 {summary}
 
-FINAL REMINDER: If your answer contains steps, format them in the "answer" field as a numbered markdown list ("1.", "2.", "3." each on its own line) — never as one paragraph.
+FINAL REMINDER: If your answer contains steps, format them in the "answer" field as a numbered markdown list ("1.", "2.", "3." each on its own line) — never as one paragraph. Discount/promo questions: say you have no information on discount campaigns, never deny or confirm. No-audio reports: browser checks first, as a numbered list (1., 2., 3., 4.), never a paragraph.
 """
 
 STREAM_SYSTEM_PROMPT_TEMPLATE = """You are the Blog2Video support assistant.
@@ -156,6 +368,19 @@ BE HELPFUL FIRST: If the documents contain ANYTHING relevant — even a partial 
 PARTIAL-ANSWER RULE: When the documents cover part of the question, answer that part directly, then name the specific missing piece in one short sentence. Do not open with an apology and do not refuse the whole question because one detail is missing.
 
 UNKNOWN RULE: Only when the documents contain nothing relevant at all, reply in one or two short, human sentences: name the specific thing you can't confirm, then offer to put the user in touch with the team — e.g. "I'm not sure about the annual billing discount. I can pass this to our team if you'd like." Never mention documents, documentation, sources, context, or what you were "given" — the user doesn't know those exist and doesn't care. Never say "I apologise" or "I do not have enough information". Only ever OFFER to contact the team — never claim you have already sent, forwarded, escalated, or opened a ticket. Nothing is sent unless the user fills in the form themselves, so past-tense claims like "I've passed this on" or "I've opened a ticket for you" are always false. Never guess, and never invent steps, buttons, or UI flows.
+
+PROMOTIONS RULE: For ANY question about discounts, promo codes, coupons, sales, limited-time offers, "X% off", or whether an offer is "first month only", reply in 1–2 short sentences saying you don't have information about discount campaigns or promotions, and stop there — do NOT offer to contact the team unless the user asks for a person. NEVER confirm, deny, or characterise a specific promotion — never say "there is no such promotion", "that doesn't match our pricing", or "that isn't available". You do not know what campaigns exist. Do not repeat numbers, spot counts, or terms from the user's message (e.g. "40% off", "first month only") back to them — reply with the RIGHT sentence below, word for word, even if the user asks a follow-up about the same offer. This covers EVERY kind of discount — annual-billing savings, bulk or volume pricing, referral rewards, student/nonprofit pricing, promo codes — you never state or describe any of them. Even in ordinary pricing answers, give plain prices only and do not mention discounts, savings, percentages off, bulk rates, or referral rewards.
+WRONG: "There is no 40% off promotion; only our annual plan gives 20% off."
+RIGHT: "I don't have information about discount campaigns or promotions."
+
+NO-AUDIO RULE: If the user reports no audio, no sound, a silent video, or that they can't hear the voiceover or narration (including "voiceover not playing", "no voice", "audio missing", "can't hear"), the FIRST thing to suggest is their browser and device. You MUST reply with a one-line intro and then this numbered list, one step per line, NEVER as a paragraph (even if earlier replies were paragraphs): 1. Check the browser tab isn't muted and your device volume is up. 2. Check the video player's own mute button and volume slider. 3. Try a hard refresh or a different browser (Chrome, Safari, or Firefox). 4. If it's still silent, check the project: open the **Script** tab to confirm each scene has narration, and confirm a voice was chosen for the project. Do not state guessed internal causes as facts (e.g. "voice generation failed silently"), and do not invent steps or buttons. End by offering to help further if it's still silent.
+WRONG (never do this): First, check your browser tab isn't muted and your volume is up. Then check the player's mute button. If it's still silent, try another browser.
+RIGHT:
+If your video has no sound, start with your browser and device:
+1. Check the browser tab isn't muted and your device volume is up.
+2. Check the video player's own mute button and volume slider.
+3. Try a hard refresh or a different browser (Chrome, Safari, or Firefox).
+4. If it's still silent, check the project: open the **Script** tab to confirm each scene has narration, and confirm a voice was chosen for the project.
 
 OFF-TOPIC RULE: If the user's message has nothing to do with Blog2Video or videos — general-knowledge questions (current events, facts, people, definitions), requests to perform unrelated tasks, or random/nonsense messages — reply with ONE short line redirecting to Blog2Video. Do not answer the off-topic content, do not explain who you are or what you can't do, and never invent steps, buttons, or UI flows.
 
@@ -188,7 +413,7 @@ RELEVANT DOCUMENTS:
 PRIOR CONVERSATION SUMMARY:
 {summary}
 
-FINAL REMINDER: If your answer contains steps, format them as a numbered markdown list ("1.", "2.", "3." each on its own line) — never as one paragraph.
+FINAL REMINDER: If your answer contains steps, format them as a numbered markdown list ("1.", "2.", "3." each on its own line) — never as one paragraph. Discount/promo questions: say you have no information on discount campaigns, never deny or confirm. No-audio reports: browser checks first, as a numbered list (1., 2., 3., 4.), never a paragraph.
 """
 
 METADATA_SYSTEM_PROMPT_TEMPLATE = """You are a metadata extractor. Output ONLY a JSON object — no prose, no fences.
@@ -330,7 +555,7 @@ def _build_doc_section(scored_docs, query: str = "") -> str:
     parts = []
     for s in scored_docs:
         d = s.doc
-        body = _excerpt_for_query(d.body, query) if query else d.body[:DOC_BUDGET_CHARS]
+        body = _strip_discount_sentences(_excerpt_for_query(d.body, query) if query else d.body[:DOC_BUDGET_CHARS])
         parts.append(
             f"--- id: {d.id}\n"
             f"title: {d.title}\n"
@@ -438,6 +663,11 @@ async def chat(
         conv.title = body.message[:120]
         logger.info("[CHAT] Set conversation title: %r", conv.title[:60])
 
+    _rest, _canned = await resolve_canned(body.message)
+    _promo = bool(_canned)
+    _promo_only = _promo and not _rest
+    _q = _rest if (_promo and _rest) else body.message
+
     logger.info("[CHAT] Step 1: Load recent message history")
     recent = load_recent_messages(db, conv.id)
     history = history_user_messages(recent)
@@ -446,7 +676,7 @@ async def chat(
     logger.info("[CHAT] Step 2: BM25 retrieval")
     retriever = get_retriever()
     scored = retriever.retrieve(
-        body.message,
+        _q,
         history=history,
         page_path=body.page_path,
         last_cited_doc_ids=last_cited,
@@ -457,7 +687,7 @@ async def chat(
     )
 
     logger.info("[CHAT] Step 3: Build prompt context")
-    docs_section = _build_doc_section(scored, query=body.message)
+    docs_section = _build_doc_section(scored, query=_q)
     logger.info("[CHAT] Retrieved %d docs for prompt: %s", len(scored), [s.doc.id for s in scored])
     catalog_section = catalog_summary_for_prompt()
     summary = conv.summary or "(none)"
@@ -473,7 +703,7 @@ async def chat(
     messages = _build_messages(
         system=system,
         recent=recent,
-        current=body.message,
+        current=_q,
         page_path=body.page_path,
     )
     logger.info("[CHAT] Prompt assembled: system=%d chars, %d total messages", len(system), len(messages))
@@ -494,7 +724,10 @@ async def chat(
 
     logger.info("[CHAT] Step 4: Call LLM")
     try:
-        llm_out = await complete_json(messages, use_json_mode=False)
+        if _promo_only:
+            llm_out = SupportResponse(answer=_canned)
+        else:
+            llm_out = await complete_json(messages, use_json_mode=False)
     except LLMError as exc:
         logger.exception("[CHAT] LLM call failed: %s", exc)
         raise HTTPException(
@@ -503,6 +736,8 @@ async def chat(
 
     logger.info("[CHAT] Step 5: Validate and hydrate LLM response")
     answer = llm_out.answer.strip()
+    if _promo and _rest:
+        answer = f"{answer}\n\n{_canned}" if answer else _canned
     if not answer:
         answer = "Sorry — I couldn't form an answer. Please try rephrasing."
         logger.warning("[CHAT] LLM returned empty answer, using fallback")
@@ -602,13 +837,18 @@ async def chat_stream(
     if not conv.title:
         conv.title = body.message[:120]
 
+    _rest, _canned = await resolve_canned(body.message)
+    _promo = bool(_canned)
+    _promo_only = _promo and not _rest
+    _q = _rest if (_promo and _rest) else body.message
+
     recent = load_recent_messages(db, conv.id)
     history = history_user_messages(recent)
     last_cited = last_assistant_cited_doc_ids(recent)
 
     retriever = get_retriever()
     scored = retriever.retrieve(
-        body.message,
+        _q,
         history=history,
         page_path=body.page_path,
         last_cited_doc_ids=last_cited,
@@ -618,7 +858,7 @@ async def chat_stream(
         min_score=0.5,
     )
 
-    docs_section = _build_doc_section(scored, query=body.message)
+    docs_section = _build_doc_section(scored, query=_q)
     catalog_section = catalog_summary_for_prompt()
     summary = conv.summary or "(none)"
     user_context = session_state_block(conv.session_state or {})
@@ -632,7 +872,7 @@ async def chat_stream(
     messages = _build_messages(
         system=system,
         recent=recent,
-        current=body.message,
+        current=_q,
         page_path=body.page_path,
     )
     logger.info("[STREAM] Prompt assembled, starting stream")
@@ -649,6 +889,8 @@ async def chat_stream(
     # the project" replies that never routed anyone to a person.
     _question_reason = classify_question(body.message)
     _short_circuit = should_short_circuit(_question_reason)
+    _promo_only = _promo_only and not _short_circuit
+    _promo_tail = _promo and bool(_rest) and not _short_circuit
     if _short_circuit:
         logger.info("[STREAM] Escalation short-circuit: reason=%s", _question_reason.value)
 
@@ -693,11 +935,17 @@ async def chat_stream(
                 drafted = short_circuit_reply(_question_reason, seed=_conv_id + len(recent))
             full_text = drafted
             yield _sse_token(drafted)
+        elif _promo_only:
+            full_text = _canned
+            yield _sse_token(_canned)
         else:
             try:
                 async for token in stream_answer(messages):
                     full_text += token
                     yield _sse_token(token)
+                if _promo_tail:
+                    full_text += "\n\n" + _canned
+                    yield _sse_token("\n\n" + _canned)
             except LLMError as exc:
                 logger.error("[STREAM] LLM error: %s", exc)
                 yield f"event: error\ndata: LLM unavailable\n\n"
@@ -714,6 +962,8 @@ async def chat_stream(
         if _short_circuit:
             # Nothing to cite and no tour to offer — skip the call and its latency.
             raw_llm = SupportResponse(answer=answer, escalate=True)
+        elif _promo_only:
+            raw_llm = SupportResponse(answer=answer)
         else:
             doc_ids_text = "\n".join(f"- {s.doc.id}: {s.doc.title}" for s in _scored)
             meta_system = METADATA_SYSTEM_PROMPT_TEMPLATE.format(

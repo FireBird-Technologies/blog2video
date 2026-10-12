@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: Blog2Video
+ * Plugin Name: B2V Video by FireBird
  * Plugin URI: https://blog2video.app/wordpress-plugin
  * Description: Turn WordPress posts into narrated videos and embed them back into the post.
  * Version: 0.14.14
  * Requires at least: 6.2
  * Requires PHP: 7.4
- * Author: Blog2Video
+ * Author: FireBird Technologies
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: blog2video
@@ -25,28 +25,8 @@ require_once BLOG2VIDEO_DIR . 'includes/class-blog2video-settings.php';
 require_once BLOG2VIDEO_DIR . 'includes/class-blog2video-rest-controller.php';
 require_once BLOG2VIDEO_DIR . 'includes/class-blog2video-block.php';
 
-/** Move data saved under the old short "b2v" prefix to the blog2video_ prefix (runs once). */
-function blog2video_migrate_legacy_data() {
-	if ( get_option( 'blog2video_data_migrated' ) ) {
-		return;
-	}
-	global $wpdb;
-	foreach ( array( 'connection', 'pending_connection', 'auto_embed' ) as $name ) {
-		$old = get_option( 'b2v_' . $name, null );
-		if ( null !== $old && false === get_option( 'blog2video_' . $name, false ) ) {
-			update_option( 'blog2video_' . $name, $old, false );
-		}
-		delete_option( 'b2v_' . $name );
-	}
-	foreach ( array( 'project_id', 'project_name', 'content_hash', 'editor_url', 'last_status', 'video_url', 'embed_url' ) as $key ) {
-		$wpdb->update( $wpdb->postmeta, array( 'meta_key' => '_blog2video_' . $key ), array( 'meta_key' => '_b2v_' . $key ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-	}
-	update_option( 'blog2video_data_migrated', '1', false );
-}
-
 /** Boot after WordPress has loaded pluggable APIs. */
 function blog2video_boot_plugin() {
-	blog2video_migrate_legacy_data();
 	$api = new Blog2Video_API_Client();
 	new Blog2Video_Settings( $api );
 	new Blog2Video_REST_Controller( $api );

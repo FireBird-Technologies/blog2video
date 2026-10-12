@@ -482,7 +482,9 @@ def wordpress_resolve_embedded_project(
     parsed = urlparse(data.embed_url.strip())
     # Current tokens are 64 hexadecimal characters. Earlier projects used
     # shorter tokens (including 60 characters), which remain valid embeds.
-    match = re.fullmatch(r"/preview/([a-fA-F0-9]{32,64})/?", parsed.path)
+    # /embed/ is the current player path; /preview/ links from older posts
+    # still resolve.
+    match = re.fullmatch(r"/(?:embed|preview)/([a-fA-F0-9]{32,64})/?", parsed.path)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc or match is None:
         raise HTTPException(status_code=400, detail="Invalid Blog2Video preview URL")
 

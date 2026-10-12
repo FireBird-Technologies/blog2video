@@ -86,6 +86,19 @@ export function useOutOfVideosOffer() {
     return false;
   }, []);
 
+  // Login-only opener (MarketingDesignerPopup): a walled free user sees the
+  // offer instead of the "what's new" modal on every real login. Each login
+  // starts a fresh countdown rather than honoring an earlier expired window.
+  const openOnLogin = useCallback((): boolean => {
+    if (!user || user.plan !== "free" || user.can_create_video !== false) return false;
+    const startedAt = Date.now();
+    writeStartedAt(user.id, startedAt);
+    setNow(startedAt);
+    setWasDismissed(false);
+    setIsOpen(true);
+    return true;
+  }, [user]);
+
   // User-initiated re-open from the minimized pill — bypasses wasDismissed.
   const expand = useCallback(() => {
     if (!isWindowLive) return;
@@ -108,6 +121,7 @@ export function useOutOfVideosOffer() {
     expiresAt,
     wasDismissed,
     open,
+    openOnLogin,
     expand,
     dismiss,
   };

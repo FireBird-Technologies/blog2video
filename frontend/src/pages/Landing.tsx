@@ -100,6 +100,7 @@ const NAV_LINKS = [
   { href: "#features", label: "Features" },
   { href: "/pricing", label: "Pricing" },
   { href: "/blogs", label: "Blogs" },
+  { href: "/api-docs", label: "API docs" },
 ];
 
 const LANDING_YT_HOST_ID = "landing-yt-demo-host";

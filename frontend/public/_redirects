@@ -23,6 +23,12 @@
 /integrations                          /index.html  200
 /mcp-connector                         /index.html  200
 /template-studio-editing-feature       /index.html  200
-/preview/*                             /index.html  200
 /tools/substack-directory              /index.html  200
 /tools/substack-directory/*            /index.html  200
+/account/*                            /index.html  200
+
+# Standalone video player (embed/index.html): no app shell. Keep above the SPA fallback.
+# Target the pretty URL /embed/, not /embed/index.html: Pages 308s .html paths to
+# their pretty form, which makes a rewrite to them fall through to the SPA below.
+/embed/*    /embed/  200
+/preview/*  /embed/  200
