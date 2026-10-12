@@ -190,7 +190,7 @@ function renderMarketingPageHtml(page: MarketingPage): string {
         .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
         .join("")}</section>`
     : "";
-  return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}</main>`;
+  return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}${renderSiteLinksHtml(normalizePath(page.path))}</main>`;
 }
 
 function renderFaqHtml(faq: { question: string; answer: string }[]): string {
@@ -246,6 +246,45 @@ function renderToolPageHtml(tool: ToolDefinition): string {
 }
 
 /**
+ * Crawlable links to the money pages. Marketing pages, the homepage and /pricing used to ship with zero anchors in
+ * the prerendered HTML (the nav only existed after hydration), so none of them passed link equity to each other.
+ */
+const SITE_LINKS: { href: string; label: string }[] = [
+  { href: "/blog-to-video", label: "Blog to video" },
+  { href: "/url-to-video", label: "URL to video" },
+  { href: "/article-to-video", label: "Article to video" },
+  { href: "/pdf-to-video", label: "PDF to video" },
+  { href: "/blog-to-youtube-video", label: "Blog to YouTube video" },
+  { href: "/blog-to-shorts", label: "Blog to Shorts" },
+  { href: "/blog-to-linkedin-video", label: "Blog to LinkedIn video" },
+  { href: "/ai-blog-to-video", label: "AI blog to video" },
+  { href: "/tools", label: "Free creator and SEO tools" },
+  { href: "/blogs", label: "Blog" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/lumen5-alternative", label: "Lumen5 alternative" },
+  { href: "/pictory-alternative", label: "Pictory alternative" },
+  { href: "/heygen-alternative", label: "HeyGen alternative" },
+  { href: "/blogs/what-is-ai-slop", label: "What is AI slop?" },
+  { href: "/blogs/ai-video-generators-that-are-not-slop", label: "AI video generators that are not slop" },
+];
+
+function renderSiteLinksHtml(currentPath: string): string {
+  if (isPdfBrand) return "";
+  const links = SITE_LINKS.filter((l) => l.href !== currentPath)
+    .map((l) => `<li><a href="${l.href}">${escapeHtml(l.label)}</a></li>`)
+    .join("");
+  return `<nav aria-label="Explore Blog2Video"><h2>Explore Blog2Video</h2><ul>${links}</ul></nav>`;
+}
+
+function renderHomeHtml(): string {
+  return `<main><h1>Text to video AI: turn blogs, URLs, PDFs and scripts into videos</h1><p>Turn text into narrated videos in minutes. Paste a blog URL, script, PDF, or PowerPoint and Blog2Video builds the scenes, voiceover, and captions. Avatars from a photo. Free to start.</p><p><a href="/blog-to-video">Convert a blog post to video</a> <a href="/pricing">See pricing</a></p>${renderSiteLinksHtml("/")}</main>`;
+}
+
+function renderPricingHtml(): string {
+  return `<main><h1>Blog2Video pricing</h1><p>Blog2Video pricing for free, pay-as-you-go, Standard, Pro, and custom team plans.</p><p><a href="/blog-to-video">Try it free: blog to video</a> <a href="/contact">Talk to us about team plans</a></p>${renderSiteLinksHtml("/pricing")}</main>`;
+}
+
+/**
  * Server-rendered pdf2video hero.
  *
  * The SPA is JavaScript-rendered, which already costs crawlability on the
@@ -259,6 +298,8 @@ function renderPdfHomeHtml(): string {
 
 function getAppHtml(routePath: string): string {
   if (routePath === "/" && isPdfBrand) return renderPdfHomeHtml();
+  if (routePath === "/") return renderHomeHtml();
+  if (routePath === "/pricing") return renderPricingHtml();
   if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
   if (routePath.startsWith("/blogs/")) {
     const post = getBlogPost(routePath.replace("/blogs/", ""));

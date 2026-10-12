@@ -446,12 +446,12 @@ export const tools: ToolDefinition[] = [
   {
     slug: "seo-title-checker",
     path: "/tools/seo-title-checker",
-    title: "Free SEO Title Checker — Pixel Length & Preview",
+    title: "Free SEO Title Length Checker — Pixel Width & Preview",
     description:
-      "Free SEO title checker: count characters, measure pixel width against Google's ~600px limit, check keyword placement, and preview your title tag in desktop and mobile search results.",
+      "Free SEO title length checker: count characters, measure pixel width against Google's ~600px limit, check keyword placement, and preview your title tag in desktop and mobile search results.",
     eyebrow: "Analyzer",
     heroTitle:
-      "Free SEO title checker for character count, pixel width, and a live Google preview.",
+      "Free SEO title length checker: character count, pixel width, and a live Google preview.",
     heroDescription:
       "Paste a title tag to see its character count, its real pixel width against Google's ~600px desktop limit, whether your keyword is front-loaded, and exactly where the title gets truncated in desktop and mobile results.",
     category: "analyzer",

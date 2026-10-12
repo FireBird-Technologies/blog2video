@@ -4,5 +4,25 @@
 /blogs/how-to-make-a-pdf-into-a-video      https://pdf2vid.com/blogs/pdf-to-video-ai-what-it-does-and-what-it-fakes  301
 /blogs/create-summary-videos-from-pdfs     https://pdf2vid.com/blogs/pdf-summarizer-or-pdf-video-summary  301
 
-# SPA fallback. Keep last.
-/*  /index.html  200
+# App-only routes get the SPA shell. Every indexable page (blog, help, tools, marketing, templates) is prerendered
+# to a real file by scripts/build-seo.ts, and files win over these rewrites. There is deliberately NO /* catch-all:
+# with a root 404.html, Cloudflare Pages returns a real 404 for unknown URLs instead of a 200 soft-404.
+/_capture                              /index.html  200
+/pdf2video                             /index.html  200
+/signin                                /index.html  200
+/signup                                /index.html  200
+/template-showcase                     /index.html  200
+/wordpress-connect                     /index.html  200
+/wordpress-plugin                      /index.html  200
+/extension-connect                     /index.html  200
+/dashboard                             /index.html  200
+/project/*                             /index.html  200
+/invite/*                              /index.html  200
+/subscription                          /index.html  200
+/survey                                /index.html  200
+/integrations                          /index.html  200
+/mcp-connector                         /index.html  200
+/template-studio-editing-feature       /index.html  200
+/preview/*                             /index.html  200
+/tools/substack-directory              /index.html  200
+/tools/substack-directory/*            /index.html  200
