@@ -352,21 +352,6 @@ const GUIDES: ApiDocs["guides"] = [
       },
     ],
   },
-  {
-    id: "custom-template-flow",
-    title: "Custom templates",
-    blocks: [
-      {
-        type: "list",
-        items: [
-          "Extract a theme: `POST /api/custom-templates/extract-theme`.",
-          "Create the template: `POST /api/custom-templates`.",
-          "Generate it: `POST /api/custom-templates/{id}/generate-code`, then poll until `complete`.",
-          "Use it: create a video with `template: \"custom_<id>\"`.",
-        ],
-      },
-    ],
-  },
 ];
 
 const PROJECT_SETTINGS_FIELDS: FieldTuple[] = [
