@@ -119,6 +119,9 @@ class VideoCreateIn(BaseModel):
             raise ValueError("aspect_ratio must be landscape or portrait")
         if self.metadata is not None and len(str(self.metadata)) > MAX_METADATA_CHARS:
             raise ValueError("metadata is too large")
+        # A blank tag would read as "no user" when listing; store it as untagged.
+        if self.external_user_id is not None:
+            self.external_user_id = self.external_user_id.strip() or None
         return self
 
 
@@ -325,7 +328,12 @@ def list_videos(
     db: Session = Depends(get_db),
 ):
     query = _scope(db.query(ApiProjectLink), principal)
-    if external_user_id:
+    if external_user_id is not None:
+        # Filtering for one end user must never fall through to the owner's
+        # full list: untagged videos are the owner's alone (still reachable by id).
+        external_user_id = external_user_id.strip()
+        if not external_user_id:
+            raise HTTPException(status_code=422, detail="external_user_id must not be blank")
         query = query.filter(ApiProjectLink.external_user_id == external_user_id)
     if before_id:
         query = query.filter(ApiProjectLink.project_id < before_id)
@@ -535,4 +543,7 @@ def render_status(
     video_id: int, principal: ApiPrincipal = Depends(get_api_principal), db: Session = Depends(get_db),
 ):
     _linked_project(principal, video_id, db)
-    return pipeline.render_status_endpoint(video_id, user=principal.owner, db=db)
+    result = pipeline.render_status_endpoint(video_id, user=principal.owner, db=db)
+    # Same name as /status and GET /videos/{id}; r2_video_url stays for older callers.
+    result["video_url"] = result.get("r2_video_url")
+    return result

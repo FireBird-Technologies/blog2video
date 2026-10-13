@@ -38,6 +38,7 @@ export type ApiDocBlock =
   | { type: "p"; text: string }
   | { type: "example"; body?: unknown; status: number; response: unknown }
   | { type: "list"; items: string[] }
+  | { type: "code"; label: string; code: string }
   | { type: "table"; columns: string[]; rows: string[][] };
 
 export interface ApiDocs {
@@ -130,7 +131,7 @@ const PROJECT = {
   name: "How remote teams ship faster",
   blog_url: "https://example.com/remote-teams",
   status: "generated",
-  template: "default",
+  template: "newspaper",
   video_style: "explainer",
   video_length: "auto",
   aspect_ratio: "landscape",
@@ -224,38 +225,54 @@ const CUSTOM_TEMPLATE = {
 const GUIDES: ApiDocs["guides"] = [
   {
     id: "quick-start",
-    title: "Quick start",
+    title: "Get started",
     blocks: [
       {
         type: "p",
-        text: "Send your API key as `Authorization: Bearer <key>` on every request. Create keys on the API Keys page and keep them on your server. ==The API needs a paid plan.==",
+        text: "Blog2Video turns a blog post, article or your own text into a narrated video with scenes, voiceover and music. The API runs the same pipeline from your own code: send a link, get back a live preview and a finished MP4.",
       },
       {
         type: "p",
-        text: "==1. Create the video.== `POST /api/v1/videos` with a `url` to turn a blog post into a video, or your own `content` and a `title`. It returns a `video_id` right away and keeps working in the background.",
+        text: "Send your API key as `Authorization: Bearer <key>` on every request. Create keys on the API Keys page and keep them on your server. ==The API needs a paid plan.== The commands below read the key from an environment variable:",
+      },
+      {
+        type: "code",
+        label: "Shell",
+        code: "export B2V_API_KEY=\"your-api-key\"",
+      },
+      {
+        type: "p",
+        text: "==Step 1: Start video generation.== Send a link to `POST /api/v1/videos`. This makes a short video with the Newspaper template and a female voice. The call returns a `video_id` right away and keeps working in the background.",
+      },
+      {
+        type: "code",
+        label: "Request",
+        code: [
+          "# Example URL: replace it with your own blog post or website page.",
+          "curl -X POST $B2V/api/v1/videos \\",
+          "  -H \"Authorization: Bearer $KEY\" \\",
+          "  -H \"Content-Type: application/json\" \\",
+          "  -d '{",
+          "    \"url\": \"https://blog2video.app/blogs/suit-up-blog2video-update\",",
+          "    \"template\": \"newspaper\",",
+          "    \"video_length\": \"short\",",
+          "    \"voice_gender\": \"female\"",
+          "  }'",
+        ].join("\n"),
       },
       {
         type: "example",
-        body: {
-          url: "https://example.com/blog/remote-teams",
-          template: "default",
-          video_style: "auto",
-          video_length: "short",
-          aspect_ratio: "landscape",
-          voice_gender: "female",
-          content_language: "en",
-          external_user_id: "user-42",
-        },
         status: 202,
         response: { video_id: 812, state: "queued" },
       },
       {
         type: "p",
-        text: "No URL? Send the text instead: `{\"title\": \"Why remote teams stall\", \"content\": \"Most remote teams don't fail on talent...\"}`. Every field except `url` / `content` is optional. Repeating a request with the same `Idempotency-Key` header returns the first video (`\"state\": \"existing\"`) instead of creating a new one.",
+        text: "==Step 2: Check the status.== Poll every few seconds until `ready` is `true`. If `status` becomes `failed`, `error` says why.",
       },
       {
-        type: "p",
-        text: "==2. Wait for it.== Poll `GET /api/v1/videos/{id}/status` every few seconds until `ready` is `true`. If `status` becomes `failed`, `error` says why.",
+        type: "code",
+        label: "Request",
+        code: "curl $B2V/api/v1/videos/812/status \\\n  -H \"Authorization: Bearer $KEY\"",
       },
       {
         type: "example",
@@ -264,7 +281,12 @@ const GUIDES: ApiDocs["guides"] = [
       },
       {
         type: "p",
-        text: "==3. Get the video.== `GET /api/v1/videos/{id}` returns the scenes (with voiceover URLs) and a `preview_url` you can open, or drop `embed_html` into your page. The preview updates live when you edit scenes.",
+        text: "==Step 3: Get the video and its preview.== This returns the scenes (with voiceover URLs) and a `preview_url`: a hosted player link you can open or share before rendering anything. It updates live when you edit scenes. To show it in your own page, drop in `embed_html`.",
+      },
+      {
+        type: "code",
+        label: "Request",
+        code: "curl $B2V/api/v1/videos/812 \\\n  -H \"Authorization: Bearer $KEY\"",
       },
       {
         type: "example",
@@ -276,20 +298,25 @@ const GUIDES: ApiDocs["guides"] = [
           preview_url: "https://blog2video.app/embed/3f9a…c21",
           embed_html: "<iframe src=\"https://blog2video.app/embed/3f9a…c21\" …></iframe>",
           video_url: null,
-          external_user_id: "user-42",
           metadata: null,
           project: {
             id: 812,
-            name: "Why remote teams stall",
+            name: "Suit up: what's new in Blog2Video",
+            template: "newspaper",
             scenes: [
-              { id: 5011, order: 1, title: "Handoffs, not talent", narration_text: "…", voiceover_url: "https://…/scene_1.mp3" },
+              { id: 5011, order: 1, title: "Suit up", narration_text: "…", voiceover_url: "https://…/scene_1.mp3" },
             ],
           },
         },
       },
       {
         type: "p",
-        text: "==4. Render an MP4 (optional).== `POST /api/v1/videos/{id}/render` (add `?resolution=720p` for a smaller file).",
+        text: "==Step 4: Render the final video.== Start an MP4 render (add `?resolution=720p` for a smaller file).",
+      },
+      {
+        type: "code",
+        label: "Request",
+        code: "curl -X POST $B2V/api/v1/videos/812/render \\\n  -H \"Authorization: Bearer $KEY\"",
       },
       {
         type: "example",
@@ -298,7 +325,12 @@ const GUIDES: ApiDocs["guides"] = [
       },
       {
         type: "p",
-        text: "Then poll `GET /api/v1/videos/{id}/render` until `done` is `true`. `r2_video_url` is the MP4 link.",
+        text: "Then poll the render until `done` is `true`. Once it is, `video_url` is the link to your finished MP4. `GET /api/v1/videos/{id}/status` returns the same `video_url` from then on.",
+      },
+      {
+        type: "code",
+        label: "Request",
+        code: "curl $B2V/api/v1/videos/812/render \\\n  -H \"Authorization: Bearer $KEY\"",
       },
       {
         type: "example",
@@ -306,12 +338,17 @@ const GUIDES: ApiDocs["guides"] = [
         response: {
           progress: 100,
           done: true,
-          r2_video_url: "https://media.blog2video.app/users/41/projects/812/video.mp4",
+          error: null,
+          video_url: "https://media.blog2video.app/…/video.mp4",
         },
       },
       {
         type: "p",
-        text: "==Options when creating:== `template` (an id from `GET /api/v1/catalog`, or `custom_<id>`), `video_style`, `video_length` (`auto`, `short`, `medium`, `detailed`), `aspect_ratio` (`landscape` or `portrait`), `voice_gender`, `content_language`, and `external_user_id` to tag the video with your own user's id.",
+        text: "==Options when creating.== Only `url` (or `content`) is required. `template` is an id from `GET /api/v1/catalog`, or `custom_<id>`. `voice_gender` is `female`, `male` or `none`.",
+      },
+      {
+        type: "p",
+        text: "No URL? Send the text instead: `{\"title\": \"Why remote teams stall\", \"content\": \"Most remote teams don't fail on talent...\"}`. Repeating a request with the same `Idempotency-Key` header returns the first video (`\"state\": \"existing\"`) instead of creating a new one.",
       },
     ],
   },
@@ -326,20 +363,6 @@ const GUIDES: ApiDocs["guides"] = [
           "Create the template: `POST /api/custom-templates`.",
           "Generate it: `POST /api/custom-templates/{id}/generate-code`, then poll until `complete`.",
           "Use it: create a video with `template: \"custom_<id>\"`.",
-        ],
-      },
-    ],
-  },
-  {
-    id: "your-app",
-    title: "Serving your own users",
-    blocks: [
-      {
-        type: "list",
-        items: [
-          "Call the API from your backend only; usage is billed to you.",
-          "Tag videos with `external_user_id` and filter by it.",
-          "Check a video belongs to the user before showing it.",
         ],
       },
     ],
@@ -420,7 +443,7 @@ const SECTIONS: ApiDocs["sections"] = [
         body: [
           ["files", "file[]", true, "The documents."],
           ["name", "string", false, "Project name. Defaults to the file name."],
-          ["template", "string", false, "Template ID. Defaults to `default`."],
+          ["template", "string", false, "Template ID, e.g. `newspaper`."],
           ["video_style", "string", false, "`explainer` (default), `promotional`, `storytelling` or `auto`."],
           ["video_length", "string", false, "`auto` (default), `short`, `medium` or `detailed`."],
           ["aspect_ratio", "string", false, "`landscape` (default) or `portrait`."],
@@ -1650,7 +1673,7 @@ const SECTIONS: ApiDocs["sections"] = [
       }),
       ep("GET", "/api/v1/catalog", "Get catalog", "", {
         response: {
-          templates: [{ id: "default", name: "Default", preview_url: "https://…/default.png" }],
+          templates: [{ id: "newspaper", name: "Newspaper", preview_url: "https://…/newspaper.png" }],
           voices: [{ voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", preview_url: "https://…/rachel.mp3" }],
           video_styles: { styles: [{ id: "explainer", name: "Explainer" }], selected_ids: ["explainer"] },
         },
