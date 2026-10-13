@@ -922,6 +922,7 @@ _DESTRUCTIVE = {
     "update_scene", "change_template", "change_voice", "delete_voiceover",
     "change_language", "regenerate_scene", "update_project_settings",
     "swap_scene_images",  # mode=move removes the image from its source scene
+    "render_video",  # force_rerender=true replaces the existing rendered video
 }
 # Tools that fetch a user-supplied external URL.
 _OPEN_WORLD = {
