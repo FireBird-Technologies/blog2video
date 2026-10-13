@@ -34,25 +34,9 @@ BASE = "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-prev
 # Mirrors mcp_server.handlers.TEMPLATE_PREVIEW_URLS (minus the dead `default`
 # entry, which the backend no longer serves).
 #
-# sakura, magazine, stickman_2 and stickman_football are deliberately NOT listed:
-# they have no R2 object (their PNGs 404), so fetching them here would fail. Their
-# .webp files in src/previews/ are instead downscaled from the frontend's committed
-# posters and are committed here too — do NOT add them to this list; this script
-# only writes the ids above, so it will never overwrite them.
-#
-# Those posters (frontend/public/template-posters/<id>.webp) are the SAME images the
-# Step 2 template picker shows, so the MCP thumbnails match the web app. They are
-# 1920x1080 title cards produced by `npm run posters:build` in frontend/, which
-# screenshots the real preview components via the hidden /_capture route.
-# To refresh one:
-#   .venv/bin/python -c "from PIL import Image; \
-#     Image.open('frontend/public/template-posters/sakura.webp').convert('RGB') \
-#     .resize((320,180), Image.LANCZOS) \
-#     .save('backend/mcp_server/ui_src/src/previews/sakura.webp','WEBP',quality=72)"
-#
-# Do NOT render these from the Remotion compositions: that yields a mid-scene body-text
-# frame filled with sample-blog copy, which looks nothing like the branded title cards
-# the other 11 previews use.
+# These mirror every built-in template with a public R2 preview. The uploader falls
+# back to the frontend's committed title-card posters when a generated screenshot is
+# unavailable, so these IDs can all be refreshed through the same public path.
 TEMPLATE_IDS = [
     "nightfall",
     "gridcraft",
@@ -65,6 +49,10 @@ TEMPLATE_IDS = [
     "blackswan",
     "bloomberg",
     "chronicle",
+    "stickman_2",
+    "magazine",
+    "sakura",
+    "old-documentary-reel",
 ]
 
 MAX_SIZE = (320, 180)  # card thumbnails; anything larger is wasted bytes

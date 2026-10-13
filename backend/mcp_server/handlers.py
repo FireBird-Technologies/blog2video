@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 from mcp.types import CallToolResult, TextContent
 
-from app.services.template_preview_catalog import TEMPLATE_PREVIEW_URLS
+from app.services.template_preview_catalog import get_template_preview_urls
 from mcp_server.client import APIError, Blog2VideoClient
 from mcp_server.polling import PollTimeout, poll_until
 
@@ -712,7 +712,7 @@ def _setup_video(args: dict, client: Blog2VideoClient):
                 "id": t.get("id", "?"),
                 "name": t.get("name") or t.get("id", "?"),
                 "genres": t.get("genres") or [],
-                "preview_url": TEMPLATE_PREVIEW_URLS.get(t.get("id", ""), ""),
+                "preview_url": get_template_preview_urls().get(t.get("id", ""), ""),
                 "custom": False,
             }
             for t in raw
@@ -1375,7 +1375,7 @@ def _list_templates(client: Blog2VideoClient):
             "id": t.get("id", "?"),
             "name": t.get("name") or t.get("id", "?"),
             "genres": t.get("genres") or [],
-            "preview_url": TEMPLATE_PREVIEW_URLS.get(t.get("id", ""), ""),
+            "preview_url": get_template_preview_urls().get(t.get("id", ""), ""),
             "custom": False,
         }
         for t in (client.list_templates() or [])

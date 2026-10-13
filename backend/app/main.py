@@ -887,7 +887,7 @@ app.mount("/mcp", mcp_oauth.build_sdk_starlette_app(
 @app.get("/.well-known/openai-apps-challenge", response_class=PlainTextResponse)
 def openai_apps_challenge():
     """Domain-verification token for the OpenAI plugin portal (must sit at the origin root)."""
-    return "LV1DLvrnlFqAjrZiPSNvje4EB3SXQ_Ed7xTC4UT1hXc"
+    return "D3nD6YCEOwGxYzen07R820Buvvb0KZXseZwMrx-NgaU"
 
 
 @app.get("/api/health")

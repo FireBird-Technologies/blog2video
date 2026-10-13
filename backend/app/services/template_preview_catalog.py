@@ -6,27 +6,40 @@ integrations such as the WordPress plugin.
 
 from typing import TYPE_CHECKING
 
+from app.config import settings
+
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-TEMPLATE_PREVIEW_URLS: dict[str, str] = {
-    "default": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/default.png",
-    "nightfall": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/nightfall.png",
-    "gridcraft": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/gridcraft.png",
-    "spotlight": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/spotlight.png",
-    "whiteboard": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/whiteboard.png",
-    "newspaper": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/newspaper.png",
-    "matrix": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/matrix.png",
-    "newscast": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/newscast.png",
-    "mosaic": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/mosaic.png",
-    "blackswan": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/blackswan.png",
-    "bloomberg": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/bloomberg.png",
-    "chronicle": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/chronicle.png",
-    "stickman_2": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/stickman_2.webp",
-    "magazine": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/magazine.webp",
-    "sakura": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/sakura.webp",
-    "old-documentary-reel": "https://pub-a855a571c7bf4d4d92c266a0e5597a3d.r2.dev/mcp-ui/template-previews/old-documentary-reel.webp",
-}
+_PREVIEW_PATH = "mcp-ui/template-previews"
+_PREVIEW_IDS = (
+    "default",
+    "nightfall",
+    "gridcraft",
+    "spotlight",
+    "whiteboard",
+    "newspaper",
+    "matrix",
+    "newscast",
+    "mosaic",
+    "blackswan",
+    "bloomberg",
+    "chronicle",
+    "stickman_2",
+    "magazine",
+    "sakura",
+    "old-documentary-reel",
+)
+
+
+def _preview_base() -> str:
+    return f"{settings.R2_PUBLIC_URL.rstrip('/')}/{_PREVIEW_PATH}"
+
+
+def get_template_preview_urls() -> dict[str, str]:
+    """Preview PNG URL per built-in template id, rooted at R2_PUBLIC_URL."""
+    base = _preview_base()
+    return {tid: f"{base}/{tid}.png" for tid in _PREVIEW_IDS}
 
 
 def build_catalog(user_id: int, db: "Session") -> dict:
@@ -48,9 +61,10 @@ def build_catalog(user_id: int, db: "Session") -> dict:
         .all()
     )
     templates = []
+    preview_urls = get_template_preview_urls()
     for template in list_templates():
         item = dict(template)
-        item["preview_url"] = TEMPLATE_PREVIEW_URLS.get(str(item.get("id", "")), "")
+        item["preview_url"] = preview_urls.get(str(item.get("id", "")), "")
         item["source"] = "built_in"
         templates.append(item)
 
