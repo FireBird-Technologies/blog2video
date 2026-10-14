@@ -419,6 +419,8 @@ def dispatch(
             return _reorder_scenes(arguments, client)
         if name == "swap_scene_images":
             return _swap_scene_images(arguments, client)
+        if name == "move_scene_image":
+            return _move_scene_image(arguments, client)
 
         # Custom-template creation flow
         if name == "create_template_from_url":
@@ -1900,24 +1902,24 @@ def _reorder_scenes(args: dict, client: Blog2VideoClient) -> list[TextContent]:
 
 def _swap_scene_images(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     project_id = int(args["project_id"])
-    mode = (args.get("mode") or "swap").lower()
-
-    if mode == "move":
-        from_id = int(args["from_scene_id"])
-        to_id = int(args["to_scene_id"])
-        client.move_scene_image(project_id, from_id, to_id)
-        return _md(
-            f"➡️ Moved image from scene id={from_id} to scene "
-            f"id={to_id} in project #{project_id}.\n\n"
-            f"_Re-render to bake the change._"
-        )
-
-    first_id = int(args.get("first_scene_id", args.get("source_scene_id")))
-    second_id = int(args.get("second_scene_id", args.get("target_scene_id")))
+    first_id = int(args["first_scene_id"])
+    second_id = int(args["second_scene_id"])
     client.swap_scene_images(project_id, first_id, second_id)
     return _md(
         f"🔀 Swapped images between scene id={first_id} and scene "
         f"id={second_id} in project #{project_id}.\n\n"
+        f"_Re-render to bake the change._"
+    )
+
+
+def _move_scene_image(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    project_id = int(args["project_id"])
+    from_id = int(args["from_scene_id"])
+    to_id = int(args["to_scene_id"])
+    client.move_scene_image(project_id, from_id, to_id)
+    return _md(
+        f"➡️ Moved image from scene id={from_id} to scene "
+        f"id={to_id} in project #{project_id}.\n\n"
         f"_Re-render to bake the change._"
     )
 

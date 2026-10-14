@@ -731,22 +731,37 @@ def _raw_tool_definitions() -> list[Tool]:
         Tool(
             name="swap_scene_images",
             description=(
-                "Rearranges images between two scenes of a project. `mode='swap'` (default) "
-                "exchanges the images of two scenes (first_scene_id and second_scene_id). "
-                "`mode='move'` moves the image from from_scene_id to to_scene_id, so the "
-                "source scene no longer has it. Only the project's scenes are changed."
+                "Exchanges the images of two scenes in a project: the image on "
+                "first_scene_id goes to second_scene_id and vice versa. Both scenes must "
+                "support images, and at least one must have an image assigned. Only the "
+                "project's scenes are changed. To move one image without giving anything "
+                "back, use `move_scene_image` instead."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "project_id": {"type": "integer"},
-                    "mode": {"type": "string", "enum": ["swap", "move"], "default": "swap"},
-                    "first_scene_id": {"type": "integer", "description": "Required for mode=swap"},
-                    "second_scene_id": {"type": "integer", "description": "Required for mode=swap"},
-                    "from_scene_id": {"type": "integer", "description": "Required for mode=move"},
-                    "to_scene_id": {"type": "integer", "description": "Required for mode=move"},
+                    "first_scene_id": {"type": "integer"},
+                    "second_scene_id": {"type": "integer"},
                 },
-                "required": ["project_id"],
+                "required": ["project_id", "first_scene_id", "second_scene_id"],
+            },
+        ),
+        Tool(
+            name="move_scene_image",
+            description=(
+                "Moves the image from from_scene_id to to_scene_id, so the source scene "
+                "no longer has it. Only the project's scenes are changed. To exchange "
+                "images between two scenes, use `swap_scene_images` instead."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_id": {"type": "integer"},
+                    "from_scene_id": {"type": "integer"},
+                    "to_scene_id": {"type": "integer"},
+                },
+                "required": ["project_id", "from_scene_id", "to_scene_id"],
             },
         ),
 
@@ -921,7 +936,8 @@ _READ_ONLY = {
 _DESTRUCTIVE = {
     "update_scene", "change_template", "change_voice", "delete_voiceover",
     "change_language", "regenerate_scene", "update_project_settings",
-    "swap_scene_images",  # mode=move removes the image from its source scene
+    "swap_scene_images",  # overwrites the image on both scenes
+    "move_scene_image",  # removes the image from its source scene
     "render_video",  # force_rerender=true replaces the existing rendered video
 }
 # Tools that fetch a user-supplied external URL.
