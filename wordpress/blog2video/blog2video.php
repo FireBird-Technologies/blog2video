@@ -9,7 +9,7 @@
  * Author: FireBird Technologies
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: blog2video
+ * Text Domain: b2v-video-by-firebird
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -48,7 +48,7 @@ add_action(
 			wp_add_privacy_policy_content(
 				'Blog2Video',
 				wp_kses_post(
-					'<p>Blog2Video is an external service operated by FireBird Technologies. When an administrator connects this site, WordPress stores a revocable, site-limited access token. The plugin contacts <code>https://api-staging.blog2video.app</code> to authenticate the site, load the connected account&rsquo;s projects and media options, and perform requested video operations.</p>' .
+					'<p>Blog2Video is an external service operated by FireBird Technologies. When an administrator connects this site, WordPress stores a revocable, site-limited access token. The plugin contacts <code>https://api.blog2video.app</code> to authenticate the site, load the connected account&rsquo;s projects and media options, and perform requested video operations.</p>' .
 					'<p>When an authorized editor starts video generation, the plugin sends the post title and canonical URL plus either the saved post content or a source URL selected by the editor. When the editor uses the corresponding features, the plugin also sends video settings, scene edits, and uploaded logo or scene-image files. Blog2Video processes and may store this information, generated projects, media, and rendered videos to provide the service.</p>' .
 					'<p>The plugin stores the connected-site token in WordPress options and project identifiers, project name, generation status, and video or embed URLs in post metadata. Disconnecting or uninstalling the plugin removes local connection data but does not delete the user&rsquo;s Blog2Video account or remote projects.</p>' .
 					'<p>For service data retention and deletion details, see the <a href="https://blog2video.app/privacy/">Blog2Video Privacy Policy</a>. Users can delete their account from the Account section at <a href="https://blog2video.app/subscription">Blog2Video account settings</a> or request help through the <a href="https://blog2video.app/contact/">contact page</a>. Use of the service is also governed by the <a href="https://blog2video.app/terms">Blog2Video Terms of Service</a>.</p>'

@@ -270,7 +270,7 @@ class Blog2Video_REST_Controller {
 
 	private function project_id( $post_id ) {
 		$id = absint( get_post_meta( $post_id, '_blog2video_project_id', true ) );
-		return $id ?: new WP_Error( 'blog2video_no_project', __( 'Generate the video first.', 'blog2video' ), array( 'status' => 409 ) );
+		return $id ?: new WP_Error( 'blog2video_no_project', __( 'Generate the video first.', 'b2v-video-by-firebird' ), array( 'status' => 409 ) );
 	}
 
 	private function find_video_block( $blocks ) {
@@ -466,7 +466,7 @@ class Blog2Video_REST_Controller {
 		$post_id = absint( $request['id'] );
 		$project_id = absint( $request->get_param( 'project_id' ) );
 		if ( ! $project_id ) {
-			return $this->response( new WP_Error( 'blog2video_project_required', __( 'Choose a project.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_project_required', __( 'Choose a project.', 'b2v-video-by-firebird' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->api->request( 'POST', "library/projects/{$project_id}/link", array( 'external_post_id' => (string) $post_id ) );
 		if ( ! is_wp_error( $result ) ) {
@@ -482,7 +482,7 @@ class Blog2Video_REST_Controller {
 		$post_id = absint( $request['id'] );
 		$embed_url = esc_url_raw( (string) $request->get_param( 'embed_url' ), array( 'http', 'https' ) );
 		if ( ! $embed_url ) {
-			return $this->response( new WP_Error( 'blog2video_embed_url_required', __( 'The embedded video URL is missing.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_embed_url_required', __( 'The embedded video URL is missing.', 'b2v-video-by-firebird' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->resolve_embed_project( $post_id, $embed_url );
 		if ( ! is_wp_error( $result ) && ! empty( $result['project_id'] ) ) {
@@ -531,14 +531,14 @@ class Blog2Video_REST_Controller {
 		$files = $request->get_file_params();
 		$file  = isset( $files['logo'] ) && is_array( $files['logo'] ) ? $files['logo'] : null;
 		if ( ! $file || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || empty( $file['tmp_name'] ) ) {
-			return $this->response( new WP_Error( 'blog2video_logo_missing', __( 'Choose a logo image to upload.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_logo_missing', __( 'Choose a logo image to upload.', 'b2v-video-by-firebird' ), array( 'status' => 400 ) ) );
 		}
 		$actual_size = is_readable( $file['tmp_name'] ) ? filesize( $file['tmp_name'] ) : false;
 		if ( false === $actual_size ) {
-			return $this->response( new WP_Error( 'blog2video_logo_unreadable', __( 'The uploaded logo could not be read.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_logo_unreadable', __( 'The uploaded logo could not be read.', 'b2v-video-by-firebird' ), array( 'status' => 400 ) ) );
 		}
 		if ( $actual_size > 2 * MB_IN_BYTES ) {
-			return $this->response( new WP_Error( 'blog2video_logo_too_large', __( 'Logo file too large. Maximum size is 2 MB.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_logo_too_large', __( 'Logo file too large. Maximum size is 2 MB.', 'b2v-video-by-firebird' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->api->upload( "projects/{$id}/logo", 'file', $file );
 		return $this->response( $result );
@@ -579,14 +579,14 @@ class Blog2Video_REST_Controller {
 		$files = $request->get_file_params();
 		$file  = isset( $files['image'] ) && is_array( $files['image'] ) ? $files['image'] : null;
 		if ( ! $file || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) || empty( $file['tmp_name'] ) ) {
-			return $this->response( new WP_Error( 'blog2video_image_missing', __( 'Choose an image to upload.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_image_missing', __( 'Choose an image to upload.', 'b2v-video-by-firebird' ), array( 'status' => 400 ) ) );
 		}
 		$actual_size = is_readable( $file['tmp_name'] ) ? filesize( $file['tmp_name'] ) : false;
 		if ( false === $actual_size ) {
-			return $this->response( new WP_Error( 'blog2video_image_unreadable', __( 'The uploaded image could not be read.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_image_unreadable', __( 'The uploaded image could not be read.', 'b2v-video-by-firebird' ), array( 'status' => 400 ) ) );
 		}
 		if ( $actual_size > 5 * MB_IN_BYTES ) {
-			return $this->response( new WP_Error( 'blog2video_image_too_large', __( 'Image file too large. Maximum size is 5 MB.', 'blog2video' ), array( 'status' => 400 ) ) );
+			return $this->response( new WP_Error( 'blog2video_image_too_large', __( 'Image file too large. Maximum size is 5 MB.', 'b2v-video-by-firebird' ), array( 'status' => 400 ) ) );
 		}
 		$result = $this->api->upload( "projects/{$id}/scenes/" . absint( $request['scene_id'] ) . '/image', 'image', $file );
 		return $this->response( $result );
@@ -656,103 +656,103 @@ class Blog2Video_REST_Controller {
 	public function box( $post ) {
 		if ( ! $this->api->is_connected() ) {
 			/* translators: %s: URL of the Blog2Video settings page. */
-			echo '<p>' . wp_kses_post( sprintf( __( '<a href="%s">Connect Blog2Video</a> to generate a video.', 'blog2video' ), esc_url( admin_url( 'options-general.php?page=blog2video' ) ) ) ) . '</p>';
+			echo '<p>' . wp_kses_post( sprintf( __( '<a href="%s">Connect Blog2Video</a> to generate a video.', 'b2v-video-by-firebird' ), esc_url( admin_url( 'options-general.php?page=blog2video' ) ) ) ) . '</p>';
 			return;
 		}
-		echo '<div id="b2v-react-root"><p style="padding:16px;margin:0">' . esc_html__( 'Loading Blog2Video…', 'blog2video' ) . '</p></div>';
+		echo '<div id="b2v-react-root"><p style="padding:16px;margin:0">' . esc_html__( 'Loading Blog2Video…', 'b2v-video-by-firebird' ) . '</p></div>';
 		return;
 		?>
 		<div id="b2v-panel">
-		<div class="b2v-intro"><img class="b2v-logo" src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt="<?php esc_attr_e( 'Blog2Video', 'blog2video' ); ?>"><div><strong><?php esc_html_e( 'Create your video', 'blog2video' ); ?></strong><span><?php esc_html_e( 'Turn this post or any article into a ready-to-share video.', 'blog2video' ); ?></span></div></div>
-		<div class="b2v-project-context" id="b2v-project-context"><div class="b2v-project-context-copy"><span><?php esc_html_e( 'Active video project', 'blog2video' ); ?></span><strong id="b2v-active-project-name"><?php echo esc_html( get_post_meta( $post->ID, '_blog2video_project_name', true ) ?: __( 'No project selected', 'blog2video' ) ); ?></strong><small id="b2v-active-project-id"><?php $active_project_id = absint( get_post_meta( $post->ID, '_blog2video_project_id', true ) ); echo $active_project_id ? esc_html( 'Project #' . $active_project_id ) : esc_html__( 'Choose an existing video or create a new one below.', 'blog2video' ); ?></small></div><button type="button" class="b2v-project-switch" id="b2v-browse-projects"><?php esc_html_e( 'Browse videos', 'blog2video' ); ?><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6"></path></svg></button></div>
+		<div class="b2v-intro"><img class="b2v-logo" src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt="<?php esc_attr_e( 'Blog2Video', 'b2v-video-by-firebird' ); ?>"><div><strong><?php esc_html_e( 'Create your video', 'b2v-video-by-firebird' ); ?></strong><span><?php esc_html_e( 'Turn this post or any article into a ready-to-share video.', 'b2v-video-by-firebird' ); ?></span></div></div>
+		<div class="b2v-project-context" id="b2v-project-context"><div class="b2v-project-context-copy"><span><?php esc_html_e( 'Active video project', 'b2v-video-by-firebird' ); ?></span><strong id="b2v-active-project-name"><?php echo esc_html( get_post_meta( $post->ID, '_blog2video_project_name', true ) ?: __( 'No project selected', 'b2v-video-by-firebird' ) ); ?></strong><small id="b2v-active-project-id"><?php $active_project_id = absint( get_post_meta( $post->ID, '_blog2video_project_id', true ) ); echo $active_project_id ? esc_html( 'Project #' . $active_project_id ) : esc_html__( 'Choose an existing video or create a new one below.', 'b2v-video-by-firebird' ); ?></small></div><button type="button" class="b2v-project-switch" id="b2v-browse-projects"><?php esc_html_e( 'Browse videos', 'b2v-video-by-firebird' ); ?><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 6 6-6 6"></path></svg></button></div>
 
 		<?php $blog2video_has_project = (bool) get_post_meta( $post->ID, '_blog2video_project_id', true ); ?>
 		<div class="b2v-section" id="b2v-source-section" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>>
-			<label class="b2v-label" for="b2v-source-type"><?php esc_html_e( 'Content source', 'blog2video' ); ?></label>
-			<select data-b2v="source_type" id="b2v-source-type"><option value="post"><?php esc_html_e( 'Current post content', 'blog2video' ); ?></option><option value="url"><?php esc_html_e( 'Web page URL', 'blog2video' ); ?></option></select>
-			<div id="b2v-source-url-wrap" hidden><label class="b2v-label" for="b2v-source-url"><?php esc_html_e( 'Article URL', 'blog2video' ); ?></label><input type="url" data-b2v="source_url" id="b2v-source-url" placeholder="https://example.com/article"><span class="b2v-help"><?php esc_html_e( 'The video will be attached to this WordPress post.', 'blog2video' ); ?></span></div>
-			<span class="b2v-help" id="b2v-post-source-help"><?php esc_html_e( 'Save the post first so its latest text is used.', 'blog2video' ); ?></span>
+			<label class="b2v-label" for="b2v-source-type"><?php esc_html_e( 'Content source', 'b2v-video-by-firebird' ); ?></label>
+			<select data-b2v="source_type" id="b2v-source-type"><option value="post"><?php esc_html_e( 'Current post content', 'b2v-video-by-firebird' ); ?></option><option value="url"><?php esc_html_e( 'Web page URL', 'b2v-video-by-firebird' ); ?></option></select>
+			<div id="b2v-source-url-wrap" hidden><label class="b2v-label" for="b2v-source-url"><?php esc_html_e( 'Article URL', 'b2v-video-by-firebird' ); ?></label><input type="url" data-b2v="source_url" id="b2v-source-url" placeholder="https://example.com/article"><span class="b2v-help"><?php esc_html_e( 'The video will be attached to this WordPress post.', 'b2v-video-by-firebird' ); ?></span></div>
+			<span class="b2v-help" id="b2v-post-source-help"><?php esc_html_e( 'Save the post first so its latest text is used.', 'b2v-video-by-firebird' ); ?></span>
 		</div>
 
 		<div class="b2v-section b2v-settings-grid" id="b2v-settings-grid" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>>
-			<div class="b2v-field b2v-field-wide"><span class="b2v-label"><?php esc_html_e( 'Template', 'blog2video' ); ?></span><select data-b2v="template" id="b2v-template" class="b2v-data-field" tabindex="-1" aria-hidden="true"><option value="default">Geometric Explainer</option><option value="newspaper">Newspaper</option><option value="magazine">Magazine</option><option value="nightfall">Nightfall</option><option value="whiteboard">Stick Man</option><option value="matrix">Matrix</option><option value="spotlight">Spotlight</option><option value="newscast">Newscast</option></select><button type="button" class="b2v-choice-button" id="b2v-browse-templates"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 4v16M8 10h13"></path></svg><span class="b2v-choice-copy"><small><?php esc_html_e( 'Selected template', 'blog2video' ); ?></small><strong id="b2v-selected-template"><?php esc_html_e( 'Geometric Explainer', 'blog2video' ); ?></strong></span><svg class="b2v-choice-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg></button></div>
-			<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Style', 'blog2video' ); ?></span><select data-b2v="video_style"><option value="auto">Auto</option><option value="explainer">Explainer</option><option value="promotional">Promotional</option><option value="storytelling">Storytelling</option></select></label>
-			<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Length', 'blog2video' ); ?></span><select data-b2v="video_length"><option value="auto">Auto</option><option value="short">Short</option><option value="medium">Medium</option><option value="detailed">Detailed</option></select></label>
-			<label class="b2v-field b2v-field-wide"><span class="b2v-label"><?php esc_html_e( 'Format', 'blog2video' ); ?></span><select data-b2v="aspect_ratio"><option value="landscape">Landscape (16:9)</option><option value="portrait">Portrait (9:16)</option></select></label>
-			<div class="b2v-field b2v-field-wide"><span class="b2v-label"><?php esc_html_e( 'Voiceover', 'blog2video' ); ?></span><input type="hidden" data-b2v="voice_gender" id="b2v-voice-gender" value="female"><input type="hidden" data-b2v="voice_accent" id="b2v-voice-accent" value="american"><input type="hidden" data-b2v="custom_voice_id" id="b2v-custom-voice-id" value=""><button type="button" class="b2v-choice-button" id="b2v-browse-voices"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"></path></svg><span class="b2v-choice-copy"><small><?php esc_html_e( 'Selected voice', 'blog2video' ); ?></small><strong id="b2v-selected-voice"><?php esc_html_e( 'No voice selected', 'blog2video' ); ?></strong></span><svg class="b2v-choice-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg></button><span class="b2v-help"><?php esc_html_e( 'Open the gallery to preview and choose a voice.', 'blog2video' ); ?></span></div>
-			<div class="b2v-toggles b2v-field-wide"><label><input type="checkbox" data-b2v="captions_enabled"><span><?php esc_html_e( 'Captions', 'blog2video' ); ?></span></label><label><input type="checkbox" data-b2v="stock_footage_enabled"><span><?php esc_html_e( 'Stock footage', 'blog2video' ); ?></span></label></div>
+			<div class="b2v-field b2v-field-wide"><span class="b2v-label"><?php esc_html_e( 'Template', 'b2v-video-by-firebird' ); ?></span><select data-b2v="template" id="b2v-template" class="b2v-data-field" tabindex="-1" aria-hidden="true"><option value="default">Geometric Explainer</option><option value="newspaper">Newspaper</option><option value="magazine">Magazine</option><option value="nightfall">Nightfall</option><option value="whiteboard">Stick Man</option><option value="matrix">Matrix</option><option value="spotlight">Spotlight</option><option value="newscast">Newscast</option></select><button type="button" class="b2v-choice-button" id="b2v-browse-templates"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 4v16M8 10h13"></path></svg><span class="b2v-choice-copy"><small><?php esc_html_e( 'Selected template', 'b2v-video-by-firebird' ); ?></small><strong id="b2v-selected-template"><?php esc_html_e( 'Geometric Explainer', 'b2v-video-by-firebird' ); ?></strong></span><svg class="b2v-choice-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg></button></div>
+			<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Style', 'b2v-video-by-firebird' ); ?></span><select data-b2v="video_style"><option value="auto">Auto</option><option value="explainer">Explainer</option><option value="promotional">Promotional</option><option value="storytelling">Storytelling</option></select></label>
+			<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Length', 'b2v-video-by-firebird' ); ?></span><select data-b2v="video_length"><option value="auto">Auto</option><option value="short">Short</option><option value="medium">Medium</option><option value="detailed">Detailed</option></select></label>
+			<label class="b2v-field b2v-field-wide"><span class="b2v-label"><?php esc_html_e( 'Format', 'b2v-video-by-firebird' ); ?></span><select data-b2v="aspect_ratio"><option value="landscape">Landscape (16:9)</option><option value="portrait">Portrait (9:16)</option></select></label>
+			<div class="b2v-field b2v-field-wide"><span class="b2v-label"><?php esc_html_e( 'Voiceover', 'b2v-video-by-firebird' ); ?></span><input type="hidden" data-b2v="voice_gender" id="b2v-voice-gender" value="female"><input type="hidden" data-b2v="voice_accent" id="b2v-voice-accent" value="american"><input type="hidden" data-b2v="custom_voice_id" id="b2v-custom-voice-id" value=""><button type="button" class="b2v-choice-button" id="b2v-browse-voices"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"></path></svg><span class="b2v-choice-copy"><small><?php esc_html_e( 'Selected voice', 'b2v-video-by-firebird' ); ?></small><strong id="b2v-selected-voice"><?php esc_html_e( 'No voice selected', 'b2v-video-by-firebird' ); ?></strong></span><svg class="b2v-choice-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"></path></svg></button><span class="b2v-help"><?php esc_html_e( 'Open the gallery to preview and choose a voice.', 'b2v-video-by-firebird' ); ?></span></div>
+			<div class="b2v-toggles b2v-field-wide"><label><input type="checkbox" data-b2v="captions_enabled"><span><?php esc_html_e( 'Captions', 'b2v-video-by-firebird' ); ?></span></label><label><input type="checkbox" data-b2v="stock_footage_enabled"><span><?php esc_html_e( 'Stock footage', 'b2v-video-by-firebird' ); ?></span></label></div>
 		</div>
 
-		<div class="b2v-generate-warning" id="b2v-generate-warning" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg><span><?php esc_html_e( 'This video will only be created once. To make a different video from this post later, create a new post — this generation cannot be redone or changed afterward.', 'blog2video' ); ?></span></div>
+		<div class="b2v-generate-warning" id="b2v-generate-warning" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg><span><?php esc_html_e( 'This video will only be created once. To make a different video from this post later, create a new post — this generation cannot be redone or changed afterward.', 'b2v-video-by-firebird' ); ?></span></div>
 
-		<div class="b2v-actions" id="b2v-generate-actions" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>><button type="button" class="button button-primary" id="b2v-generate"><span id="b2v-generate-label"><?php esc_html_e( 'Generate video', 'blog2video' ); ?></span></button></div>
+		<div class="b2v-actions" id="b2v-generate-actions" <?php echo $blog2video_has_project ? 'hidden' : ''; ?>><button type="button" class="button button-primary" id="b2v-generate"><span id="b2v-generate-label"><?php esc_html_e( 'Generate video', 'b2v-video-by-firebird' ); ?></span></button></div>
 		<div class="b2v-actions" id="b2v-render-actions">
-			<button type="button" class="button button-primary" id="b2v-render" hidden><span><?php esc_html_e( 'Render video', 'blog2video' ); ?></span></button>
-			<button type="button" class="button button-primary" id="b2v-embed" disabled><?php esc_html_e( 'Add video to post', 'blog2video' ); ?></button>
+			<button type="button" class="button button-primary" id="b2v-render" hidden><span><?php esc_html_e( 'Render video', 'b2v-video-by-firebird' ); ?></span></button>
+			<button type="button" class="button button-primary" id="b2v-embed" disabled><?php esc_html_e( 'Add video to post', 'b2v-video-by-firebird' ); ?></button>
 		</div>
 
-		<div id="b2v-status-card" class="b2v-status-card" aria-live="polite" <?php echo get_post_meta( $post->ID, '_blog2video_last_status', true ) ? '' : 'hidden'; ?>><span class="b2v-status-icon" aria-hidden="true"></span><div><strong id="b2v-status"><?php echo esc_html( get_post_meta( $post->ID, '_blog2video_last_status', true ) ); ?></strong><div class="b2v-progress" id="b2v-progress" hidden><span></span></div><div id="b2v-upgrade-slot" class="b2v-upgrade-slot" hidden><a href="<?php echo esc_url( $this->api->app_url() . '/signin?redirect=%2Fsubscription' ); ?>" target="_blank" rel="noopener" class="button button-primary" id="b2v-upgrade-link"><?php esc_html_e( 'Upgrade plan', 'blog2video' ); ?></a></div></div></div>
+		<div id="b2v-status-card" class="b2v-status-card" aria-live="polite" <?php echo get_post_meta( $post->ID, '_blog2video_last_status', true ) ? '' : 'hidden'; ?>><span class="b2v-status-icon" aria-hidden="true"></span><div><strong id="b2v-status"><?php echo esc_html( get_post_meta( $post->ID, '_blog2video_last_status', true ) ); ?></strong><div class="b2v-progress" id="b2v-progress" hidden><span></span></div><div id="b2v-upgrade-slot" class="b2v-upgrade-slot" hidden><a href="<?php echo esc_url( $this->api->app_url() . '/signin?redirect=%2Fsubscription' ); ?>" target="_blank" rel="noopener" class="button button-primary" id="b2v-upgrade-link"><?php esc_html_e( 'Upgrade plan', 'b2v-video-by-firebird' ); ?></a></div></div></div>
 
-		<button type="button" class="button b2v-download-button" id="b2v-download-video" data-video-url="<?php echo esc_url( get_post_meta( $post->ID, '_blog2video_video_url', true ) ); ?>" <?php echo get_post_meta( $post->ID, '_blog2video_video_url', true ) ? '' : 'hidden'; ?>><?php esc_html_e( 'Download video', 'blog2video' ); ?></button>
+		<button type="button" class="button b2v-download-button" id="b2v-download-video" data-video-url="<?php echo esc_url( get_post_meta( $post->ID, '_blog2video_video_url', true ) ); ?>" <?php echo get_post_meta( $post->ID, '_blog2video_video_url', true ) ? '' : 'hidden'; ?>><?php esc_html_e( 'Download video', 'b2v-video-by-firebird' ); ?></button>
 
-		<div class="b2v-refine-card" id="b2v-refine-card" <?php echo get_post_meta( $post->ID, '_blog2video_project_id', true ) ? '' : 'hidden'; ?>><div><strong><?php esc_html_e( 'Scene-by-scene editing', 'blog2video' ); ?></strong><p><?php esc_html_e( 'Edit each scene’s text, narration, visual direction, layout and timing. Add, delete, reorder or regenerate individual scenes without leaving WordPress.', 'blog2video' ); ?></p></div><button type="button" class="button b2v-editor-link" id="b2v-editor"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg><span><?php esc_html_e( 'Open scene editor', 'blog2video' ); ?></span></button></div>
+		<div class="b2v-refine-card" id="b2v-refine-card" <?php echo get_post_meta( $post->ID, '_blog2video_project_id', true ) ? '' : 'hidden'; ?>><div><strong><?php esc_html_e( 'Scene-by-scene editing', 'b2v-video-by-firebird' ); ?></strong><p><?php esc_html_e( 'Edit each scene’s text, narration, visual direction, layout and timing. Add, delete, reorder or regenerate individual scenes without leaving WordPress.', 'b2v-video-by-firebird' ); ?></p></div><button type="button" class="button b2v-editor-link" id="b2v-editor"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg><span><?php esc_html_e( 'Open scene editor', 'b2v-video-by-firebird' ); ?></span></button></div>
 
-		<div class="b2v-refine-card" id="b2v-project-settings-card" <?php echo get_post_meta( $post->ID, '_blog2video_project_id', true ) ? '' : 'hidden'; ?>><div><strong><?php esc_html_e( 'Project settings', 'blog2video' ); ?></strong><p><?php esc_html_e( 'Logo, colors, font, captions and background music for this video.', 'blog2video' ); ?></p></div><button type="button" class="button b2v-editor-link" id="b2v-open-project-settings"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg><span><?php esc_html_e( 'Edit project', 'blog2video' ); ?></span></button></div>
+		<div class="b2v-refine-card" id="b2v-project-settings-card" <?php echo get_post_meta( $post->ID, '_blog2video_project_id', true ) ? '' : 'hidden'; ?>><div><strong><?php esc_html_e( 'Project settings', 'b2v-video-by-firebird' ); ?></strong><p><?php esc_html_e( 'Logo, colors, font, captions and background music for this video.', 'b2v-video-by-firebird' ); ?></p></div><button type="button" class="button b2v-editor-link" id="b2v-open-project-settings"><svg class="b2v-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg><span><?php esc_html_e( 'Edit project', 'b2v-video-by-firebird' ); ?></span></button></div>
 
 		<div class="b2v-editor-modal" id="b2v-project-settings-modal" role="dialog" aria-modal="true" aria-labelledby="b2v-project-settings-title" hidden>
 			<div class="b2v-editor-backdrop" data-b2v-close-project-settings></div>
 			<div class="b2v-editor-dialog b2v-project-settings-dialog">
 				<div class="b2v-editor-header">
-					<div class="b2v-editor-brand"><img src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt=""><div><strong id="b2v-project-settings-title"><?php esc_html_e( 'Project settings', 'blog2video' ); ?></strong><span><?php esc_html_e( 'Logo, colors, font, captions and music', 'blog2video' ); ?></span></div></div>
-					<div class="b2v-editor-header-actions"><button type="button" class="b2v-icon-close" data-b2v-close-project-settings aria-label="<?php esc_attr_e( 'Close', 'blog2video' ); ?>">×</button></div>
+					<div class="b2v-editor-brand"><img src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt=""><div><strong id="b2v-project-settings-title"><?php esc_html_e( 'Project settings', 'b2v-video-by-firebird' ); ?></strong><span><?php esc_html_e( 'Logo, colors, font, captions and music', 'b2v-video-by-firebird' ); ?></span></div></div>
+					<div class="b2v-editor-header-actions"><button type="button" class="b2v-icon-close" data-b2v-close-project-settings aria-label="<?php esc_attr_e( 'Close', 'b2v-video-by-firebird' ); ?>">×</button></div>
 				</div>
 				<div class="b2v-project-settings-body">
 					<div class="b2v-project-settings-grid">
 						<section class="b2v-settings-section">
-							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Template', 'blog2video' ); ?></h3><p><?php esc_html_e( 'Rebuild scene layouts for a new template.', 'blog2video' ); ?></p></div>
+							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Template', 'b2v-video-by-firebird' ); ?></h3><p><?php esc_html_e( 'Rebuild scene layouts for a new template.', 'b2v-video-by-firebird' ); ?></p></div>
 							<div class="b2v-settings-card">
-								<div class="b2v-choice-copy"><small><?php esc_html_e( 'Current template', 'blog2video' ); ?></small><strong id="b2v-modal-selected-template"><?php esc_html_e( 'Geometric Explainer', 'blog2video' ); ?></strong></div>
-								<div class="b2v-settings-card-footer"><select id="b2v-modal-template-select"><option value=""><?php esc_html_e( 'Loading templates…', 'blog2video' ); ?></option></select></div>
+								<div class="b2v-choice-copy"><small><?php esc_html_e( 'Current template', 'b2v-video-by-firebird' ); ?></small><strong id="b2v-modal-selected-template"><?php esc_html_e( 'Geometric Explainer', 'b2v-video-by-firebird' ); ?></strong></div>
+								<div class="b2v-settings-card-footer"><select id="b2v-modal-template-select"><option value=""><?php esc_html_e( 'Loading templates…', 'b2v-video-by-firebird' ); ?></option></select></div>
 							</div>
 						</section>
 
 						<section class="b2v-settings-section">
-							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Voiceover', 'blog2video' ); ?></h3><p><?php esc_html_e( 'The narration voice for this project.', 'blog2video' ); ?></p></div>
+							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Voiceover', 'b2v-video-by-firebird' ); ?></h3><p><?php esc_html_e( 'The narration voice for this project.', 'b2v-video-by-firebird' ); ?></p></div>
 							<div class="b2v-settings-card">
-								<div class="b2v-choice-copy"><small><?php esc_html_e( 'Current voice', 'blog2video' ); ?></small><strong id="b2v-modal-selected-voice"><?php esc_html_e( 'No voice selected', 'blog2video' ); ?></strong></div>
-								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-modal-browse-voices"><?php esc_html_e( 'Change voice', 'blog2video' ); ?></button></div>
+								<div class="b2v-choice-copy"><small><?php esc_html_e( 'Current voice', 'b2v-video-by-firebird' ); ?></small><strong id="b2v-modal-selected-voice"><?php esc_html_e( 'No voice selected', 'b2v-video-by-firebird' ); ?></strong></div>
+								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-modal-browse-voices"><?php esc_html_e( 'Change voice', 'b2v-video-by-firebird' ); ?></button></div>
 							</div>
 						</section>
 
 						<section class="b2v-settings-section">
-							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Logo', 'blog2video' ); ?></h3><p><?php esc_html_e( 'Add your logo as a watermark on the video. PNG, JPEG or WebP, up to 2 MB.', 'blog2video' ); ?></p></div>
+							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Logo', 'b2v-video-by-firebird' ); ?></h3><p><?php esc_html_e( 'Add your logo as a watermark on the video. PNG, JPEG or WebP, up to 2 MB.', 'b2v-video-by-firebird' ); ?></p></div>
 							<div class="b2v-settings-card" id="b2v-logo-card">
-								<div class="b2v-logo-preview" id="b2v-logo-preview" hidden><img id="b2v-logo-preview-image" src="" alt="<?php esc_attr_e( 'Logo preview', 'blog2video' ); ?>"></div>
-								<div class="b2v-logo-empty" id="b2v-logo-empty"><?php esc_html_e( 'No logo uploaded yet.', 'blog2video' ); ?></div>
+								<div class="b2v-logo-preview" id="b2v-logo-preview" hidden><img id="b2v-logo-preview-image" src="" alt="<?php esc_attr_e( 'Logo preview', 'b2v-video-by-firebird' ); ?>"></div>
+								<div class="b2v-logo-empty" id="b2v-logo-empty"><?php esc_html_e( 'No logo uploaded yet.', 'b2v-video-by-firebird' ); ?></div>
 								<div class="b2v-logo-actions">
-									<label class="button" id="b2v-logo-choose"><?php esc_html_e( 'Upload logo', 'blog2video' ); ?><input type="file" id="b2v-logo-input" accept="image/png,image/jpeg,image/webp" hidden></label>
-									<button type="button" class="button button-link-delete" id="b2v-logo-remove" hidden><?php esc_html_e( 'Remove logo', 'blog2video' ); ?></button>
+									<label class="button" id="b2v-logo-choose"><?php esc_html_e( 'Upload logo', 'b2v-video-by-firebird' ); ?><input type="file" id="b2v-logo-input" accept="image/png,image/jpeg,image/webp" hidden></label>
+									<button type="button" class="button button-link-delete" id="b2v-logo-remove" hidden><?php esc_html_e( 'Remove logo', 'b2v-video-by-firebird' ); ?></button>
 								</div>
 								<div class="b2v-logo-settings" id="b2v-logo-settings" hidden>
-									<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Position', 'blog2video' ); ?></span><select id="b2v-logo-position"><option value="top_left"><?php esc_html_e( 'Top left', 'blog2video' ); ?></option><option value="top_right"><?php esc_html_e( 'Top right', 'blog2video' ); ?></option><option value="bottom_left"><?php esc_html_e( 'Bottom left', 'blog2video' ); ?></option><option value="bottom_right" selected><?php esc_html_e( 'Bottom right', 'blog2video' ); ?></option></select></label>
-									<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Size', 'blog2video' ); ?></span><input type="range" id="b2v-logo-size" min="50" max="200" step="1" value="100"></label>
-									<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Opacity', 'blog2video' ); ?></span><input type="range" id="b2v-logo-opacity" min="0" max="1" step="0.05" value="0.9"></label>
+									<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Position', 'b2v-video-by-firebird' ); ?></span><select id="b2v-logo-position"><option value="top_left"><?php esc_html_e( 'Top left', 'b2v-video-by-firebird' ); ?></option><option value="top_right"><?php esc_html_e( 'Top right', 'b2v-video-by-firebird' ); ?></option><option value="bottom_left"><?php esc_html_e( 'Bottom left', 'b2v-video-by-firebird' ); ?></option><option value="bottom_right" selected><?php esc_html_e( 'Bottom right', 'b2v-video-by-firebird' ); ?></option></select></label>
+									<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Size', 'b2v-video-by-firebird' ); ?></span><input type="range" id="b2v-logo-size" min="50" max="200" step="1" value="100"></label>
+									<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Opacity', 'b2v-video-by-firebird' ); ?></span><input type="range" id="b2v-logo-opacity" min="0" max="1" step="0.05" value="0.9"></label>
 								</div>
 								<p class="b2v-logo-message" id="b2v-logo-message" aria-live="polite"></p>
 							</div>
 						</section>
 
 						<section class="b2v-settings-section">
-							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Colors & Font', 'blog2video' ); ?></h3><p><?php esc_html_e( 'Theme colors and font applied across all scenes.', 'blog2video' ); ?></p></div>
+							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Colors & Font', 'b2v-video-by-firebird' ); ?></h3><p><?php esc_html_e( 'Theme colors and font applied across all scenes.', 'b2v-video-by-firebird' ); ?></p></div>
 							<div class="b2v-settings-card" id="b2v-colors-card">
 								<div class="b2v-color-row">
-									<label class="b2v-color-field"><input type="color" id="b2v-color-accent" value="#7C3AED"><span><span class="b2v-label"><?php esc_html_e( 'Accent', 'blog2video' ); ?></span><span class="b2v-label-hint"><?php esc_html_e( 'Buttons & highlights', 'blog2video' ); ?></span></span></label>
-									<label class="b2v-color-field"><input type="color" id="b2v-color-text" value="#000000"><span><span class="b2v-label"><?php esc_html_e( 'Text', 'blog2video' ); ?></span><span class="b2v-label-hint"><?php esc_html_e( 'On-screen text', 'blog2video' ); ?></span></span></label>
-									<label class="b2v-color-field"><input type="color" id="b2v-color-bg" value="#FFFFFF"><span><span class="b2v-label"><?php esc_html_e( 'Background', 'blog2video' ); ?></span><span class="b2v-label-hint"><?php esc_html_e( 'Scene background', 'blog2video' ); ?></span></span></label>
+									<label class="b2v-color-field"><input type="color" id="b2v-color-accent" value="#7C3AED"><span><span class="b2v-label"><?php esc_html_e( 'Accent', 'b2v-video-by-firebird' ); ?></span><span class="b2v-label-hint"><?php esc_html_e( 'Buttons & highlights', 'b2v-video-by-firebird' ); ?></span></span></label>
+									<label class="b2v-color-field"><input type="color" id="b2v-color-text" value="#000000"><span><span class="b2v-label"><?php esc_html_e( 'Text', 'b2v-video-by-firebird' ); ?></span><span class="b2v-label-hint"><?php esc_html_e( 'On-screen text', 'b2v-video-by-firebird' ); ?></span></span></label>
+									<label class="b2v-color-field"><input type="color" id="b2v-color-bg" value="#FFFFFF"><span><span class="b2v-label"><?php esc_html_e( 'Background', 'b2v-video-by-firebird' ); ?></span><span class="b2v-label-hint"><?php esc_html_e( 'Scene background', 'b2v-video-by-firebird' ); ?></span></span></label>
 								</div>
-								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Font', 'blog2video' ); ?></span>
+								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Font', 'b2v-video-by-firebird' ); ?></span>
 									<select id="b2v-font-family">
-										<option value=""><?php esc_html_e( 'Default', 'blog2video' ); ?></option>
+										<option value=""><?php esc_html_e( 'Default', 'b2v-video-by-firebird' ); ?></option>
 										<option value="inter">Inter</option>
 										<option value="roboto_slab">Roboto Slab</option>
 										<option value="patrick_hand">Patrick Hand</option>
@@ -774,15 +774,15 @@ class Blog2Video_REST_Controller {
 										<option value="shippori_mincho">Shippori Mincho</option>
 									</select>
 								</label>
-								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-colors-save"><?php esc_html_e( 'Save colors & font', 'blog2video' ); ?></button><p class="b2v-settings-message" id="b2v-colors-message" aria-live="polite"></p></div>
+								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-colors-save"><?php esc_html_e( 'Save colors & font', 'b2v-video-by-firebird' ); ?></button><p class="b2v-settings-message" id="b2v-colors-message" aria-live="polite"></p></div>
 							</div>
 						</section>
 
 						<section class="b2v-settings-section">
-							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Captions', 'blog2video' ); ?></h3><p><?php esc_html_e( 'Requires a voiceover to sync to.', 'blog2video' ); ?></p></div>
+							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Captions', 'b2v-video-by-firebird' ); ?></h3><p><?php esc_html_e( 'Requires a voiceover to sync to.', 'b2v-video-by-firebird' ); ?></p></div>
 							<div class="b2v-settings-card" id="b2v-captions-card">
-								<label class="b2v-toggle-row"><input type="checkbox" id="b2v-captions-toggle"><span><?php esc_html_e( 'Show captions', 'blog2video' ); ?></span></label>
-								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Font', 'blog2video' ); ?></span>
+								<label class="b2v-toggle-row"><input type="checkbox" id="b2v-captions-toggle"><span><?php esc_html_e( 'Show captions', 'b2v-video-by-firebird' ); ?></span></label>
+								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Font', 'b2v-video-by-firebird' ); ?></span>
 									<select id="b2v-caption-font">
 										<option value="inter">Inter</option>
 										<option value="poppins">Poppins</option>
@@ -798,18 +798,18 @@ class Blog2Video_REST_Controller {
 										<option value="fira_code">Fira Code</option>
 									</select>
 								</label>
-								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Font size', 'blog2video' ); ?></span><input type="range" id="b2v-caption-size" min="12" max="64" step="1" value="36"></label>
-								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Vertical offset', 'blog2video' ); ?></span><input type="range" id="b2v-caption-offset" min="-100" max="100" step="1" value="0"></label>
-								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-captions-save"><?php esc_html_e( 'Save caption settings', 'blog2video' ); ?></button><p class="b2v-settings-message" id="b2v-captions-message" aria-live="polite"></p></div>
+								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Font size', 'b2v-video-by-firebird' ); ?></span><input type="range" id="b2v-caption-size" min="12" max="64" step="1" value="36"></label>
+								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Vertical offset', 'b2v-video-by-firebird' ); ?></span><input type="range" id="b2v-caption-offset" min="-100" max="100" step="1" value="0"></label>
+								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-captions-save"><?php esc_html_e( 'Save caption settings', 'b2v-video-by-firebird' ); ?></button><p class="b2v-settings-message" id="b2v-captions-message" aria-live="polite"></p></div>
 							</div>
 						</section>
 
 						<section class="b2v-settings-section">
-							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Background music', 'blog2video' ); ?></h3><p><?php esc_html_e( 'Optional soundtrack under the voiceover.', 'blog2video' ); ?></p></div>
+							<div class="b2v-settings-section-head"><h3><?php esc_html_e( 'Background music', 'b2v-video-by-firebird' ); ?></h3><p><?php esc_html_e( 'Optional soundtrack under the voiceover.', 'b2v-video-by-firebird' ); ?></p></div>
 							<div class="b2v-settings-card" id="b2v-music-card">
-								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Track', 'blog2video' ); ?></span><select id="b2v-music-track"><option value=""><?php esc_html_e( 'No music', 'blog2video' ); ?></option></select></label>
-								<div class="b2v-music-preview-row"><button type="button" class="b2v-music-play" id="b2v-music-play" disabled aria-label="<?php esc_attr_e( 'Preview track', 'blog2video' ); ?>">▶</button><label class="b2v-field b2v-field-grow"><span class="b2v-label"><?php esc_html_e( 'Volume', 'blog2video' ); ?></span><input type="range" id="b2v-music-volume" min="0" max="1" step="0.05" value="0.1"></label></div>
-								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-music-save"><?php esc_html_e( 'Save music', 'blog2video' ); ?></button><p class="b2v-settings-message" id="b2v-music-message" aria-live="polite"></p></div>
+								<label class="b2v-field"><span class="b2v-label"><?php esc_html_e( 'Track', 'b2v-video-by-firebird' ); ?></span><select id="b2v-music-track"><option value=""><?php esc_html_e( 'No music', 'b2v-video-by-firebird' ); ?></option></select></label>
+								<div class="b2v-music-preview-row"><button type="button" class="b2v-music-play" id="b2v-music-play" disabled aria-label="<?php esc_attr_e( 'Preview track', 'b2v-video-by-firebird' ); ?>">▶</button><label class="b2v-field b2v-field-grow"><span class="b2v-label"><?php esc_html_e( 'Volume', 'b2v-video-by-firebird' ); ?></span><input type="range" id="b2v-music-volume" min="0" max="1" step="0.05" value="0.1"></label></div>
+								<div class="b2v-settings-card-footer"><button type="button" class="button button-primary" id="b2v-music-save"><?php esc_html_e( 'Save music', 'b2v-video-by-firebird' ); ?></button><p class="b2v-settings-message" id="b2v-music-message" aria-live="polite"></p></div>
 							</div>
 						</section>
 					</div>
@@ -821,19 +821,19 @@ class Blog2Video_REST_Controller {
 			<div class="b2v-editor-backdrop" data-b2v-close-editor></div>
 			<div class="b2v-editor-dialog">
 				<div class="b2v-editor-header">
-					<div class="b2v-editor-brand"><img src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt=""><div><strong id="b2v-editor-title"><?php esc_html_e( 'Scene-by-scene video editor', 'blog2video' ); ?></strong><span id="b2v-editor-project-label"><?php $editor_name = (string) get_post_meta( $post->ID, '_blog2video_project_name', true ); $editor_id = absint( get_post_meta( $post->ID, '_blog2video_project_id', true ) ); echo esc_html( $editor_name && $editor_id ? $editor_name . ' · Project #' . $editor_id : __( 'Edit this video directly in WordPress', 'blog2video' ) ); ?></span></div></div>
-					<div class="b2v-editor-header-actions"><button type="button" class="b2v-editor-done" data-b2v-close-editor><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8"></path></svg><span><?php esc_html_e( 'Done', 'blog2video' ); ?></span></button><button type="button" class="b2v-icon-close b2v-editor-close" data-b2v-close-editor aria-label="<?php esc_attr_e( 'Close editor', 'blog2video' ); ?>">×</button></div>
+					<div class="b2v-editor-brand"><img src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt=""><div><strong id="b2v-editor-title"><?php esc_html_e( 'Scene-by-scene video editor', 'b2v-video-by-firebird' ); ?></strong><span id="b2v-editor-project-label"><?php $editor_name = (string) get_post_meta( $post->ID, '_blog2video_project_name', true ); $editor_id = absint( get_post_meta( $post->ID, '_blog2video_project_id', true ) ); echo esc_html( $editor_name && $editor_id ? $editor_name . ' · Project #' . $editor_id : __( 'Edit this video directly in WordPress', 'b2v-video-by-firebird' ) ); ?></span></div></div>
+					<div class="b2v-editor-header-actions"><button type="button" class="b2v-editor-done" data-b2v-close-editor><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8"></path></svg><span><?php esc_html_e( 'Done', 'b2v-video-by-firebird' ); ?></span></button><button type="button" class="b2v-icon-close b2v-editor-close" data-b2v-close-editor aria-label="<?php esc_attr_e( 'Close editor', 'b2v-video-by-firebird' ); ?>">×</button></div>
 				</div>
 				<div class="b2v-native-editor">
-					<div class="b2v-editor-tabs" role="tablist"><button type="button" class="b2v-editor-tab is-active" data-editor-tab="scenes" role="tab" aria-selected="true"><?php esc_html_e( 'Scenes', 'blog2video' ); ?></button><button type="button" class="b2v-editor-tab" data-editor-tab="script" role="tab" aria-selected="false"><?php esc_html_e( 'Script', 'blog2video' ); ?></button></div>
+					<div class="b2v-editor-tabs" role="tablist"><button type="button" class="b2v-editor-tab is-active" data-editor-tab="scenes" role="tab" aria-selected="true"><?php esc_html_e( 'Scenes', 'b2v-video-by-firebird' ); ?></button><button type="button" class="b2v-editor-tab" data-editor-tab="script" role="tab" aria-selected="false"><?php esc_html_e( 'Script', 'b2v-video-by-firebird' ); ?></button></div>
 					<section class="b2v-editor-pane is-active" data-editor-pane="scenes">
-						<div class="b2v-scenes-toolbar"><div><strong id="b2v-scene-count"><?php esc_html_e( 'Loading scenes…', 'blog2video' ); ?></strong><span><?php esc_html_e( 'Scenes are grouped in sets of five. Expand any scene to edit its saved properties.', 'blog2video' ); ?></span></div><button type="button" class="button button-primary" id="b2v-add-scene"><?php esc_html_e( '+ Add scene', 'blog2video' ); ?></button></div>
-						<main class="b2v-scene-workspace"><div class="b2v-editor-loading" id="b2v-editor-loading"><span></span><?php esc_html_e( 'Loading existing scenes…', 'blog2video' ); ?></div><div id="b2v-scene-groups" class="b2v-scene-groups"></div><p class="b2v-scene-message" id="b2v-scene-message" aria-live="polite"></p></main>
+						<div class="b2v-scenes-toolbar"><div><strong id="b2v-scene-count"><?php esc_html_e( 'Loading scenes…', 'b2v-video-by-firebird' ); ?></strong><span><?php esc_html_e( 'Scenes are grouped in sets of five. Expand any scene to edit its saved properties.', 'b2v-video-by-firebird' ); ?></span></div><button type="button" class="button button-primary" id="b2v-add-scene"><?php esc_html_e( '+ Add scene', 'b2v-video-by-firebird' ); ?></button></div>
+						<main class="b2v-scene-workspace"><div class="b2v-editor-loading" id="b2v-editor-loading"><span></span><?php esc_html_e( 'Loading existing scenes…', 'b2v-video-by-firebird' ); ?></div><div id="b2v-scene-groups" class="b2v-scene-groups"></div><p class="b2v-scene-message" id="b2v-scene-message" aria-live="polite"></p></main>
 					</section>
 					<section class="b2v-editor-pane" data-editor-pane="script" hidden>
-						<div class="b2v-script-toolbar"><div><strong><?php esc_html_e( 'Video script', 'blog2video' ); ?></strong><span id="b2v-script-summary"><?php esc_html_e( 'Edit the words viewers see and hear.', 'blog2video' ); ?></span></div><button type="button" class="button" id="b2v-script-regenerate-toggle"><?php esc_html_e( 'Regenerate script with AI', 'blog2video' ); ?></button></div>
+						<div class="b2v-script-toolbar"><div><strong><?php esc_html_e( 'Video script', 'b2v-video-by-firebird' ); ?></strong><span id="b2v-script-summary"><?php esc_html_e( 'Edit the words viewers see and hear.', 'b2v-video-by-firebird' ); ?></span></div><button type="button" class="button" id="b2v-script-regenerate-toggle"><?php esc_html_e( 'Regenerate script with AI', 'b2v-video-by-firebird' ); ?></button></div>
 						<main class="b2v-script-workspace">
-							<div class="b2v-script-regenerate" id="b2v-script-regenerate" hidden><label for="b2v-script-instruction"><strong><?php esc_html_e( 'How should the script change?', 'blog2video' ); ?></strong><span><?php esc_html_e( 'For example: make it more concise, use a friendly tone, or focus on the database branching section.', 'blog2video' ); ?></span></label><textarea id="b2v-script-instruction" rows="4" maxlength="25000"></textarea><div class="b2v-script-actions"><button type="button" class="button button-primary" id="b2v-script-regenerate-start"><?php esc_html_e( 'Create revised script', 'blog2video' ); ?></button><button type="button" class="button" id="b2v-script-regenerate-cancel"><?php esc_html_e( 'Cancel', 'blog2video' ); ?></button></div></div>
+							<div class="b2v-script-regenerate" id="b2v-script-regenerate" hidden><label for="b2v-script-instruction"><strong><?php esc_html_e( 'How should the script change?', 'b2v-video-by-firebird' ); ?></strong><span><?php esc_html_e( 'For example: make it more concise, use a friendly tone, or focus on the database branching section.', 'b2v-video-by-firebird' ); ?></span></label><textarea id="b2v-script-instruction" rows="4" maxlength="25000"></textarea><div class="b2v-script-actions"><button type="button" class="button button-primary" id="b2v-script-regenerate-start"><?php esc_html_e( 'Create revised script', 'b2v-video-by-firebird' ); ?></button><button type="button" class="button" id="b2v-script-regenerate-cancel"><?php esc_html_e( 'Cancel', 'b2v-video-by-firebird' ); ?></button></div></div>
 							<div class="b2v-script-review" id="b2v-script-review" hidden></div>
 							<div id="b2v-script-groups" class="b2v-script-groups"></div><p class="b2v-scene-message" id="b2v-script-message" aria-live="polite"></p>
 						</main>
@@ -841,9 +841,9 @@ class Blog2Video_REST_Controller {
 				</div>
 			</div>
 		</div>
-		<div class="b2v-library-modal" id="b2v-library-modal" role="dialog" aria-modal="true" aria-labelledby="b2v-library-title" hidden><div class="b2v-library-backdrop" data-b2v-close-library></div><div class="b2v-library-dialog"><div class="b2v-library-header"><div><span class="b2v-library-eyebrow"><?php esc_html_e( 'Blog2Video library', 'blog2video' ); ?></span><h2 id="b2v-library-title"></h2></div><button type="button" class="b2v-icon-close b2v-library-close" data-b2v-close-library aria-label="<?php esc_attr_e( 'Close library', 'blog2video' ); ?>">×</button></div><div class="b2v-library-tools"><input type="search" id="b2v-library-search" placeholder="<?php esc_attr_e( 'Search…', 'blog2video' ); ?>"></div><div class="b2v-library-grid" id="b2v-library-grid"></div><div class="b2v-library-empty" id="b2v-library-empty" hidden><?php esc_html_e( 'No matching options found.', 'blog2video' ); ?></div></div></div>
+		<div class="b2v-library-modal" id="b2v-library-modal" role="dialog" aria-modal="true" aria-labelledby="b2v-library-title" hidden><div class="b2v-library-backdrop" data-b2v-close-library></div><div class="b2v-library-dialog"><div class="b2v-library-header"><div><span class="b2v-library-eyebrow"><?php esc_html_e( 'Blog2Video library', 'b2v-video-by-firebird' ); ?></span><h2 id="b2v-library-title"></h2></div><button type="button" class="b2v-icon-close b2v-library-close" data-b2v-close-library aria-label="<?php esc_attr_e( 'Close library', 'b2v-video-by-firebird' ); ?>">×</button></div><div class="b2v-library-tools"><input type="search" id="b2v-library-search" placeholder="<?php esc_attr_e( 'Search…', 'b2v-video-by-firebird' ); ?>"></div><div class="b2v-library-grid" id="b2v-library-grid"></div><div class="b2v-library-empty" id="b2v-library-empty" hidden><?php esc_html_e( 'No matching options found.', 'b2v-video-by-firebird' ); ?></div></div></div>
 		</div>
-		<div class="b2v-project-modal" id="b2v-project-modal" role="dialog" aria-modal="true" aria-labelledby="b2v-project-modal-title" hidden><div class="b2v-project-backdrop" data-b2v-close-projects></div><div class="b2v-project-dialog"><div class="b2v-project-header"><div><span><?php esc_html_e( 'Your Blog2Video projects', 'blog2video' ); ?></span><h2 id="b2v-project-modal-title"><?php esc_html_e( 'Choose a video', 'blog2video' ); ?></h2><p><?php esc_html_e( 'Switch the project you are editing, or add any rendered video to this post.', 'blog2video' ); ?></p></div><button type="button" class="b2v-icon-close b2v-library-close" data-b2v-close-projects aria-label="<?php esc_attr_e( 'Close projects', 'blog2video' ); ?>">×</button></div><div class="b2v-project-tools"><input type="search" id="b2v-project-search" placeholder="<?php esc_attr_e( 'Search projects…', 'blog2video' ); ?>"><button type="button" class="b2v-project-back" data-b2v-close-projects>← <?php esc_html_e( 'Back to post', 'blog2video' ); ?></button></div><div class="b2v-project-grid" id="b2v-project-grid"></div><div class="b2v-project-empty" id="b2v-project-empty" hidden><?php esc_html_e( 'No projects found.', 'blog2video' ); ?></div></div></div>
+		<div class="b2v-project-modal" id="b2v-project-modal" role="dialog" aria-modal="true" aria-labelledby="b2v-project-modal-title" hidden><div class="b2v-project-backdrop" data-b2v-close-projects></div><div class="b2v-project-dialog"><div class="b2v-project-header"><div><span><?php esc_html_e( 'Your Blog2Video projects', 'b2v-video-by-firebird' ); ?></span><h2 id="b2v-project-modal-title"><?php esc_html_e( 'Choose a video', 'b2v-video-by-firebird' ); ?></h2><p><?php esc_html_e( 'Switch the project you are editing, or add any rendered video to this post.', 'b2v-video-by-firebird' ); ?></p></div><button type="button" class="b2v-icon-close b2v-library-close" data-b2v-close-projects aria-label="<?php esc_attr_e( 'Close projects', 'b2v-video-by-firebird' ); ?>">×</button></div><div class="b2v-project-tools"><input type="search" id="b2v-project-search" placeholder="<?php esc_attr_e( 'Search projects…', 'b2v-video-by-firebird' ); ?>"><button type="button" class="b2v-project-back" data-b2v-close-projects>← <?php esc_html_e( 'Back to post', 'b2v-video-by-firebird' ); ?></button></div><div class="b2v-project-grid" id="b2v-project-grid"></div><div class="b2v-project-empty" id="b2v-project-empty" hidden><?php esc_html_e( 'No projects found.', 'b2v-video-by-firebird' ); ?></div></div></div>
 		<?php
 	}
 

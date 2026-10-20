@@ -20,7 +20,7 @@ class Blog2Video_Block {
 		if ( ! $url ) { return ''; }
 		$class = '9:16' === $ratio ? ' is-portrait' : '';
 		wp_enqueue_style( 'blog2video-player' );
-		return '<div class="b2v-player' . esc_attr( $class ) . '"><iframe src="' . $url . '" title="' . esc_attr__( 'Blog2Video player', 'blog2video' ) . '" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>';
+		return '<div class="b2v-player' . esc_attr( $class ) . '"><iframe src="' . $url . '" title="' . esc_attr__( 'Blog2Video player', 'b2v-video-by-firebird' ) . '" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>';
 	}
 
 	public function render( $attributes ) {

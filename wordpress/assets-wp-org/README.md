@@ -6,7 +6,7 @@ installed on a WordPress site — they only get uploaded to the plugin's SVN
 `assets/` folder after WordPress.org approval:
 
 ```
-svn co https://plugins.svn.wordpress.org/blog2video/ svn-checkout
+svn co https://plugins.svn.wordpress.org/b2v-video-by-firebird/ svn-checkout
 cp wordpress/assets-wp-org/*.png svn-checkout/assets/
 cd svn-checkout && svn add assets/*.png && svn commit -m "Add plugin directory assets"
 ```

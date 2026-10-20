@@ -7,7 +7,7 @@
   "category": "embed",
   "icon": "format-video",
   "description": "Embed any Blog2Video project. Add multiple blocks to use multiple videos in one post.",
-  "textdomain": "blog2video",
+  "textdomain": "b2v-video-by-firebird",
   "attributes": {
     "embedUrl": {
       "type": "string",

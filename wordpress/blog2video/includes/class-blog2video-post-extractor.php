@@ -6,7 +6,7 @@ class Blog2Video_Post_Extractor {
 	private static function post_identity( $post_id ) {
 		$post = get_post( $post_id );
 		if ( ! $post || 'revision' === $post->post_type ) {
-			return new WP_Error( 'blog2video_invalid_post', __( 'The post could not be read.', 'blog2video' ) );
+			return new WP_Error( 'blog2video_invalid_post', __( 'The post could not be read.', 'b2v-video-by-firebird' ) );
 		}
 		$url = get_permalink( $post );
 		if ( ! $url ) {
@@ -34,7 +34,7 @@ class Blog2Video_Post_Extractor {
 		$content = preg_replace( '/\n\s*\n+/', "\n\n", $content );
 		$content = trim( $content );
 		if ( strlen( $content ) < 50 ) {
-			return new WP_Error( 'blog2video_short_post', __( 'This post does not contain enough text to make a video.', 'blog2video' ) );
+			return new WP_Error( 'blog2video_short_post', __( 'This post does not contain enough text to make a video.', 'b2v-video-by-firebird' ) );
 		}
 		return array(
 			'external_post_id' => $identity['external_post_id'],
@@ -49,7 +49,7 @@ class Blog2Video_Post_Extractor {
 		$identity = self::post_identity( $post_id );
 		if ( is_wp_error( $identity ) ) { return $identity; }
 		if ( ! $source_url || ! wp_http_validate_url( $source_url ) ) {
-			return new WP_Error( 'blog2video_invalid_source_url', __( 'Enter a valid public HTTP or HTTPS URL.', 'blog2video' ) );
+			return new WP_Error( 'blog2video_invalid_source_url', __( 'Enter a valid public HTTP or HTTPS URL.', 'b2v-video-by-firebird' ) );
 		}
 		return array(
 			'external_post_id' => $identity['external_post_id'],

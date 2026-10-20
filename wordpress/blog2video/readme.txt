@@ -18,7 +18,7 @@ A Blog2Video account and internet connection are required. Video generation and 
 
 == External service ==
 
-This plugin connects to Blog2Video, a hosted service operated by FireBird Technologies, at https://api-staging.blog2video.app. The service provides site authorization, account and project libraries, script and scene generation, narration, video rendering, storage, previews, downloads, and embeds.
+This plugin connects to Blog2Video, a hosted service operated by FireBird Technologies, at https://api.blog2video.app. The service provides site authorization, account and project libraries, script and scene generation, narration, video rendering, storage, previews, downloads, and embeds.
 
 The service is contacted when an administrator connects or disconnects the site; when an editor opens the Blog2Video panel to load account, project, template, voice, music, or status information; and when an editor explicitly generates, edits, regenerates, renders, downloads, embeds, replaces, or removes a video or uploaded image.
 

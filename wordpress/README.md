@@ -2,16 +2,25 @@
 
 The installable plugin lives in `wordpress/blog2video`. During development, symlink or copy that directory into a WordPress installation's `wp-content/plugins/blog2video` directory, then activate it in **Plugins**.
 
-To build an uploadable artifact from the repository root:
+To build an uploadable artifact from the repository root, stage the source under
+the approved WordPress.org slug. Keep the human-readable UI source in the
+package, but exclude installed development dependencies and macOS metadata:
 
 ```sh
-cd wordpress && zip -r blog2video.zip blog2video -x '*.DS_Store'
+release_dir="$(mktemp -d)"
+mkdir -p "$release_dir/b2v-video-by-firebird"
+rsync -a \
+  --exclude='.DS_Store' \
+  --exclude='ui/node_modules/' \
+  wordpress/blog2video/ "$release_dir/b2v-video-by-firebird/"
+(cd "$release_dir" && zip -qr b2v-video-by-firebird.zip b2v-video-by-firebird)
+cp "$release_dir/b2v-video-by-firebird.zip" wordpress/b2v-video-by-firebird.zip
 ```
 
-The plugin runs on the WordPress host as PHP and JavaScript. Video generation remains in the existing FastAPI/worker/Remotion deployment; WordPress calls the site-scoped integration API over HTTPS. Define `B2V_API_URL` in `wp-config.php` when targeting a different backend:
+The plugin runs on the WordPress host as PHP and JavaScript. Video generation remains in the existing FastAPI/worker/Remotion deployment; WordPress calls the site-scoped integration API over HTTPS. Define `BLOG2VIDEO_API_URL` in `wp-config.php` when targeting a different backend:
 
 ```php
-define( 'B2V_API_URL', 'https://api.example.com' );
+define( 'BLOG2VIDEO_API_URL', 'https://api.example.com' );
 ```
 
 ## React UI development

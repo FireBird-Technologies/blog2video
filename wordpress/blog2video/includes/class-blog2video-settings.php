@@ -61,7 +61,7 @@ class Blog2Video_Settings {
 	public function begin() {
 		check_admin_referer( 'blog2video_begin_connection' );
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to connect this site.', 'blog2video' ) );
+			wp_die( esc_html__( 'You are not allowed to connect this site.', 'b2v-video-by-firebird' ) );
 		}
 		$result = $this->api->request( 'POST', 'connections/begin', array( 'site_url' => home_url(), 'site_name' => get_bloginfo( 'name' ) ), false );
 		if ( is_wp_error( $result ) ) {
@@ -75,7 +75,7 @@ class Blog2Video_Settings {
 	public function finish() {
 		check_admin_referer( 'blog2video_finish_connection' );
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to connect this site.', 'blog2video' ) );
+			wp_die( esc_html__( 'You are not allowed to connect this site.', 'b2v-video-by-firebird' ) );
 		}
 		$pending = get_option( 'blog2video_pending_connection', array() );
 		$result  = $this->api->request( 'POST', 'connections/token', array( 'connection_id' => absint( $pending['connection_id'] ?? 0 ), 'device_code' => (string) ( $pending['device_code'] ?? '' ) ), false );
@@ -83,21 +83,21 @@ class Blog2Video_Settings {
 			$this->redirect( $result->get_error_message() );
 		}
 		if ( 'authorization_pending' === ( $result['status'] ?? '' ) ) {
-			$this->redirect( __( 'Approve the code in Blog2Video first, then try again.', 'blog2video' ) );
+			$this->redirect( __( 'Approve the code in Blog2Video first, then try again.', 'b2v-video-by-firebird' ) );
 		}
 		update_option( Blog2Video_API_Client::CONNECTION_OPTION, array( 'access_token' => sanitize_text_field( $result['access_token'] ), 'connection_id' => absint( $result['connection_id'] ) ), false );
 		delete_option( 'blog2video_pending_connection' );
-		$this->redirect( __( 'Blog2Video connected successfully.', 'blog2video' ) );
+		$this->redirect( __( 'Blog2Video connected successfully.', 'b2v-video-by-firebird' ) );
 	}
 
 	public function connection_status() {
 		check_ajax_referer( 'blog2video_poll_connection', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( array( 'message' => __( 'You are not allowed to connect this site.', 'blog2video' ) ), 403 );
+			wp_send_json_error( array( 'message' => __( 'You are not allowed to connect this site.', 'b2v-video-by-firebird' ) ), 403 );
 		}
 		$pending = get_option( 'blog2video_pending_connection', array() );
 		if ( empty( $pending['connection_id'] ) || empty( $pending['device_code'] ) ) {
-			wp_send_json_error( array( 'message' => __( 'The connection request is no longer available. Start again.', 'blog2video' ) ), 410 );
+			wp_send_json_error( array( 'message' => __( 'The connection request is no longer available. Start again.', 'b2v-video-by-firebird' ) ), 410 );
 		}
 		$result = $this->api->request( 'POST', 'connections/token', array(
 			'connection_id' => absint( $pending['connection_id'] ),
@@ -110,7 +110,7 @@ class Blog2Video_Settings {
 			wp_send_json_success( array( 'status' => 'pending' ) );
 		}
 		if ( empty( $result['access_token'] ) || empty( $result['connection_id'] ) ) {
-			wp_send_json_error( array( 'message' => __( 'Blog2Video returned an invalid connection response.', 'blog2video' ) ), 502 );
+			wp_send_json_error( array( 'message' => __( 'Blog2Video returned an invalid connection response.', 'b2v-video-by-firebird' ) ), 502 );
 		}
 		update_option( Blog2Video_API_Client::CONNECTION_OPTION, array(
 			'access_token'  => sanitize_text_field( $result['access_token'] ),
@@ -119,26 +119,26 @@ class Blog2Video_Settings {
 		delete_option( 'blog2video_pending_connection' );
 		wp_send_json_success( array(
 			'status'   => 'connected',
-			'redirect' => add_query_arg( 'blog2video_notice', __( 'Blog2Video connected successfully.', 'blog2video' ), admin_url( 'options-general.php?page=blog2video' ) ),
+			'redirect' => add_query_arg( 'blog2video_notice', __( 'Blog2Video connected successfully.', 'b2v-video-by-firebird' ), admin_url( 'options-general.php?page=blog2video' ) ),
 		) );
 	}
 
 	public function disconnect() {
 		check_admin_referer( 'blog2video_disconnect' );
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to disconnect this site.', 'blog2video' ) );
+			wp_die( esc_html__( 'You are not allowed to disconnect this site.', 'b2v-video-by-firebird' ) );
 		}
 		$this->api->request( 'POST', 'connections/revoke' );
 		delete_option( Blog2Video_API_Client::CONNECTION_OPTION );
 		delete_option( 'blog2video_pending_connection' );
-		$this->redirect( __( 'Blog2Video disconnected.', 'blog2video' ) );
+		$this->redirect( __( 'Blog2Video disconnected.', 'b2v-video-by-firebird' ) );
 	}
 
 	public function page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		echo '<div class="wrap"><div id="b2v-settings-react-root"><p>' . esc_html__( 'Loading Blog2Video…', 'blog2video' ) . '</p></div></div>';
+		echo '<div class="wrap"><div id="b2v-settings-react-root"><p>' . esc_html__( 'Loading Blog2Video…', 'b2v-video-by-firebird' ) . '</p></div></div>';
 		return;
 		$pending = get_option( 'blog2video_pending_connection', array() );
 		$connected = $this->api->is_connected();
@@ -147,9 +147,9 @@ class Blog2Video_Settings {
 			<header class="b2v-settings-hero">
 				<div class="b2v-settings-brand">
 					<img src="<?php echo esc_url( BLOG2VIDEO_URL . 'assets/b2v-logo.png' ); ?>" alt="">
-					<div><h1><?php esc_html_e( 'Blog2Video', 'blog2video' ); ?></h1><p><?php esc_html_e( 'Create, edit and publish narrated videos without leaving WordPress.', 'blog2video' ); ?></p></div>
+					<div><h1><?php esc_html_e( 'Blog2Video', 'b2v-video-by-firebird' ); ?></h1><p><?php esc_html_e( 'Create, edit and publish narrated videos without leaving WordPress.', 'b2v-video-by-firebird' ); ?></p></div>
 				</div>
-				<span class="b2v-connection-state <?php echo $connected ? 'is-connected' : ''; ?>"><i></i><?php echo $connected ? esc_html__( 'Connected', 'blog2video' ) : esc_html__( 'Not connected', 'blog2video' ); ?></span>
+				<span class="b2v-connection-state <?php echo $connected ? 'is-connected' : ''; ?>"><i></i><?php echo $connected ? esc_html__( 'Connected', 'b2v-video-by-firebird' ) : esc_html__( 'Not connected', 'b2v-video-by-firebird' ); ?></span>
 			</header>
 		<?php if ( isset( $_GET['blog2video_notice'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-info is-dismissible"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['blog2video_notice'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?></p></div>
@@ -159,18 +159,18 @@ class Blog2Video_Settings {
 				<section class="b2v-connect-panel">
 				<?php if ( $connected ) : ?>
 					<div class="b2v-connect-icon is-success">✓</div>
-					<div class="b2v-connect-copy"><span class="b2v-settings-kicker"><?php esc_html_e( 'Account connection', 'blog2video' ); ?></span><h2><?php esc_html_e( 'Your site is ready', 'blog2video' ); ?></h2><p><?php esc_html_e( 'Editors can now create videos from any WordPress post and manage them directly in the block editor.', 'blog2video' ); ?></p></div>
-					<div class="b2v-connect-actions"><a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php' ) ); ?>"><?php esc_html_e( 'Create a post', 'blog2video' ); ?></a><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="blog2video_disconnect"><?php wp_nonce_field( 'blog2video_disconnect' ); ?><button type="submit" class="button b2v-button-quiet b2v-disconnect-button"><?php esc_html_e( 'Disconnect account', 'blog2video' ); ?></button></form></div>
+					<div class="b2v-connect-copy"><span class="b2v-settings-kicker"><?php esc_html_e( 'Account connection', 'b2v-video-by-firebird' ); ?></span><h2><?php esc_html_e( 'Your site is ready', 'b2v-video-by-firebird' ); ?></h2><p><?php esc_html_e( 'Editors can now create videos from any WordPress post and manage them directly in the block editor.', 'b2v-video-by-firebird' ); ?></p></div>
+					<div class="b2v-connect-actions"><a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php' ) ); ?>"><?php esc_html_e( 'Create a post', 'b2v-video-by-firebird' ); ?></a><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="blog2video_disconnect"><?php wp_nonce_field( 'blog2video_disconnect' ); ?><button type="submit" class="button b2v-button-quiet b2v-disconnect-button"><?php esc_html_e( 'Disconnect account', 'b2v-video-by-firebird' ); ?></button></form></div>
 				<?php elseif ( ! empty( $pending['verification_url'] ) ) : ?>
 					<div class="b2v-connect-icon">↗</div>
-					<div class="b2v-connect-copy"><span class="b2v-settings-kicker"><?php esc_html_e( 'One final step', 'blog2video' ); ?></span><h2><?php esc_html_e( 'Approve this site in Blog2Video', 'blog2video' ); ?></h2><p><?php esc_html_e( 'We will open a secure Blog2Video page with this site’s temporary request already filled in. Sign in and approve it.', 'blog2video' ); ?></p></div>
-					<div class="b2v-connect-actions"><a class="button button-primary" target="_blank" rel="noopener noreferrer" href="<?php echo esc_url( $pending['verification_url'] ); ?>"><?php esc_html_e( 'Approve', 'blog2video' ); ?><span aria-hidden="true">↗</span></a></div>
-					<p class="b2v-approval-status" id="b2v-approval-status"><i aria-hidden="true"></i><span><?php esc_html_e( 'Waiting for approval…', 'blog2video' ); ?></span></p>
+					<div class="b2v-connect-copy"><span class="b2v-settings-kicker"><?php esc_html_e( 'One final step', 'b2v-video-by-firebird' ); ?></span><h2><?php esc_html_e( 'Approve this site in Blog2Video', 'b2v-video-by-firebird' ); ?></h2><p><?php esc_html_e( 'We will open a secure Blog2Video page with this site’s temporary request already filled in. Sign in and approve it.', 'b2v-video-by-firebird' ); ?></p></div>
+					<div class="b2v-connect-actions"><a class="button button-primary" target="_blank" rel="noopener noreferrer" href="<?php echo esc_url( $pending['verification_url'] ); ?>"><?php esc_html_e( 'Approve', 'b2v-video-by-firebird' ); ?><span aria-hidden="true">↗</span></a></div>
+					<p class="b2v-approval-status" id="b2v-approval-status"><i aria-hidden="true"></i><span><?php esc_html_e( 'Waiting for approval…', 'b2v-video-by-firebird' ); ?></span></p>
 				<?php else : ?>
 					<div class="b2v-connect-icon">B2V</div>
-					<div class="b2v-connect-copy"><span class="b2v-settings-kicker"><?php esc_html_e( 'Get started', 'blog2video' ); ?></span><h2><?php esc_html_e( 'Connect your Blog2Video account', 'blog2video' ); ?></h2><p><?php esc_html_e( 'Authorize this site once, then create, edit, render and embed videos from the WordPress post editor.', 'blog2video' ); ?></p></div>
-					<ul class="b2v-connect-benefits"><li><?php esc_html_e( 'No password stored in WordPress', 'blog2video' ); ?></li><li><?php esc_html_e( 'Revocable access limited to this site', 'blog2video' ); ?></li><li><?php esc_html_e( 'Your existing projects stay available', 'blog2video' ); ?></li></ul>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="blog2video_begin_connection"><?php wp_nonce_field( 'blog2video_begin_connection' ); ?><button type="submit" class="button button-primary"><?php esc_html_e( 'Connect Blog2Video', 'blog2video' ); ?><span aria-hidden="true">→</span></button></form>
+					<div class="b2v-connect-copy"><span class="b2v-settings-kicker"><?php esc_html_e( 'Get started', 'b2v-video-by-firebird' ); ?></span><h2><?php esc_html_e( 'Connect your Blog2Video account', 'b2v-video-by-firebird' ); ?></h2><p><?php esc_html_e( 'Authorize this site once, then create, edit, render and embed videos from the WordPress post editor.', 'b2v-video-by-firebird' ); ?></p></div>
+					<ul class="b2v-connect-benefits"><li><?php esc_html_e( 'No password stored in WordPress', 'b2v-video-by-firebird' ); ?></li><li><?php esc_html_e( 'Revocable access limited to this site', 'b2v-video-by-firebird' ); ?></li><li><?php esc_html_e( 'Your existing projects stay available', 'b2v-video-by-firebird' ); ?></li></ul>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="blog2video_begin_connection"><?php wp_nonce_field( 'blog2video_begin_connection' ); ?><button type="submit" class="button button-primary"><?php esc_html_e( 'Connect Blog2Video', 'b2v-video-by-firebird' ); ?><span aria-hidden="true">→</span></button></form>
 				<?php endif; ?>
 				</section>
 
