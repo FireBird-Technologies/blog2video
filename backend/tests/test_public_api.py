@@ -288,6 +288,43 @@ def test_quota_exhausted_returns_402_and_credits_raise_it(client, db_session, pa
     assert _create(client, headers).status_code == 402
 
 
+def test_untagged_videos_never_appear_in_an_end_user_list(client, db_session, paid_user, auth):
+    headers = _api_key(client, paid_user, auth)
+    tagged = _create(client, headers, external_user_id="u1").json()["video_id"]
+    untagged = _create(client, headers).json()["video_id"]
+    blank = _create(client, headers, external_user_id="   ").json()["video_id"]
+
+    def ids(**params):
+        return [v["video_id"] for v in client.get(f"{V1}/videos", headers=headers, params=params).json()["items"]]
+
+    assert ids(external_user_id="u1") == [tagged]
+    # The owner's unfiltered list still has everything.
+    assert set(ids()) == {tagged, untagged, blank}
+    # A blank filter is refused rather than returning the owner's full list.
+    for value in ("", "   "):
+        assert client.get(f"{V1}/videos", headers=headers, params={"external_user_id": value}).status_code == 422
+    # Blank tags are stored as untagged.
+    blank_video = client.get(f"{V1}/videos/{blank}", headers=headers).json()
+    assert blank_video["external_user_id"] is None
+    # Untagged videos stay reachable by id.
+    assert client.get(f"{V1}/videos/{untagged}", headers=headers).status_code == 200
+
+
+def test_render_status_reports_video_url(client, db_session, paid_user, auth, monkeypatch):
+    monkeypatch.setattr("app.routers.pipeline.get_render_progress_from_r2", lambda *a, **k: None)
+    headers = _api_key(client, paid_user, auth)
+    video_id = _create(client, headers).json()["video_id"]
+    project = db_session.get(Project, video_id)
+    project.status = ProjectStatus.DONE
+    project.r2_video_url = "https://media.example.com/video.mp4"
+    db_session.commit()
+    polled = client.get(f"{V1}/videos/{video_id}/render", headers=headers)
+    assert polled.status_code == 200, polled.text
+    body = polled.json()
+    assert body["done"] is True
+    assert body["video_url"] == body["r2_video_url"] == "https://media.example.com/video.mp4"
+
+
 def test_failed_video_whose_project_was_deleted_reports_failed(client, db_session, paid_user, auth):
     headers = _api_key(client, paid_user, auth)
     video_id = _create(client, headers).json()["video_id"]

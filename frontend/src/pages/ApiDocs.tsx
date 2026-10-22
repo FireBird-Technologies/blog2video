@@ -20,6 +20,11 @@ function baseUrl(): string {
   return BACKEND_URL || window.location.origin;
 }
 
+/** Fills the `$B2V` base URL and `$KEY` placeholders used in request examples. */
+function fillPlaceholders(text: string): string {
+  return text.replace(/\$B2V/g, baseUrl()).replace(/\$KEY/g, "$B2V_API_KEY");
+}
+
 function anchorFor(e: ApiDocEndpoint): string {
   return `${e.method}-${e.path}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
@@ -182,7 +187,7 @@ function EndpointCard({
         {hasRequest && (
           <CodeBlock
             label="Request"
-            text={asText(e.request_example).replace(/\$B2V/g, baseUrl()).replace(/\$KEY/g, "$B2V_API_KEY")}
+            text={fillPlaceholders(asText(e.request_example))}
             copyId={`req-${id}`}
             copied={copied}
             onCopy={onCopy}
@@ -245,6 +250,9 @@ function GuideBlock({ block, copied, onCopy, id }: { block: ApiDocBlock; copied:
       </div>
     );
   }
+  if (block.type === "code") {
+    return <CodeBlock label={block.label} text={fillPlaceholders(block.code)} copyId={`code-${id}`} copied={copied} onCopy={onCopy} />;
+  }
   if (block.type === "list") {
     return (
       <ol className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-gray-600">
@@ -284,9 +292,34 @@ function GuideBlock({ block, copied, onCopy, id }: { block: ApiDocBlock; copied:
   );
 }
 
-/** The endpoint reference (guides, sidebar, search, endpoint cards), from content/apiDocs.ts. */
+type DocsView = "guides" | "endpoints";
+
+const GUIDE_IDS = new Set(docs.guides.map((g) => g.id));
+const ENDPOINT_ANCHORS = new Set(docs.sections.flatMap((s) => [s.id, ...s.endpoints.map(anchorFor)]));
+/** Distance from the viewport top (below the sticky headers) at which a section counts as "on screen". */
+const SPY_OFFSET = 140;
+
+function viewForHash(hash: string): DocsView | null {
+  const id = decodeURIComponent(hash.replace(/^#/, ""));
+  if (ENDPOINT_ANCHORS.has(id)) return "endpoints";
+  if (GUIDE_IDS.has(id)) return "guides";
+  return null;
+}
+
+/**
+ * The endpoint reference (guides, sidebar, search, endpoint cards), from content/apiDocs.ts.
+ * Guides and endpoints are separate views: scrolling the guides never runs into the endpoints;
+ * those only open when picked from the sidebar (or linked to by hash).
+ */
 function ApiReference() {
+  const [view, setView] = useState<DocsView>(() => viewForHash(window.location.hash) ?? "guides");
   const [query, setQuery] = useState("");
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [scrollTarget, setScrollTarget] = useState<{ id: string | null; n: number } | null>(() => {
+    const id = decodeURIComponent(window.location.hash.replace(/^#/, ""));
+    return viewForHash(window.location.hash) ? { id, n: 0 } : null;
+  });
+  const topRef = useRef<HTMLDivElement>(null);
   const [copied, copy] = useCopy();
 
   const q = query.trim().toLowerCase();
@@ -303,18 +336,100 @@ function ApiReference() {
   }, [q]);
   const total = sections.reduce((n, s) => n + s.endpoints.length, 0);
 
+  /** Switch to the view that owns `id` (or `target` when id is null) and scroll to it. */
+  const goTo = useCallback((target: DocsView, id: string | null) => {
+    setView(target);
+    if (target === "endpoints" && id) setQuery("");
+    setScrollTarget((prev) => ({ id, n: (prev?.n ?? 0) + 1 }));
+    window.history.replaceState(null, "", id ? `#${id}` : window.location.pathname + window.location.search);
+  }, []);
+
+  // Scroll once the requested view has rendered.
+  useEffect(() => {
+    if (!scrollTarget) return;
+    const el = scrollTarget.id ? document.getElementById(scrollTarget.id) : topRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - (scrollTarget.id ? SPY_OFFSET - 20 : 96);
+    window.scrollTo({ top: Math.max(0, top), behavior: scrollTarget.n === 0 ? "auto" : "smooth" });
+  }, [scrollTarget]);
+
+  // Follow back/forward and in-page hash links into the other view.
+  useEffect(() => {
+    const onHash = () => {
+      const target = viewForHash(window.location.hash);
+      if (target) goTo(target, decodeURIComponent(window.location.hash.slice(1)));
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [goTo]);
+
+  // Scroll-spy: highlight whichever section currently sits at the top of the screen.
+  const spyIds = useMemo(
+    () => (view === "guides" ? docs.guides.map((g) => g.id) : sections.map((s) => s.id)),
+    [view, sections],
+  );
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      let current: string | null = spyIds[0] ?? null;
+      for (const id of spyIds) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= SPY_OFFSET) current = id;
+      }
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      if (atBottom && spyIds.length) {
+        // Short trailing sections can never reach the top; favour the last visible one.
+        const last = spyIds[spyIds.length - 1];
+        const el = document.getElementById(last);
+        if (el && el.getBoundingClientRect().top < window.innerHeight) current = last;
+      }
+      setActiveId(current);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [spyIds]);
+
+  const navItem = (active: boolean) =>
+    `rounded-md px-2 py-1 transition-colors ${
+      active ? "bg-purple-50 font-medium text-purple-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+    }`;
+  const groupHeader = (active: boolean) =>
+    `mb-1.5 flex w-full items-center justify-between rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+      active ? "text-purple-700" : "text-gray-400 hover:text-gray-700"
+    }`;
+
   return (
-    <div>
+    <div ref={topRef}>
       <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
         {/* Sidebar */}
         <aside className="hidden lg:block">
           <nav className="sticky top-20 max-h-[calc(100vh-6rem)] space-y-5 overflow-y-auto pb-6 text-sm">
             <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Guides</p>
+              <button type="button" onClick={() => goTo("guides", null)} className={groupHeader(view === "guides")}>
+                Guides
+              </button>
               <ul className="space-y-0.5">
                 {docs.guides.map((g) => (
                   <li key={g.id}>
-                    <a href={`#${g.id}`} className="block rounded-md px-2 py-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900">
+                    <a
+                      href={`#${g.id}`}
+                      onClick={(ev) => {
+                        ev.preventDefault();
+                        goTo("guides", g.id);
+                      }}
+                      aria-current={view === "guides" && activeId === g.id ? "true" : undefined}
+                      className={`block ${navItem(view === "guides" && activeId === g.id)}`}
+                    >
                       {g.title}
                     </a>
                   </li>
@@ -322,87 +437,152 @@ function ApiReference() {
               </ul>
             </div>
             <div>
-              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Endpoints</p>
+              <button
+                type="button"
+                onClick={() => goTo("endpoints", null)}
+                aria-expanded={view === "endpoints"}
+                className={groupHeader(view === "endpoints")}
+              >
+                <span>Endpoints</span>
+                <svg
+                  className={`h-3 w-3 transition-transform ${view === "endpoints" ? "rotate-90" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
               <ul className="space-y-0.5">
-                {docs.sections.map((s) => (
-                  <li key={s.id}>
-                    <a href={`#${s.id}`} className="flex items-center justify-between rounded-md px-2 py-1 text-gray-600 hover:bg-gray-100 hover:text-gray-900">
-                      <span>{s.title}</span>
-                      <span className="text-[11px] text-gray-400">{s.endpoints.length}</span>
-                    </a>
-                  </li>
-                ))}
+                {docs.sections.map((s) => {
+                  const active = view === "endpoints" && activeId === s.id;
+                  return (
+                    <li key={s.id}>
+                      <a
+                        href={`#${s.id}`}
+                        onClick={(ev) => {
+                          ev.preventDefault();
+                          goTo("endpoints", s.id);
+                        }}
+                        aria-current={active ? "true" : undefined}
+                        className={`flex items-center justify-between ${navItem(active)}`}
+                      >
+                        <span>{s.title}</span>
+                        <span className={`text-[11px] ${active ? "text-purple-400" : "text-gray-400"}`}>{s.endpoints.length}</span>
+                      </a>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </nav>
         </aside>
 
         <main className="min-w-0 space-y-10">
-          {/* Mobile jump menu */}
-          <select
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm lg:hidden"
-            defaultValue=""
-            onChange={(ev) => {
-              if (ev.target.value) document.getElementById(ev.target.value)?.scrollIntoView({ behavior: "smooth" });
-            }}
-            aria-label="Jump to section"
-          >
-            <option value="" disabled>
-              Jump to…
-            </option>
-            {docs.guides.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.title}
+          {/* Mobile view switch + jump menu */}
+          <div className="space-y-3 lg:hidden">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-sm">
+              {(["guides", "endpoints"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => goTo(v, null)}
+                  className={`rounded-md py-1.5 font-medium capitalize transition-colors ${
+                    view === v ? "bg-white text-purple-700 shadow-sm" : "text-gray-500"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <select
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              value={activeId ?? ""}
+              onChange={(ev) => {
+                const id = ev.target.value;
+                if (id) goTo(GUIDE_IDS.has(id) ? "guides" : "endpoints", id);
+              }}
+              aria-label="Jump to section"
+            >
+              <option value="" disabled>
+                Jump to…
               </option>
-            ))}
-            {docs.sections.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title}
-              </option>
-            ))}
-          </select>
-
-          {!q &&
-            docs.guides.map((g) => (
-              <section key={g.id} id={g.id} className="scroll-mt-32">
-                <h2 className="text-lg font-semibold text-gray-900">{g.title}</h2>
-                <div className="mt-3 space-y-3">
-                  {g.blocks.map((b, i) => (
-                    <GuideBlock key={i} block={b} copied={copied} onCopy={copy} id={`${g.id}-${i}`} />
-                  ))}
-                </div>
-              </section>
-            ))}
-
-          <div className="sticky top-16 z-10 -mx-1 bg-white/90 px-1 py-2 backdrop-blur">
-            <input
-              value={query}
-              onChange={(ev) => setQuery(ev.target.value)}
-              placeholder="Search endpoints"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-100"
-              aria-label="Search endpoints"
-            />
-            {q && (
-              <p className="mt-1.5 text-xs text-gray-500">
-                {total} endpoint{total === 1 ? "" : "s"} match “{query.trim()}”
-              </p>
-            )}
+              <optgroup label="Guides">
+                {docs.guides.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Endpoints">
+                {docs.sections.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
           </div>
 
-          {sections.map((s) => (
-            <section key={s.id} id={s.id} className="scroll-mt-32">
-              <h2 className="text-lg font-semibold text-gray-900">{s.title}</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                <Rich text={s.description} />
-              </p>
-              <div className="mt-4 space-y-4">
-                {s.endpoints.map((e) => (
-                  <EndpointCard key={anchorFor(e)} e={e} copied={copied} onCopy={copy} />
-                ))}
+          {view === "guides" && (
+            <>
+              {docs.guides.map((g) => (
+                <section key={g.id} id={g.id} className="scroll-mt-32">
+                  <h2 className="text-lg font-semibold text-gray-900">{g.title}</h2>
+                  <div className="mt-3 space-y-3">
+                    {g.blocks.map((b, i) => (
+                      <GuideBlock key={i} block={b} copied={copied} onCopy={copy} id={`${g.id}-${i}`} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+              <button
+                type="button"
+                onClick={() => goTo("endpoints", null)}
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-purple-700 hover:text-purple-800"
+              >
+                Explore endpoints
+                <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </button>
+            </>
+          )}
+
+          {view === "endpoints" && (
+            <>
+              <div className="sticky top-16 z-10 -mx-1 bg-white/90 px-1 py-2 backdrop-blur">
+                <input
+                  value={query}
+                  onChange={(ev) => setQuery(ev.target.value)}
+                  placeholder="Search endpoints"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-100"
+                  aria-label="Search endpoints"
+                />
+                {q && (
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    {total} endpoint{total === 1 ? "" : "s"} match “{query.trim()}”
+                  </p>
+                )}
               </div>
-            </section>
-          ))}
-          {q && total === 0 && <p className="text-sm text-gray-500">No endpoints match your search.</p>}
+
+              {sections.map((s) => (
+                <section key={s.id} id={s.id} className="scroll-mt-32">
+                  <h2 className="text-lg font-semibold text-gray-900">{s.title}</h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    <Rich text={s.description} />
+                  </p>
+                  <div className="mt-4 space-y-4">
+                    {s.endpoints.map((e) => (
+                      <EndpointCard key={anchorFor(e)} e={e} copied={copied} onCopy={copy} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+              {q && total === 0 && <p className="text-sm text-gray-500">No endpoints match your search.</p>}
+            </>
+          )}
         </main>
       </div>
     </div>
