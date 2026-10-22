@@ -51,6 +51,7 @@ CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "gridcraft": ("data_visualisation", _NO_TICKER_SENTINEL),
     "stickman_2": ("data_visualisation", _NO_TICKER_SENTINEL),
     "stickman_football": ("football_data_viz", "football_ticker"),
+    "starlit": ("data_visualisation", "ticker_table"),
 }
 
 # Chart/ticker base layout ids derived from the map. One *_data chart layout per
@@ -555,6 +556,29 @@ def get_layout_variants(template_id: str) -> dict[str, list[str]]:
             ids = [base, *ids]
         out[base] = ids
     return out
+
+
+
+def get_random_style_choices(template_id: str, layout: str) -> tuple[str, list[str]] | None:
+    """Return ``(prop_key, option_values)`` when ``layout`` picks its look at random.
+
+    meta.json's ``random_style_props`` maps a layout ID to the name of one of its
+    ``select`` fields (Starlit: Galaxy Deep Dive's ``mapStyle``). The choices are
+    the option values of that field, so the editor dropdown stays the single list
+    of what exists. Returns ``None`` for any layout that does not opt in.
+    """
+    meta = _load_meta(template_id)
+    if not meta:
+        return None
+    key = (meta.get("random_style_props") or {}).get(layout)
+    if not isinstance(key, str):
+        return None
+    fields = ((meta.get("layout_prop_schema") or {}).get(layout) or {}).get("fields") or []
+    for field in fields:
+        if field.get("key") == key and field.get("type") == "select":
+            values = [o.get("value") for o in field.get("options") or [] if isinstance(o.get("value"), str)]
+            return (key, values) if len(values) >= 2 else None
+    return None
 
 
 def get_variant_to_base(template_id: str) -> dict[str, str]:

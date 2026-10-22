@@ -253,15 +253,26 @@ _AI_SESSION_LOCK = Lock()
 def _replace_responsive_expr(source: str, key: str, portrait: int, landscape: int) -> tuple[str, int]:
     # Match both plain numbers and numbers with * scale: (p ? 90 : 86) or (p ? 90 * scale : 86 * scale)
     pattern_scaled = re.compile(
-        rf"{key}\s*\?\?\s*\(p\s*\?\s*\d+\s*\*\s*scale\s*:\s*\d+\s*\*\s*scale\)"
+        rf"{key}\s*\?\?\s*\((?P<orientation>p|portrait)\s*\?\s*\d+\s*\*\s*scale\s*:\s*\d+\s*\*\s*scale\)"
     )
     replaced, count = pattern_scaled.subn(
-        f"{key} ?? (p ? {portrait} * scale : {landscape} * scale)", source
+        lambda match: (
+            f"{key} ?? ({match.group('orientation')} ? {portrait} * scale : "
+            f"{landscape} * scale)"
+        ),
+        source,
     )
     if count:
         return replaced, count
-    pattern = re.compile(rf"{key}\s*\?\?\s*\(p\s*\?\s*\d+\s*:\s*\d+\)")
-    replaced, count = pattern.subn(f"{key} ?? (p ? {portrait} : {landscape})", source)
+    pattern = re.compile(
+        rf"{key}\s*\?\?\s*\((?P<orientation>p|portrait)\s*\?\s*\d+\s*:\s*\d+\)"
+    )
+    replaced, count = pattern.subn(
+        lambda match: (
+            f"{key} ?? ({match.group('orientation')} ? {portrait} : {landscape})"
+        ),
+        source,
+    )
     return replaced, count
 
 

@@ -26,6 +26,7 @@ import { MagazineVideoComposition } from "./magazine/MagazineVideoComposition";
 import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFootballVideoComposition";
 import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
 import { OldDocumentaryReelVideoComposition } from "./old-documentary-reel/OldDocumentaryReelVideoComposition";
+import { StarlitVideoComposition } from "./starlit/StarlitVideoComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -426,6 +427,20 @@ const DOCREEL_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+const STARLIT_LAYOUTS = new Set([
+  "cosmic_hero",
+  "text_narration",
+  "split_image",
+  "stat_callout",
+  "ringed_planet",
+  "rocket_launch",
+  "quote_card",
+  "galaxy_deep_dive",
+  "data_visualisation",
+  "ticker_table",
+  "ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -657,6 +672,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#f4f0e2",
       bg: "#171512",
       text: "#b6b0a1",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  starlit: {
+    component: StarlitVideoComposition as React.ComponentType<any>,
+    heroLayout: "cosmic_hero",
+    fallbackLayout: "text_narration",
+    validLayouts: STARLIT_LAYOUTS,
+    defaultColors: {
+      accent: "#217cff",
+      bg: "#000000",
+      text: "#ffffff",
     },
     baseWidth: 1920,
     baseHeight: 1080,

@@ -35,9 +35,11 @@ import StickmanFootballPreviewPortrait from "./templatePreviews/portrait/Stickma
 import MagazinePreview from "./templatePreviews/MagazinePreview";
 import SakuraPreview from "./templatePreviews/SakuraPreview";
 import OldDocumentaryReelPreview from "./templatePreviews/OldDocumentaryReelPreview";
+import StarlitPreview from "./templatePreviews/StarlitPreview";
 import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
 import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
 import OldDocumentaryReelPreviewPortrait from "./templatePreviews/portrait/OldDocumentaryReelPreviewPortrait";
+import StarlitPreviewPortrait from "./templatePreviews/portrait/StarlitPreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
 
 // Raw preview components. Not exported directly — every built-in preview is
@@ -62,6 +64,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
  magazine: MagazinePreview,
   sakura: SakuraPreview,
   "old-documentary-reel": OldDocumentaryReelPreview,
+  starlit: StarlitPreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -83,6 +86,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
    magazine: MagazinePreviewPortrait,
   sakura: SakuraPreviewPortrait,
   "old-documentary-reel": OldDocumentaryReelPreviewPortrait,
+  starlit: StarlitPreviewPortrait,
 };
 
 function wrapPreviews(
@@ -174,6 +178,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   "old-documentary-reel": {
     title: "Old Documentary Reel",
     subtitle: "Archival found-footage aesthetic — grainy film, typewriter reports, and case-file dossiers",
+  },
+  starlit: {
+    title: "Starlit",
+    subtitle: "Cinematic cosmic storytelling with stars, planets, and constellation data",
   },
 };
 

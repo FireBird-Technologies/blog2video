@@ -1,4 +1,5 @@
 import type { ToolDefinition } from "./seoTypes";
+import { CHROME_EXTENSION_URL } from "../constants/chromeExtension";
 
 export const toolsHub = {
   path: "/tools",
@@ -764,6 +765,68 @@ export const tools: ToolDefinition[] = [
       
     ],
     relatedPaths: ["/blog-to-video", "/pricing", "/tools/free-remotion-templates"],
+  },
+  {
+    slug: "chrome-extension",
+    path: "/tools/chrome-extension",
+    title: "Blog2Video Chrome Extension",
+    description:
+      "Turn the article in your active Chrome tab into a narrated video. Extract the page, choose a template and voice, then preview, edit and render in Blog2Video.",
+    eyebrow: "Chrome Extension",
+    heroTitle: "Turn the page you're reading into a video.",
+    heroDescription:
+      "Add Blog2Video to Chrome, connect your account once, and create narrated videos from articles without copying and pasting their text into another tab.",
+    category: "download",
+    icon: "CH",
+    primaryKeyword: "blog2video chrome extension",
+    keywordVariant: "article to video chrome extension",
+    badges: ["Chrome Web Store", "Article Extraction", "Template & Voice Controls"],
+    proofPoints: [
+      "Reads the active tab's URL and extracts the article text directly from the page you're viewing.",
+      "Lets you choose a Blog2Video template, voice, length, aspect ratio and stock-footage settings from the extension.",
+      "Keeps the finished project in Blog2Video so you can preview it, make edits and render the final video.",
+    ],
+    sections: [
+      {
+        title: "How the Chrome extension works",
+        body: [
+          "Open an article, select the Blog2Video extension, and connect your account. The extension extracts the page's article text and prepares it as a new Blog2Video project, with a text box available when a page needs a manual adjustment.",
+          "Choose your template, voice and video settings in the popup, then create the project. Blog2Video handles the script, scenes and narration using the same workflow as the web app.",
+        ],
+        ctaPath: CHROME_EXTENSION_URL,
+        ctaLabel: "Get Blog2Video from the Chrome Web Store",
+      },
+      {
+        title: "Connect without sharing your password",
+        body: [
+          "The extension opens Blog2Video for a short approval step and stores an install-specific connection token in Chrome. Your Blog2Video password is not stored by the extension, and the connection can be revoked from the extension.",
+        ],
+      },
+      {
+        title: "Preview, edit and finish on Blog2Video",
+        body: [
+          "When the project is ready, open it on Blog2Video to preview the scenes, adjust the result and render or download the finished video. You can then return to the extension and start another article whenever you're ready.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "What pages work with the Chrome extension?",
+        answer:
+          "It is designed for article and blog pages that contain readable text. If a site prevents automatic extraction or has an unusual layout, you can paste or adjust the article text in the extension before creating the project.",
+      },
+      {
+        question: "Do I need a Blog2Video account?",
+        answer:
+          "Yes. The extension connects to your Blog2Video account so it can use your available templates, voices and video allowance.",
+      },
+      {
+        question: "Can I edit the video after creating it from Chrome?",
+        answer:
+          "Yes. The extension links to the project in Blog2Video, where you can preview it, make edits and render the final video.",
+      },
+    ],
+    relatedPaths: ["/blog-to-video", "/pricing", "/tools/wordpress-plugin"],
   },
   {
     slug: "stock-visualizer",

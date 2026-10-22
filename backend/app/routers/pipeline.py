@@ -85,6 +85,7 @@ from app.services.template_service import (
     get_layout_prompt,
     get_valid_layouts,
     get_layout_variants,
+    get_random_style_choices,
     resolve_base_layout,
     get_hero_layout,
     get_fallback_layout,
@@ -453,6 +454,29 @@ def _seeded_variant(
         f"{template_id}:{project_id}:{scene_order}:{base_layout}".encode()
     ).digest()
     return variants[int.from_bytes(digest[:8], "big") % len(variants)]
+
+
+def _seeded_style_prop(
+    *,
+    template_id: str,
+    project_id: int,
+    scene_order: int,
+    layout: str,
+) -> tuple[str, str] | None:
+    """Pick the ``(prop, value)`` look for a layout that opts into random styling.
+
+    Same contract as ``_seeded_variant``: pseudo-random per project, but stable,
+    so a re-render reproduces the approved video. The project hash only sets the
+    starting point; stepping by scene order from there means neighbouring scenes
+    of a project land on different styles instead of repeating by chance.
+    """
+    choices = get_random_style_choices(template_id, layout)
+    if not choices:
+        return None
+    key, values = choices
+    digest = hashlib.sha256(f"{template_id}:{project_id}:{layout}".encode()).digest()
+    start = int.from_bytes(digest[:8], "big")
+    return key, values[(start + scene_order) % len(values)]
 
 
 def _sanitize_script_layouts(
@@ -3694,6 +3718,19 @@ async def _generate_scenes(
                     scene_order=scene.order,
                     base_layout=_base_layout,
                 )
+        # Layouts that choose their own look at random (Starlit map style /
+        # constellation). Never overrides a value the descriptor already carries.
+        if not is_custom_template(template_id) and isinstance(descriptor.get("layout"), str):
+            _style = _seeded_style_prop(
+                template_id=template_id,
+                project_id=project.id,
+                scene_order=scene.order,
+                layout=descriptor["layout"],
+            )
+            if _style:
+                _lp = descriptor.setdefault("layoutProps", {})
+                if isinstance(_lp, dict) and not _lp.get(_style[0]):
+                    _lp[_style[0]] = _style[1]
         scene.remotion_code = json.dumps(sanitize_chart_descriptor(descriptor))
         resolved_layout = _descriptor_layout_name(template_id, descriptor)
         if resolved_layout:

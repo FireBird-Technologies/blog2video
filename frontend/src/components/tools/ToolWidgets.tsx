@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { isPaidPlan } from "../../lib/plan";
 import { useLoginModal } from "../../contexts/LoginModalContext";
+import { CHROME_EXTENSION_URL } from "../../constants/chromeExtension";
 import {
   fetchToolQuotas,
   generateBookCover,
@@ -2358,6 +2359,105 @@ function WordPressPluginWidget() {
   );
 }
 
+const CHROME_EXTENSION_STEPS = [
+  {
+    title: "Install",
+    description: "Add Blog2Video from the Chrome Web Store and pin it to your browser toolbar.",
+  },
+  {
+    title: "Connect",
+    description: "Approve the extension from your Blog2Video account through a secure connection page.",
+  },
+  {
+    title: "Choose",
+    description: "Open an article, then select its template, voice, length and video settings.",
+  },
+  {
+    title: "Create",
+    description: "Generate the project, then preview, edit and render it in Blog2Video.",
+  },
+];
+
+function ChromeExtensionWidget() {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 sm:p-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+            Available on the Chrome Web Store
+          </p>
+          <h2 className="mt-1 text-xl font-semibold text-gray-900">
+            Install the Blog2Video Chrome extension
+          </h2>
+        </div>
+        <a
+          href={CHROME_EXTENSION_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl bg-blue-600 px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-blue-700"
+        >
+          Add to Chrome
+        </a>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {CHROME_EXTENSION_STEPS.map((step, index) => (
+          <div key={step.title} className="relative rounded-2xl border border-gray-200 bg-gray-50/60 p-5 pt-8">
+            <div className="absolute -top-4 left-5 flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-md shadow-blue-600/25">
+              {index + 1}
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900">{step.title}</h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-gray-600">{step.description}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 shadow-sm">
+        <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-100 px-4 py-3">
+          <span className="h-3 w-3 rounded-full bg-red-400/70" />
+          <span className="h-3 w-3 rounded-full bg-yellow-400/70" />
+          <span className="h-3 w-3 rounded-full bg-green-400/70" />
+          <span className="ml-3 truncate text-xs text-gray-400">example.com/article</span>
+          <span className="ml-auto rounded-md bg-blue-600 px-2 py-1 text-[10px] font-bold text-white">
+            B2V
+          </span>
+        </div>
+        <div className="grid gap-0 bg-white md:grid-cols-[1fr_340px]">
+          <div className="space-y-3 border-b border-gray-100 p-6 md:border-b-0 md:border-r">
+            <div className="h-3 w-24 rounded-full bg-gray-200" />
+            <p className="max-w-xl text-xl font-bold text-gray-900">
+              Why your best articles deserve a video version
+            </p>
+            <div className="h-2.5 w-full rounded-full bg-gray-100" />
+            <div className="h-2.5 w-11/12 rounded-full bg-gray-100" />
+            <div className="h-2.5 w-4/5 rounded-full bg-gray-100" />
+          </div>
+          <div className="bg-blue-50/50 p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-600">
+              Blog2Video
+            </p>
+            <p className="mt-2 text-base font-semibold text-gray-900">Turn this page into a video</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">
+              Article text found. Choose how your video should look and sound.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs font-medium text-gray-700">
+                Template: Auto
+              </div>
+              <div className="rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs font-medium text-gray-700">
+                Voice: Auto
+              </div>
+            </div>
+            <div className="mt-4 rounded-lg bg-blue-600 px-3 py-2.5 text-center text-xs font-semibold text-white shadow-sm">
+              Create video
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ToolWidget({ slug }: ToolWidgetProps) {
   switch (slug) {
     case "content-repurposing-calculator":
@@ -2392,6 +2492,8 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <PdfToVideoConverter />;
     case "wordpress-plugin":
       return <WordPressPluginWidget />;
+    case "chrome-extension":
+      return <ChromeExtensionWidget />;
     default:
       return null;
   }
