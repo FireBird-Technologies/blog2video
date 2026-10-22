@@ -41,6 +41,7 @@ const BUILTIN_TEMPLATE_IDS = [
   "magazine",
   "sakura",
   "old-documentary-reel",
+  "starlit",
 ];
 
 const ORIENTATIONS = [

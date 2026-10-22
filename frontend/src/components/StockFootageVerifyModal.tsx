@@ -226,6 +226,7 @@ export function StockFootageVerifyModal({
       projectAspectRatio || "landscape",
       cfg.baseWidth,
       cfg.baseHeight,
+      templateId || "default",
     );
   }, [
     current?.image_box_aspect_ratio,

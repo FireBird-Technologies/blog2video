@@ -75,6 +75,10 @@ import {
   OldDocumentaryReelVideo,
   calculateDocReelMetadata,
 } from "./templates/old-documentary-reel/OldDocumentaryReelVideo";
+import {
+  StarlitVideo,
+  calculateStarlitMetadata,
+} from "./templates/starlit/StarlitVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -316,6 +320,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateDocReelMetadata}
+      />
+      <Composition
+        id="StarlitVideo"
+        component={StarlitVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateStarlitMetadata}
       />
     </>
   );

@@ -6,12 +6,17 @@ import Seo from "../components/seo/Seo";
 import { getStructuredInternalLinks, getTool } from "../content/siteContent";
 import NotFoundPage from "./NotFoundPage";
 import { toolPageSchema } from "../seo/schema";
+import ChromeExtensionToolPage from "./ChromeExtensionToolPage";
 
 export default function ToolPage() {
   const { slug } = useParams<{ slug: string }>();
   const tool = slug ? getTool(slug) : undefined;
 
   if (!tool) return <NotFoundPage />;
+
+  if (tool.slug === "chrome-extension") {
+    return <ChromeExtensionToolPage tool={tool} />;
+  }
 
   const relatedLinks = getStructuredInternalLinks(tool.relatedPaths);
 
@@ -117,6 +122,8 @@ export default function ToolPage() {
                     section.ctaPath.startsWith("http") ? (
                       <a
                         href={section.ctaPath}
+                        target="_blank"
+                        rel="noreferrer"
                         className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-purple-700 hover:text-purple-900"
                       >
                         {section.ctaLabel} <span aria-hidden="true">→</span>

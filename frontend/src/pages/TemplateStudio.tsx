@@ -240,6 +240,7 @@ function buildResolvedLayoutPropsForPreview(
   template: TemplateMeta | null,
   layoutId: string,
   isPortrait: boolean,
+  autoShrinkPreview: boolean,
   imageUrlTrimmed: string,
   fetchedImageUrl: string,
   imageFetching: boolean,
@@ -271,6 +272,16 @@ function buildResolvedLayoutPropsForPreview(
     delete next.imageFocusX;
     delete next.imageFocusY;
     delete next.imageZoom;
+  }
+  for (const key of ["titleFontSize", "descriptionFontSize"]) {
+    const flag = `${key}IsUserSet`;
+    if (next[key] === undefined) {
+      delete next[flag];
+    } else if (autoShrinkPreview) {
+      delete next[flag];
+    } else {
+      next[flag] = true;
+    }
   }
   return next;
 }
@@ -1186,6 +1197,9 @@ export default function TemplateStudio() {
   const [bgColor, setBgColor]                 = useState<string>("#ffffff");
   const [textColor, setTextColor]             = useState<string>("#111827");
   const [layoutProps, setLayoutProps]         = useState<Record<string, unknown>>({});
+  // Preview-only: off preserves exact slider values; on mirrors a normal render
+  // whose typography came from template defaults and may shrink to avoid overflow.
+  const [autoShrinkPreview, setAutoShrinkPreview] = useState(false);
   const [savingSource, setSavingSource]       = useState(false);
   const [saveMessage, setSaveMessage]         = useState<string>("");
   const [fetchedImageUrl, setFetchedImageUrl] = useState<string>("");
@@ -1422,6 +1436,7 @@ export default function TemplateStudio() {
       aspectRatio,
       templateCfg.baseWidth,
       templateCfg.baseHeight,
+      selectedTemplateId || "default",
     );
     setImageAdjustAspectRatio(ar);
     setImageAdjustCircular(isImageBoxCircular(selectedLayout));
@@ -1562,16 +1577,21 @@ export default function TemplateStudio() {
       delete next.imageZoom;
     }
     // Auto-fitting layouts pin their shrink floor to the chosen size only when
-    // these flags are set; without them the fitter treats a slider value as a
-    // mere starting point and shrinks it straight back down to fit the space,
-    // so the typography sliders looked inert in this editor. The app's other
-    // entry points already derive them the same way (remotion.py,
-    // mergeLayoutSchemaDefaults.ts, OldDocumentaryReelVideo.tsx).
+    // these flags are set. The preview toggle deliberately controls that marker:
+    // off keeps the slider value exact; on treats it as a default/starting size
+    // and lets the layout shrink it when the content needs more room.
     for (const key of ["titleFontSize", "descriptionFontSize"]) {
-      if (next[key] !== undefined) next[`${key}IsUserSet`] = true;
+      const flag = `${key}IsUserSet`;
+      if (next[key] === undefined) {
+        delete next[flag];
+      } else if (autoShrinkPreview) {
+        delete next[flag];
+      } else {
+        next[flag] = true;
+      }
     }
     return next;
-  }, [schema, layoutProps, isPortrait, layoutSupportsImage, imageUrl, imageFocusX, imageFocusY, imageZoom]);
+  }, [schema, layoutProps, isPortrait, autoShrinkPreview, layoutSupportsImage, imageUrl, imageFocusX, imageFocusY, imageZoom]);
 
   const inputProps = useMemo(() => {
     const effectiveImageUrl =
@@ -1589,6 +1609,7 @@ export default function TemplateStudio() {
           selectedTemplate,
           layoutId,
           isPortrait,
+          autoShrinkPreview,
           trimmed,
           fetchedImageUrl,
           imageFetching,
@@ -1670,6 +1691,7 @@ export default function TemplateStudio() {
     playAllLayouts,
     selectedTemplateId,
     isPortrait,
+    autoShrinkPreview,
     imageUrl,
     imageFocusX,
     imageFocusY,
@@ -2527,6 +2549,66 @@ export default function TemplateStudio() {
                         onChange={(key, val) => setLayoutProps((prev) => ({ ...prev, [key]: val }))}
                       />
                     ))}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={autoShrinkPreview}
+                      onClick={() => setAutoShrinkPreview((enabled) => !enabled)}
+                      title="Preview only — does not change the saved font defaults"
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        margin: "0 0 10px",
+                        padding: "8px 10px",
+                        border: `1px solid ${autoShrinkPreview ? T.accentMid : T.border}`,
+                        borderRadius: "9px",
+                        background: autoShrinkPreview ? T.accentLight : T.surfaceAlt,
+                        color: T.text,
+                        cursor: "pointer",
+                        fontFamily: FONT,
+                        textAlign: "left",
+                      }}
+                    >
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: "11px", fontWeight: 650 }}>
+                          Auto-shrink preview
+                        </span>
+                        <span style={{ display: "block", marginTop: "2px", fontSize: "9px", lineHeight: 1.35, color: T.textMuted }}>
+                          {autoShrinkPreview
+                            ? "Text may shrink below the selected target to fit."
+                            : "Selected font sizes are kept exact."}
+                        </span>
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: "relative",
+                          width: "30px",
+                          height: "17px",
+                          borderRadius: "999px",
+                          flexShrink: 0,
+                          background: autoShrinkPreview ? T.accent : T.borderStrong,
+                          transition: "background 0.15s",
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "2px",
+                            left: autoShrinkPreview ? "15px" : "2px",
+                            width: "13px",
+                            height: "13px",
+                            borderRadius: "50%",
+                            background: "#ffffff",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                            transition: "left 0.15s",
+                          }}
+                        />
+                      </span>
+                    </button>
                     <div style={{ display: "flex", flexDirection: "column", gap: "7px", marginTop: "4px" }}>
                       <button type="button" className="btn-ghost" onClick={() => {
                         const defaults = (schema?.defaults ?? {}) as Record<string, unknown>;
