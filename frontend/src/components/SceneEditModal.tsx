@@ -3295,6 +3295,7 @@ export default function SceneEditModal({
       project.aspect_ratio || "landscape",
       cfg.baseWidth,
       cfg.baseHeight,
+      project.template || "default",
     );
   })();
 
@@ -6398,6 +6399,7 @@ export default function SceneEditModal({
         orientation,
         templateCfg.baseWidth,
         templateCfg.baseHeight,
+        project.template || "default",
       );
       circular = isImageBoxCircular(currentLayoutId);
     }

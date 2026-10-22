@@ -4596,6 +4596,7 @@ export default function ProjectView() {
         project?.aspect_ratio || "landscape",
         templateCfg.baseWidth,
         templateCfg.baseHeight,
+        project?.template || "default",
       );
       circular = isImageBoxCircular(layoutId);
     }
@@ -8800,6 +8801,7 @@ export default function ProjectView() {
                         project.aspect_ratio || "landscape",
                         cfg.baseWidth,
                         cfg.baseHeight,
+                        project?.template || "default",
                       );
                     })()}
                     onClose={() => setStockFootagePickerSceneId(null)}

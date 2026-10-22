@@ -13,8 +13,8 @@ import ContactModal from "../components/ContactModal";
 import VoiceShowcaseSection from "../components/VoiceShowcaseSection";
 import CustomTemplateShowcase from "../components/CustomTemplateShowcase";
 import MCPConnectorShowcase from "../components/MCPConnectorShowcase";
-import AvatarShowcase from "../components/AvatarShowcase";
 import WordPressPluginTeaser from "../components/WordPressPluginTeaser";
+import ChromeExtensionTeaser from "../components/ChromeExtensionTeaser";
 // import FeaturedUserTemplates from "../components/FeaturedUserTemplates";
 import LandingResourceSection from "../components/public/LandingResourceSection";
 import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
@@ -588,23 +588,11 @@ export default function Landing() {
     navigate("/signin");
   };
 
-  // "Try AI presenters" CTA: avatars are configured per-project, there's no
-  // standalone avatar page to deep-link to, so send signed-in users straight
-  // to the dashboard; /dashboard is already usePostLoginRedirect's fallback,
-  // so no pending-flag is needed for the signed-out path either.
-  const handleExploreAvatar = () => {
-    if (user) {
-      navigate("/dashboard");
-      return;
-    }
-    navigate("/signin");
-  };
-
   return (
     <div ref={scrollRef} className="min-h-screen bg-white">
       <Seo
         title="Text to Video AI: Turn Blogs, URLs, PDFs & Scripts Into Videos | Blog2Video"
-        description="Turn text into narrated videos in minutes. Paste a blog URL, script, PDF, or PowerPoint and Blog2Video builds the scenes, voiceover, and captions. Avatars from a photo. Free to start."
+        description="Turn text into narrated videos in minutes. Paste a blog URL, script, PDF, or PowerPoint and Blog2Video builds the scenes, voiceover, and captions. Free to start."
         path="/"
         schema={homepageSchema()}
       />
@@ -764,17 +752,24 @@ export default function Landing() {
         <UserReviewsSection />
       </div>
 
-      {/* ─── WordPress plugin teaser ─── */}
-      <section className="py-16 border-t border-gray-100">
-        <div className="max-w-6xl mx-auto px-6">
-          <WordPressPluginTeaser />
-        </div>
-      </section>
-
-       {/* ─── AI Avatar showcase ─── */}
-      <section className="py-20 border-t border-gray-100">
+      {/* ─── Publishing integrations ─── */}
+      <section className="py-20 border-t border-gray-100/60" style={{ background: "rgba(246,247,249,0.70)" }}>
         <div className="max-w-5xl mx-auto px-6">
-          <AvatarShowcase onExplore={handleExploreAvatar} />
+          <p className="text-xs font-medium text-purple-600 text-center mb-4 tracking-widest uppercase">
+            Blog2Video everywhere
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 text-center mb-4">
+            Create without breaking your flow
+          </h2>
+          <p className="text-sm text-gray-500 text-center max-w-lg mx-auto mb-12 leading-relaxed">
+            Turn content into video from the tools you already use: your WordPress editor or the
+            article open in Chrome.
+          </p>
+
+          <div className="mx-auto grid max-w-4xl items-stretch gap-4 md:grid-cols-2">
+            <WordPressPluginTeaser />
+            <ChromeExtensionTeaser />
+          </div>
         </div>
       </section>
 

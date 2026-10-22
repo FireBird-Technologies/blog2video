@@ -1,0 +1,1099 @@
+{
+  "id": "starlit",
+  "name": "Starlit",
+  "new_template": true,
+  "description": "A pure-black cosmic canvas with drifting stars, glowing planets, and constellation lines. Its complete visual system is derived only from one shared accent, text, and background palette.",
+  "genres": [
+    "Education",
+    "Technology",
+    "Science",
+    "Blog",
+    "Explainer"
+  ],
+  "preview_colors": {
+    "accent": "#217cff",
+    "bg": "#000000",
+    "text": "#ffffff"
+  },
+  "composition_id": "StarlitVideo",
+  "hero_layout": "cosmic_hero",
+  "fallback_layout": "text_narration",
+  "valid_layouts": [
+    "cosmic_hero",
+    "text_narration",
+    "split_image",
+    "stat_callout",
+    "ringed_planet",
+    "rocket_launch",
+    "quote_card",
+    "galaxy_deep_dive",
+    "data_visualisation",
+    "ticker_table",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "cosmic_hero": {
+      "label": "Cosmic Hero",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 137,
+          "landscape": 132
+        },
+        "descriptionFontSize": {
+          "portrait": 67,
+          "landscape": 56
+        },
+        "seed": 42
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "title",
+          "label": "Title",
+          "type": "string",
+          "description": "Main headline displayed in Space Grotesk 700."
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "string",
+          "description": "Supporting line below the title in Inter 400."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for deterministic star/sparkle positions.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "title": "Mapping the Hidden Architecture of the Cosmos",
+        "subtitle": "Follow the light of distant stars, trace the forces shaping galaxies, and discover how every observation brings the vast structure of our universe into sharper focus."
+      }
+    },
+    "text_narration": {
+      "label": "Deep Space Narrative",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "textAlignment": "split",
+        "constellationStyle": "web"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "textAlignment",
+          "label": "Text Alignment",
+          "type": "select",
+          "description": "Choose a split heading/body composition or a stacked text alignment.",
+          "options": [
+            {
+              "label": "Split",
+              "value": "split"
+            },
+            {
+              "label": "Left",
+              "value": "left"
+            },
+            {
+              "label": "Center",
+              "value": "center"
+            },
+            {
+              "label": "Right",
+              "value": "right"
+            }
+          ]
+        },
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "string",
+          "description": "Concise editorial heading positioned according to the selected text alignment."
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "text",
+          "description": "Substantial 45–80 word editorial paragraph in Inter 400. Preserve source-supported names, figures, causes, and consequences instead of reducing the narration to a tagline."
+        },
+        {
+          "key": "constellationStyle",
+          "label": "Constellation",
+          "type": "select",
+          "options": [
+            {
+              "label": "Web",
+              "value": "web"
+            },
+            {
+              "label": "Figures",
+              "value": "figures"
+            },
+            {
+              "label": "Radial",
+              "value": "radial"
+            },
+            {
+              "label": "River",
+              "value": "river"
+            },
+            {
+              "label": "Mesh",
+              "value": "mesh"
+            }
+          ],
+          "description": "Star pattern drawn behind the text card: Web, Figures, Radial, River or Mesh."
+        },
+        {
+          "key": "imageUrl",
+          "label": "Image URL",
+          "type": "string",
+          "description": "Optional round photo set on the divider of the glass card, like a porthole. Use Adjust Image for crop, focus and zoom."
+        }
+      ],
+      "sample_props": {
+        "heading": "The Universe Awaits",
+        "body": "Every star tells a story, but the larger pattern only appears when the evidence is connected. Follow the brightest signals, compare what they reveal, and let the wider constellation bring the argument into focus."
+      }
+    },
+    "split_image": {
+      "label": "Blended Image",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "seed": 42
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "imageUrl",
+          "label": "Image URL",
+          "type": "string",
+          "description": "Optional full-canvas photograph. Use Adjust Image for crop, focus and zoom."
+        },
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "string",
+          "description": "Space Grotesk 600 heading."
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "text",
+          "description": "Inter 400 body copy."
+        },
+        {
+          "key": "ctaLabel",
+          "label": "Ctalabel",
+          "type": "string",
+          "description": "Optional pill button label; omit to hide."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Sky seed.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "heading": "A Window Into the Unknown",
+        "body": "Powerful observatories collect ancient light that has travelled across space for billions of years. Each image reveals new stars, distant worlds, and clues about how the universe formed, changed, and continues to expand."
+      }
+    },
+    "stat_callout": {
+      "label": "Stat Callout",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 140,
+          "landscape": 117
+        },
+        "descriptionFontSize": {
+          "portrait": 80,
+          "landscape": 78
+        },
+        "seed": 42
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "statValue",
+          "label": "Statvalue",
+          "type": "string",
+          "description": "REQUIRED and must be a real number stated in the source (e.g. \"98\", \"4.2\", \"2.5M\"). Never a word, never a placeholder, never the title. If the narration has no number, do not use this layout."
+        },
+        {
+          "key": "statSuffix",
+          "label": "Statsuffix",
+          "type": "string",
+          "description": "Unit that follows the number in the source (e.g. \"%\", \"K\", \"M\", \"B+\"). Omit if none."
+        },
+        {
+          "key": "descriptor",
+          "label": "Descriptor",
+          "type": "string",
+          "description": "One short line saying what the number measures, from the source. Required."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Sky seed.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "statValue": "100",
+        "statSuffix": "B+",
+        "descriptor": "estimated stars illuminate our home galaxy, with many likely hosting planets of their own across a disc roughly 100,000 light-years wide."
+      }
+    },
+    "ringed_planet": {
+      "label": "Ringed Planet",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "seed": 42
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "string",
+          "description": "Chapter or section title."
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "string",
+          "description": "Short supporting sentence."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Sky seed.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        },
+        {
+          "key": "imageUrl",
+          "label": "Image URL",
+          "type": "string",
+          "description": "Optional full-bleed photo filling the right edge, visible through the translucent planet with the rings passing in front. Use Adjust Image for crop, focus and zoom."
+        }
+      ],
+      "sample_props": {
+        "heading": "The Ringed Giant",
+        "body": "Saturn's rings span about 282,000 kilometres, yet are only metres thick in places. Formed from countless pieces of ice, rock, and dust, these luminous bands surround the planet and give Saturn its unmistakable appearance."
+      }
+    },
+    "rocket_launch": {
+      "label": "Rocket Launch",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "seed": 42
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "string",
+          "description": "Transition heading."
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "string",
+          "description": "Short supporting line."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Sky seed.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "heading": "Launching Into the Next Chapter",
+        "body": "Buckle up — the journey continues. Explore beyond just space and delve into galaxy of stars."
+      }
+    },
+    "quote_card": {
+      "label": "Quote Card",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "seed": 42
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text",
+          "description": "The pull-quote text."
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string",
+          "description": "Speaker or source name."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Sky seed.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        },
+        {
+          "key": "imageUrl",
+          "label": "Image URL",
+          "type": "string",
+          "description": "Optional photo filling one half of the quote card (left in landscape, top in portrait) with a diagonal edge. Use Adjust Image for crop, focus and zoom."
+        }
+      ],
+      "sample_props": {
+        "quote": "We look into the night sky to understand our place within it. Every point of light carries evidence, history, and possibility.",
+        "attribution": "Starlit Observatory Notes"
+      }
+    },
+    "galaxy_deep_dive": {
+      "label": "Galaxy Deep Dive",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 52,
+          "landscape": 40
+        },
+        "mapStyle": "figure"
+      },
+      "scene_defaults": {
+        "title": "Consistent, useful writing compounds",
+        "narration": "The whole idea sits at the centre. We zoom in on the main theme, then follow one branch to see what it means.",
+        "durationSeconds": 12
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "mapStyle",
+          "label": "Map style",
+          "type": "select",
+          "options": [
+            {
+              "label": "Orbit",
+              "value": "orbit"
+            },
+            {
+              "label": "Spiral",
+              "value": "spiral"
+            },
+            {
+              "label": "Figure",
+              "value": "figure"
+            },
+            {
+              "label": "Cluster",
+              "value": "cluster"
+            }
+          ],
+          "description": "Shape of the map: Orbit (ring with spokes), Spiral, Figure (constellation) or Cluster."
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "heading",
+          "label": "Focused Topic",
+          "type": "string",
+          "description": "The centre theme, 1-4 words, from the source. Required."
+        },
+        {
+          "key": "items",
+          "label": "Fallback Branches",
+          "type": "string_array",
+          "description": "Fallback list of branch labels from the source, only when `nodes` is absent.",
+          "maxItems": 8
+        },
+        {
+          "key": "subPoints",
+          "label": "Connection Labels",
+          "type": "string_array",
+          "description": "Legacy fallback for the three connection labels when Nodes are not supplied.",
+          "maxItems": 3
+        },
+        {
+          "key": "nodes",
+          "label": "Branches (the first with children is zoomed into)",
+          "type": "object_array",
+          "description": "3 to 8 branch labels from the source (2-4 words each). Give exactly ONE branch `children`: 2 or 3 objects, each {label (2-4 words), text (one short sentence, about 12 words, 80 characters at most)}. The video zooms to that branch and shows its children as branching stars, then stays there. Never invent branches or children; leave `children` out rather than make them up.",
+          "maxItems": 8,
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Branch label"
+            },
+            {
+              "key": "children",
+              "label": "Children (only for the zoomed branch): label + text"
+            }
+          ]
+        }
+      ],
+      "sample_props": {
+        "heading": "Gravity",
+        "nodes": [
+          {
+            "label": "Beyond individual contribution",
+            "children": [
+              {
+                "label": "Beyond individual contribution",
+                "text": "Being a great engineer is no longer defined by individual contribution alone in today's AI era."
+              },
+              {
+                "label": "Impact on others",
+                "text": "Great engineers make people around them better and move the whole organization forward."
+              },
+              {
+                "label": "Biggest impact",
+                "text": "Engineers with the biggest impact have the multiplier mindset."
+              }
+            ]
+          },
+          {
+            "label": "Consistency"
+          },
+          {
+            "label": "Writing as Learning"
+          },
+          {
+            "label": "Compounding Opportunities"
+          },
+          {
+            "label": "Proactive Engineer"
+          }
+        ]
+      }
+    },
+    "data_visualisation": {
+      "label": "Data Constellation",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 74,
+          "landscape": 54
+        },
+        "chartType": "line",
+        "seed": 142
+      },
+      "scene_defaults": {
+        "title": "Signals across the cosmos",
+        "narration": "The observed data reveals a clear pattern across the measured period.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Axis Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — first column labels; next columns numeric series",
+          "type": "chart_table"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Left-side Chart Summary",
+          "type": "text"
+        },
+        {
+          "key": "xAxisLabel",
+          "label": "X-axis Label",
+          "type": "string"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis Label",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis Tick Labels",
+          "type": "string_array",
+          "maxItems": 4
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "chartSummary": "The signal resolves into a measurable pattern across the observed period.",
+        "xAxisLabel": "Observation period",
+        "yAxisLabel": "Signal strength",
+        "chartTable": {
+          "headers": [
+            "Orbit",
+            "Signal",
+            "Baseline"
+          ],
+          "rows": [
+            [
+              "Q1",
+              "42",
+              "35"
+            ],
+            [
+              "Q2",
+              "57",
+              "41"
+            ],
+            [
+              "Q3",
+              "68",
+              "49"
+            ],
+            [
+              "Q4",
+              "81",
+              "58"
+            ]
+          ]
+        },
+        "chartYAxisTicks": []
+      }
+    },
+    "ticker_table": {
+      "label": "Planetary Data Table",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 104,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 58,
+          "landscape": 48
+        },
+        "tickerHighlightCol": 5,
+        "seed": 244
+      },
+      "scene_defaults": {
+        "title": "Telemetry at a glance",
+        "narration": "The key readings are shown together for direct comparison.",
+        "durationSeconds": 7
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Table Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "key": "tickerTable",
+          "label": "Table data — up to 20 rows and 6 columns",
+          "type": "ticker_table"
+        },
+        {
+          "key": "tickerHighlightCol",
+          "label": "Highlight Column Index",
+          "type": "number",
+          "min": -1,
+          "max": 5,
+          "step": 1
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "tickerTable": {
+          "headers": [
+            "Object",
+            "Type",
+            "Distance",
+            "Mass",
+            "Period",
+            "Change"
+          ],
+          "rows": [
+            [
+              "Kepler-22b",
+              "Super-Earth",
+              "620 ly",
+              "5.4 M⊕",
+              "289 d",
+              "+4.2%"
+            ],
+            [
+              "TRAPPIST-1e",
+              "Rocky",
+              "40 ly",
+              "0.69 M⊕",
+              "6.1 d",
+              "+1.8%"
+            ],
+            [
+              "Proxima b",
+              "Rocky",
+              "4.2 ly",
+              "1.07 M⊕",
+              "11.2 d",
+              "-0.7%"
+            ],
+            [
+              "TOI-700 d",
+              "Earth-size",
+              "101 ly",
+              "1.57 M⊕",
+              "37.4 d",
+              "+2.6%"
+            ],
+            [
+              "LHS 1140 b",
+              "Super-Earth",
+              "48 ly",
+              "6.6 M⊕",
+              "24.7 d",
+              "+0.9%"
+            ],
+            [
+              "GJ 667 Cc",
+              "Super-Earth",
+              "23 ly",
+              "3.8 M⊕",
+              "28.1 d",
+              "-1.3%"
+            ]
+          ]
+        }
+      }
+    },
+    "ending_socials": {
+      "label": "Ending & Socials",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 106,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 67,
+          "landscape": 40
+        },
+        "hideImage": true,
+        "seed": 42
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Font Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "brandName",
+          "label": "Brandname",
+          "type": "string",
+          "description": "Logo text or brand name."
+        },
+        {
+          "key": "tagline",
+          "label": "Tagline",
+          "type": "string",
+          "description": "CTA or closing line below pills."
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "placeholder": "Explore more"
+        },
+        {
+          "key": "ctas",
+          "label": "Call-to-Action Buttons",
+          "type": "object_array",
+          "maxItems": 3,
+          "subFields": [
+            {
+              "key": "ctaButtonText",
+              "label": "CTA Button Text"
+            },
+            {
+              "key": "websiteLink",
+              "label": "Website Link"
+            },
+            {
+              "key": "showWebsiteButton",
+              "label": "Show (true/false)"
+            }
+          ]
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Sky seed.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "brandName": "NotestackAI",
+        "tagline": "Follow us for more cosmic content",
+        "socials": [
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "true",
+            "label": "LinkedIn"
+          },
+          {
+            "platform": "tiktok",
+            "enabled": "true",
+            "label": "TikTok"
+          },
+          {
+            "platform": "medium",
+            "enabled": "false",
+            "label": "Medium"
+          },
+          {
+            "platform": "substack",
+            "enabled": "false",
+            "label": "Substack"
+          },
+          {
+            "platform": "facebook",
+            "enabled": "false",
+            "label": "Facebook"
+          }
+        ],
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Explore more"
+      }
+    }
+  },
+  "layouts_without_image": [
+    "stat_callout",
+    "rocket_launch",
+    "galaxy_deep_dive",
+    "data_visualisation",
+    "ticker_table",
+    "ending_socials",
+    "cosmic_hero"
+  ],
+  "random_style_props": {
+    "galaxy_deep_dive": "mapStyle",
+    "text_narration": "constellationStyle"
+  }
+}

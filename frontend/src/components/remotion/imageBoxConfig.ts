@@ -85,6 +85,12 @@ export interface ImageBoxDims {
  * Layouts with no image support are not listed — they fall back to full-canvas (w:1, h:1).
  */
 export const LAYOUT_IMAGE_BOX_DIMS: Record<string, ImageBoxDims> = {
+  // Starlit uses full-canvas photos; the editorial wash does not crop the image.
+  split_image: {
+    landscape: {w: 1, h: 1},
+    portrait: {w: 1, h: 1},
+  },
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // DEFAULT template  (canvas 1920 × 1080)
@@ -935,11 +941,25 @@ export function getImageBoxAspectRatio(
   aspectRatioStr: string,
   baseWidth: number,
   baseHeight: number,
+  templateId?: string,
 ): string {
   const isPortrait = aspectRatioStr === "portrait";
   const canvasW = isPortrait ? baseHeight : baseWidth;
   const canvasH = isPortrait ? baseWidth  : baseHeight;
 
+  // Some layout IDs are shared by several templates. Starlit's full-canvas
+  // photography must not inherit another template's half-panel crop.
+  if (templateId === "starlit" && layoutId && ["split_image"].includes(normalizeLayoutId(layoutId))) return `${canvasW} / ${canvasH}`;
+  if (templateId === "starlit" && layoutId) {
+    // Starlit photo treatments: Ringed Planet uses a responsive full-bleed
+    // region; Deep Space Narrative keeps a round crop.
+    const starlitId = normalizeLayoutId(layoutId);
+    if (starlitId === "ringed_planet") return isPortrait
+      ? `${canvasW} / ${Math.round(canvasH * .52)}`
+      : `${Math.round(canvasW * .53)} / ${canvasH}`;
+    if (starlitId === "text_narration") return "1 / 1";
+    if (starlitId === "quote_card") return isPortrait ? "9 / 4" : "5 / 7";
+  }
   const dims = layoutId ? LAYOUT_IMAGE_BOX_DIMS[normalizeLayoutId(layoutId)] : undefined;
   const { w, h } = dims
     ? (isPortrait ? dims.portrait : dims.landscape)

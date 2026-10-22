@@ -59,6 +59,8 @@ remotion-video/src/templates/wealth_your_way/
 .vscode/
 .idea/
 /.cursor/
+.codex/
+.agents/
 *.swp
 *.swo
 
