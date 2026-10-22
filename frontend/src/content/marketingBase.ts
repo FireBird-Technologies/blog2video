@@ -489,6 +489,44 @@ export const templateProfiles: TemplateProfile[] = [
     exampleTopics: ["The cold case that took thirty years to reopen", "What really happened on Main Street in 1986", "Inside the archive: photos that changed the investigation"],
   },
   {
+    slug: "starlit",
+    name: "Starlit",
+    description:
+      "A pure-black cosmic template with drifting stars, glowing planets, and constellation lines for science, tech, and big-idea storytelling.",
+    bestFor: "Science and space content, tech explainers, educational deep dives, and big-picture thought pieces.",
+    differentiator:
+      "Sets your story against a deep-space canvas — drifting stars, ringed planets, rocket launches, and constellation-style data — so even a dry explainer feels cinematic and vast.",
+    styleFit: "Best for science, technology, and educational content that benefits from a sense of scale and wonder.",
+    previewSceneKey: "preview-starlit",
+    layouts: [
+      "cosmic_hero",
+      "text_narration",
+      "split_image",
+      "stat_callout",
+      "ringed_planet",
+      "rocket_launch",
+      "quote_card",
+      "galaxy_deep_dive",
+      "data_visualisation",
+      "ticker_table",
+      "ending_socials",
+    ],
+    longDescription:
+      "Starlit renders your writing on a pure-black cosmic canvas, with drifting stars, glowing planets, and constellation lines behind every scene. Layouts like Cosmic Hero, Stat Callout, Ringed Planet, Rocket Launch, Quote Card, and Galaxy Deep Dive are built for science, technology, and educational content where scale and wonder help the message land. Data visualizations and ticker tables carry the numbers, while a single shared accent color drives the whole look, so the finished video feels like one deliberate design rather than a generic AI theme.",
+    idealFor: [
+      "Science and space explainers",
+      "Technology and AI deep dives",
+      "Educational and course content",
+      "Big-idea thought leadership and vision pieces",
+      "Product launches with a futuristic angle",
+    ],
+    exampleTopics: [
+      "How a rocket gets from the launch pad to orbit",
+      "What the James Webb telescope has taught us so far",
+      "The next decade of AI, told at cosmic scale",
+    ],
+  },
+  {
     slug: "custom",
     name: "Custom Templates",
     description:
