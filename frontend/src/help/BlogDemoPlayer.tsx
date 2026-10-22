@@ -7,6 +7,7 @@ import {
   planMagazineBoundaries,
   resolveMagazineLayout,
 } from "../components/remotion/magazine/MagazineVideoComposition";
+import { STARLIT_PREVIEW_SCENES } from "../components/templatePreviews/starlitPreviewScenes";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -2366,6 +2367,10 @@ const SCENE_SETS: Record<string, SceneSet> = {
       },
     ],
   },
+  "preview-starlit": {
+    template: "starlit",
+    scenes: STARLIT_PREVIEW_SCENES as DemoScene[],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
@@ -2387,6 +2392,7 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   stickman_football: { accent: "#869358", bg: "#FFFFFF", text: "#111111" },
   stickman_2: { accent: "#FFFFFF", bg: "#000000", text: "#FFFFFF" },
   "old-documentary-reel": { accent: "#f4f0e2", bg: "#171512", text: "#b6b0a1" },
+  starlit: { accent: "#217cff", bg: "#000000", text: "#ffffff" },
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -2408,6 +2414,7 @@ const TEMPLATE_LABELS: Record<string, string> = {
   stickman_football: "Stickman Football",
   stickman_2: "Stickman 2",
   "old-documentary-reel": "Old Documentary Reel",
+  starlit: "Starlit",
 };
 
 interface BlogDemoPlayerProps {
