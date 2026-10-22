@@ -602,7 +602,8 @@ export const GridBuildTransition: React.FC<{
     : {x: tableLeft, y: tableBottom - (d - 2 * tableWidth - tableHeight)};
   // Constellation: loose stars joined by thin lines drift in from the sky and converge onto the table's
   // outline, so the connecting lines become its border; stars also light up at every line crossing.
-  const ringStars = React.useMemo(() => {
+  // Plain computation, not useMemo: it sits after this component's early `return null`, and hooks cannot follow one.
+  const ringStars = (() => {
     const N = 22;
     const cxm = width / 2, cym = height / 2;
     const rim = (u: number) => {
@@ -622,7 +623,7 @@ export const GridBuildTransition: React.FC<{
     const bySrc = [...sources].sort((a, b) => ang(a) - ang(b));
     const byTg = [...tg].sort((a, b) => ang(a) - ang(b));
     return bySrc.map((src, i) => ({...src, tx: byTg[i].x, ty: byTg[i].y}));
-  }, [width, height, tableLeft, tableTop, tableWidth, tableHeight, tableRight, tableBottom]);
+  })();
   const conv = interpolate(frame, [22, 58], [0, 1], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const starsIn = interpolate(frame, [2, 14], [0, 1], clamp);
   const ringLineDraw = interpolate(frame, [6, 26], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)});
