@@ -1,7 +1,7 @@
 {
   "id": "stickman_football",
   "name": "Stickman Football Match",
-  "new_template": true,
+  "new_template": false,
   "description": "Ink-black stickman players animate across a chalk-drawn pitch with grass-green accents, snappy slide-ins, bouncy ball motion, and quick action wipes — playful and lively for any football story.",
   "genres": [
     "Sports",
