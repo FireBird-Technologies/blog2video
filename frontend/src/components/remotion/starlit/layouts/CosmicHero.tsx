@@ -27,7 +27,9 @@ export const CosmicHero: React.FC<SceneLayoutProps> = (props) => {
   const accent = props.accentColor || "#217cff";
   const textColor = props.textColor || "#ffffff";
   const background = props.bgColor || "#000000";
-  const subtitle = props.subtitle ?? props.narration;
+  // Without an explicit subtitle fall back to only the narration's first
+  // sentence, capped, so the hero stays short instead of printing a paragraph.
+  const subtitle = props.subtitle ?? (props.narration ? props.narration.split(/(?<=[.!?])\s/)[0].slice(0, 90) : props.narration);
 
   const backdropIn = interpolate(frame, [0, 1], [1, 1], {
     extrapolateLeft: "clamp",

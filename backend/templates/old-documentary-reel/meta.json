@@ -1,7 +1,7 @@
 {
   "id": "old-documentary-reel",
   "name": "Old Documentary Reel",
-  "new_template": true,
+  "new_template": false,
   "description": "A raw, old-camera found-footage documentary template — clapperboard slates, archive photography, grain and tracking-roll damage, chipped-edge title cards. Not clean or modern; built for history, true-crime, and archival storytelling.",
   "genres": [
     "documentary",

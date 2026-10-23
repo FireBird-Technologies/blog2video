@@ -19,8 +19,9 @@ Use this list when picking the `preferred_layout` for each scene.
 
 ## cosmic_hero — Opening
 
-Opening scene only. **Required:** `title`. **Optional:** `subtitle` (defaults to the
-narration when omitted). No photograph.
+Opening scene only. **Required:** `title` — short and punchy, 3–8 words (never a full
+sentence). **Required:** `subtitle` — ONE short line of at most 12 words that sharpens
+the title. Always write it; never leave it out. Keep the hero sparse: no lists, no extra detail. No photograph.
 
 ## text_narration — Deep Space Narrative
 
@@ -66,15 +67,35 @@ quotation, do not choose this layout.
 
 ## galaxy_deep_dive — Mind Constellation
 
-Use this to turn ANY concept into a map: one central idea that can be broken into its parts, aspects, causes, steps, types or examples. It is the default choice for an explanatory scene about a topic, process, system or idea with more than one facet, and it should appear in most videos. The scene shows the whole map in one of four Notestack shapes (`mapStyle`: `orbit`, `spiral`, `figure`, `cluster`; the pipeline picks one per scene automatically, never set it yourself), zooms into the centre theme, then flies to ONE branch, where 2 or 3 child stars branch out of it, each with a short title and a short line of text. The camera stays there until the scene ends.
+Choose this whenever the scene has real content that can be split into a central idea and its parts: the narration or source text discusses one topic and says something about 3 or more distinct aspects, causes, steps, types or examples of it. Use it for explanatory scenes like that; do not restrict it to a few per video. Do NOT choose it for a scene with no such content (a bare intro, a transition, a single sentence or a single fact): use `text_narration` there. Never choose it and then pass empty or placeholder props.
 
-**Required:**
-- `heading`: the central theme, 1-4 words, from the source.
-- `nodes`: 3 to 8 objects, one per part or aspect of the central idea. Take them from what the scene's narration and the article say, or directly imply: if the source treats the idea as one block, split it into its natural components (for example what it is, why it matters, how it works, an example). Each has `label` (2-4 words). Do not add a branch that states a fact the source does not support. Only if the scene is a direct quotation, a single statistic or a data table, so there is nothing to break apart, choose another layout.
+The scene shows the whole map in one of four Notestack shapes (`mapStyle`: `orbit`, `spiral`, `figure`, `cluster`; the pipeline picks one per scene automatically, never set it yourself), zooms into the centre theme, then flies to ONE branch, where 2 or 3 child stars branch out of it, each with a short title and a short line of text.
 
-**One branch gets children:** put `children` on exactly one node: 2 or 3 objects `{label, text}`. `label` is 2-4 words; `text` is one short sentence of about 12 words (80 characters at most) that paraphrases the source. Pick the branch the narration discusses most. Never invent children; fewer than 2 real children means leave `children` out. Every other node has only a `label`. Do not use `value` or `sublabel`.
+**Every prop is built 100% from this scene's own content. Nothing is invented, generic or empty.**
+- `heading`: the central theme, 1-4 words, taken from the content.
+- `nodes`: 3 to 8 objects. Split the scene's content into its relevant parts, one node per part, in the order the content presents them. Each `label` (2-4 words) is a word or short phrase from the content naming that part. No empty labels, no filler like "Overview", "Key points" or "More".
+- `children`: on exactly one node, the branch the content discusses most, give 2 or 3 objects `{label, text}`. `label` is 2-4 words from the content; `text` is one short sentence (about 12 words, 80 characters at most) that paraphrases what the content says about that part. Every child must be filled with real content; if the content gives fewer than 2 real children for any branch, leave `children` out entirely rather than padding. Every other node has only a `label`. Do not use `value` or `sublabel`.
+
+If you cannot fill `heading` and at least 3 `nodes` entirely from the content, choose `text_narration` instead.
 
 No photograph, no numbering, no cards. `items` (labels only) is accepted only when `nodes` is absent.
+
+**Worked example** (shows the SHAPE only — the words below belong to this sample scene; never copy or reuse them, fill every field from your own scene's content):
+```json
+{ "layout": "galaxy_deep_dive", "title": "How a Rocket Reaches Orbit",
+  "narration": "A rocket reaches orbit in three stages. First, the booster burns for about two and a half minutes to climb out of the thick lower atmosphere. Then the second stage ignites and pushes the payload up to orbital speed. Finally, the fairing opens and the payload is released into its orbit.",
+  "layout_props_json": { "heading": "Reaching Orbit",
+    "nodes": [
+      { "label": "Booster burn",
+        "children": [
+          { "label": "Climb phase", "text": "The booster burns for about two and a half minutes." },
+          { "label": "Thick air", "text": "It lifts the rocket out of the dense lower atmosphere." }
+        ] },
+      { "label": "Second stage" },
+      { "label": "Payload release" }
+    ] } }
+```
+Every label and sentence above comes straight from that narration; nothing is generic, padded or empty. If the narration did not support 3 nodes, the correct choice would have been `text_narration`.
 
 ## data_visualisation — Data Constellation
 
