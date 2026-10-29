@@ -25,7 +25,7 @@ from app.services import r2_storage
 TEMPLATE_IDS = [
     'default', 'nightfall', 'gridcraft', 'spotlight', 'whiteboard',
     'newspaper', 'matrix', 'newscast', 'mosaic', 'blackswan', 'bloomberg', 'chronicle',
-    'stickman_2', 'magazine', 'sakura', 'old-documentary-reel',
+    'stickman_2', 'magazine', 'sakura', 'old-documentary-reel', 'starlit',
 ]
 
 PNG_DIR = Path('/tmp/b2v-template-previews')
