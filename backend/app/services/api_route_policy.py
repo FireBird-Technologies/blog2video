@@ -188,7 +188,6 @@ API_KEY_NEVER: frozenset[tuple[str, str]] = frozenset({
     ("POST", "/api/billing/change-plan"),
     ("POST", "/api/billing/change-plan-preview"),
     ("POST", "/api/billing/checkout"),
-    ("POST", "/api/billing/checkout-bulk-credits"),
     ("POST", "/api/billing/checkout-custom-template"),
     ("POST", "/api/billing/checkout-per-video"),
     ("GET", "/api/billing/data-summary"),

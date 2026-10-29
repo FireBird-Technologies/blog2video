@@ -166,8 +166,8 @@ SEED_PLANS = [
     {
         "slug": "per_video",
         "name": "Per Video",
-        "description": "Pay $3 per video — includes Studio & AI chat editor",
-        "price_cents": 300,
+        "description": "From $2 per video — includes Studio & AI chat editor",
+        "price_cents": 200,
         "billing_interval": BillingInterval.ONE_TIME,
         "video_limit": -1,  # 1 video per purchase
         "includes_studio": True,
@@ -193,7 +193,7 @@ SEED_PLANS = [
         "slug": "lite_monthly",
         "name": "Lite Monthly",
         "description": "10 videos/month with all features",
-        "price_cents": 1999,
+        "price_cents": 999,
         "billing_interval": BillingInterval.MONTHLY,
         "video_limit": 10,
         "includes_studio": True,
@@ -206,7 +206,7 @@ SEED_PLANS = [
         "slug": "lite_annual",
         "name": "Lite Annual",
         "description": "10 videos/month — save with annual billing",
-        "price_cents": 1599,  # $15.99/mo effective ($191.88/yr)
+        "price_cents": 799,  # $7.99/mo effective ($95.88/yr)
         "billing_interval": BillingInterval.ANNUAL,
         "video_limit": 10,
         "includes_studio": True,
@@ -219,7 +219,7 @@ SEED_PLANS = [
         "slug": "standard_monthly",
         "name": "Standard Monthly",
         "description": "30 videos/month with all features",
-        "price_cents": 3500,
+        "price_cents": 1799,
         "billing_interval": BillingInterval.MONTHLY,
         "video_limit": 30,
         "includes_studio": True,
@@ -232,7 +232,7 @@ SEED_PLANS = [
         "slug": "standard_annual",
         "name": "Standard Annual",
         "description": "30 videos/month — save 20% with annual billing",
-        "price_cents": 2800,  # $28/mo effective ($336/yr)
+        "price_cents": 1399,  # $13.99/mo effective ($167.88/yr)
         "billing_interval": BillingInterval.ANNUAL,
         "video_limit": 30,
         "includes_studio": True,
@@ -245,7 +245,7 @@ SEED_PLANS = [
         "slug": "pro_monthly",
         "name": "Pro Monthly",
         "description": "100 videos/month with all features",
-        "price_cents": 6000,
+        "price_cents": 2999,
         "billing_interval": BillingInterval.MONTHLY,
         "video_limit": 100,
         "includes_studio": True,
@@ -258,7 +258,7 @@ SEED_PLANS = [
         "slug": "pro_annual",
         "name": "Pro Annual",
         "description": "100 videos/month — save 20% with annual billing",
-        "price_cents": 4800,  # $48/mo effective ($576/yr)
+        "price_cents": 2399,  # $23.99/mo effective ($287.88/yr)
         "billing_interval": BillingInterval.ANNUAL,
         "video_limit": 100,
         "includes_studio": True,

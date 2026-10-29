@@ -1,5 +1,4 @@
 import { useState } from "react";
-import LimitedSeatsBar from "./LimitedSeatsBar";
 import {
   perUnitCents,
   totalCents,
@@ -26,16 +25,7 @@ interface Props {
   features?: string[];
   excludedFeatures?: string[];
   customButton?: React.ReactNode;
-  /** When true, replaces the slider with a fixed "500 videos / $300" deal. */
-  bulkDeal?: boolean;
-  /** Buy handler for the bulk deal (only used when bulkDeal is true). */
-  onBuyBulk?: () => void | Promise<void>;
-  bulkLoading?: boolean;
 }
-
-// The $299.99 / 500-video credit pack (LIFETIME_DEAL_500). Credits never expire.
-const BULK_DEAL_VIDEOS = 500;
-const BULK_DEAL_PRICE = 299.99;
 
 const DEFAULT_FEATURES = [
   "No subscription needed",
@@ -85,9 +75,6 @@ export default function PerVideoSliderCard({
   features = DEFAULT_FEATURES,
   excludedFeatures = DEFAULT_EXCLUDED_FEATURES,
   customButton,
-  bulkDeal = false,
-  onBuyBulk,
-  bulkLoading = false,
 }: Props) {
   const [qty, setQty] = useState(1);
   const unit = perUnitCents(qty);
@@ -173,33 +160,11 @@ export default function PerVideoSliderCard({
 
   return (
     <div className="glass-card p-5 flex flex-col">
-      {bulkDeal && <LimitedSeatsBar seed="bulk-lifetime" />}
       <div className="mb-4">
         <h3 className={titleClass}>Per Video</h3>
-        <p className={subtitleClass}>{bulkDeal ? "Bulk credit pack" : "Pay as you go"}</p>
+        <p className={subtitleClass}>Pay as you go</p>
       </div>
 
-      {bulkDeal ? (
-        /* Fixed 500-video deal — shown on the Lifetime tab in place of the slider. */
-        <div className="mb-3 space-y-1">
-          <div className="flex items-baseline flex-wrap gap-x-1">
-            <span className={isCompact ? "text-2xl font-bold text-gray-900" : "text-3xl font-bold text-gray-900"}>
-              ${BULK_DEAL_PRICE}
-            </span>
-            <span className="text-xs text-gray-400">one-time</span>
-          </div>
-          <div className="text-sm font-semibold text-gray-900">
-            {BULK_DEAL_VIDEOS} videos
-          </div>
-          <div className="text-xs font-medium text-emerald-600">
-            Just ${(BULK_DEAL_PRICE / BULK_DEAL_VIDEOS).toFixed(2)}/video
-          </div>
-          <div className="text-[11px] text-gray-400 pt-0.5">
-            Pay once — credits never expire, use them whenever.
-          </div>
-        </div>
-      ) : (
-      <>
       {/* Live price */}
       <div className="mb-3 space-y-1">
         <div className="flex items-baseline flex-wrap gap-x-1">
@@ -298,8 +263,6 @@ export default function PerVideoSliderCard({
           ))}
         </div>
       </div>
-      </>
-      )}
 
       <ul className={`space-y-2 ${isCompact ? "mb-3" : "mb-5"} flex-1 ${featureClass}`}>
         {features.map((f) => (
@@ -317,29 +280,18 @@ export default function PerVideoSliderCard({
       </ul>
 
       {customButton ?? (
-        bulkDeal ? (
-          <button
-            type="button"
-            onClick={() => onBuyBulk?.()}
-            disabled={disabled || bulkLoading}
-            className={btnClass}
-          >
-            {bulkLoading ? "Redirecting…" : `Get ${BULK_DEAL_VIDEOS} videos`}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onBuy(qty)}
-            disabled={disabled || loading}
-            className={btnClass}
-          >
-            {loading
-              ? "Redirecting…"
-              : qty === 1
-              ? "Buy a video"
-              : `Buy ${qty} videos`}
-          </button>
-        )
+        <button
+          type="button"
+          onClick={() => onBuy(qty)}
+          disabled={disabled || loading}
+          className={btnClass}
+        >
+          {loading
+            ? "Redirecting…"
+            : qty === 1
+            ? "Buy a video"
+            : `Buy ${qty} videos`}
+        </button>
       )}
     </div>
   );

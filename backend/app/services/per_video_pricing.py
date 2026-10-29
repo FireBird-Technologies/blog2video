@@ -1,24 +1,24 @@
 """
 Per-video pack pricing: three flat tiers.
 
-Zone A — Casual (qty 1-9):   $4.00/video. Full margin from one-off buys.
-Zone B — Pack (qty 10-30):   $3.00/video. The "buy a pack" tier.
-Zone C — Bulk (qty 31+):     $2.80/video. Bulk tier — flat, no further discount.
+Zone A — Casual (qty 1-9):   $2.00/video. Full margin from one-off buys.
+Zone B — Pack (qty 10-30):   $1.50/video. The "buy a pack" tier.
+Zone C — Bulk (qty 31+):     $1.20/video. Bulk tier — flat, no further discount.
 
 All three tiers are flat. Crossing qty=9->10 or qty=30->31 drops the per-video
 price to the next tier; within a tier nothing changes.
 
 Intentional cliffs:
-  qty=9 -> qty=10: total drops $36 -> $30 ("unlock pack pricing")
-  qty=30 -> qty=31: total drops $90 -> $86.80 ("unlock bulk pricing")
+  qty=9 -> qty=10: total drops $18 -> $15 ("unlock pack pricing")
+  qty=30 -> qty=31: total drops $45 -> $37.20 ("unlock bulk pricing")
 
 Frontend mirrors this exactly at frontend/src/lib/perVideoPricing.ts —
 if you change these constants, change both.
 """
 
-CASUAL_PRICE_CENTS = 400          # $4.00 in Zone A (qty 1-9)
-PACK_PRICE_CENTS = 300            # $3.00 in Zone B (qty 10-30)
-BULK_PRICE_CENTS = 280            # $2.80 in Zone C (qty 31+)
+CASUAL_PRICE_CENTS = 200          # $2.00 in Zone A (qty 1-9)
+PACK_PRICE_CENTS = 150            # $1.50 in Zone B (qty 10-30)
+BULK_PRICE_CENTS = 120            # $1.20 in Zone C (qty 31+)
 
 # Zone boundaries
 CASUAL_ZONE_END = 9

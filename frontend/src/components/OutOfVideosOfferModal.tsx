@@ -4,6 +4,7 @@ import { createCheckoutSession } from "../api/client";
 import {
   STANDARD_MONTHLY_PRICE,
   STANDARD_ANNUAL_MONTHLY_PRICE,
+  formatPrice,
   STANDARD_ANNUAL_TOTAL_PRICE,
 } from "../content/pricingContent";
 
@@ -24,13 +25,13 @@ const ANNUAL_DISCOUNT = 0.50; // 50% off annual
 // Standard plan discounted prices (rounded to nearest dollar for display).
 const STANDARD_MONTHLY_DISCOUNTED = Math.round(
   STANDARD_MONTHLY_PRICE * (1 - MONTHLY_DISCOUNT)
-); // 35 → 30
+);  // 17.99 → 15
 const STANDARD_ANNUAL_MONTHLY_DISCOUNTED = Math.round(
   STANDARD_ANNUAL_MONTHLY_PRICE * (1 - ANNUAL_DISCOUNT)
-); // 28 → 14
+);  // 13.99 → 7
 const STANDARD_ANNUAL_TOTAL_DISCOUNTED = Math.round(
   STANDARD_ANNUAL_TOTAL_PRICE * (1 - ANNUAL_DISCOUNT)
-); // 336 → 168
+);  // 167.88 → 84
 
 function hashDateToPool(date: Date): number {
   const ymd = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
@@ -256,7 +257,7 @@ export default function OutOfVideosOfferModal({
                 <span className="text-2xl font-bold text-gray-900">${STANDARD_ANNUAL_MONTHLY_DISCOUNTED}</span>
                 <span className="text-xs text-gray-400 ml-1">/month</span>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-xs text-gray-400 line-through">${STANDARD_ANNUAL_MONTHLY_PRICE}/mo</span>
+                  <span className="text-xs text-gray-400 line-through">${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}/mo</span>
                   <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                     Save 50%
                   </span>
