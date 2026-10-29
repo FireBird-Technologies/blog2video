@@ -232,7 +232,7 @@ SEED_PLANS = [
         "slug": "standard_annual",
         "name": "Standard Annual",
         "description": "30 videos/month — save 20% with annual billing",
-        "price_cents": 1400,  # $14/mo effective ($167.99/yr)
+        "price_cents": 1399,  # $13.99/mo effective ($167.88/yr)
         "billing_interval": BillingInterval.ANNUAL,
         "video_limit": 30,
         "includes_studio": True,

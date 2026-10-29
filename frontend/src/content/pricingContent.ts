@@ -20,8 +20,8 @@ export const LITE_ANNUAL_MONTHLY_PRICE = 7.99;
 export const LITE_ANNUAL_TOTAL_PRICE = 95.88; // $7.99 × 12
 
 export const STANDARD_MONTHLY_PRICE = 17.99;
-export const STANDARD_ANNUAL_MONTHLY_PRICE = 14;
-export const STANDARD_ANNUAL_TOTAL_PRICE = 167.99; // ≈ $14 × 12
+export const STANDARD_ANNUAL_MONTHLY_PRICE = 13.99;
+export const STANDARD_ANNUAL_TOTAL_PRICE = 167.88; // $13.99 × 12
 
 export const PRO_MONTHLY_PRICE = 29.99;
 export const PRO_ANNUAL_MONTHLY_PRICE = 23.99;
@@ -51,7 +51,7 @@ export const PRO_AI_EDIT_ALLOWANCE = 5000;
 // ── Per-video tiers (re-exported for convenience) ────────────────────────────
 export const PER_VIDEO_CASUAL_PRICE  = CASUAL_PRICE_CENTS / 100;   // 2.00
 export const PER_VIDEO_PACK_PRICE    = PACK_PRICE_CENTS / 100;     // 1.50
-export const PER_VIDEO_BULK_PRICE    = BULK_PRICE_CENTS / 100;     // 1.40
+export const PER_VIDEO_BULK_PRICE    = BULK_PRICE_CENTS / 100;     // 1.20
 export const PER_VIDEO_CASUAL_MAX    = CASUAL_ZONE_END;             // 9
 export const PER_VIDEO_PACK_MAX      = PACK_ZONE_END;              // 30
 export const PER_VIDEO_BULK_MIN      = BULK_TIER_START_QTY;        // 31
