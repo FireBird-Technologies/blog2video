@@ -28,10 +28,10 @@ const STANDARD_MONTHLY_DISCOUNTED = Math.round(
 );  // 17.99 → 15
 const STANDARD_ANNUAL_MONTHLY_DISCOUNTED = Math.round(
   STANDARD_ANNUAL_MONTHLY_PRICE * (1 - ANNUAL_DISCOUNT)
-);  // 14 → 7
+);  // 13.99 → 7
 const STANDARD_ANNUAL_TOTAL_DISCOUNTED = Math.round(
   STANDARD_ANNUAL_TOTAL_PRICE * (1 - ANNUAL_DISCOUNT)
-);  // 167.99 → 84
+);  // 167.88 → 84
 
 function hashDateToPool(date: Date): number {
   const ymd = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;

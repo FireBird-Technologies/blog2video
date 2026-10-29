@@ -161,7 +161,7 @@ class Settings(BaseSettings):
     STRIPE_PRO_PRICE_ID: str = ""  # Price ID for $29.99/mo Pro plan
     STRIPE_PRO_ANNUAL_PRICE_ID: str = ""  # Price ID for $287.88/yr Pro plan (20% off)
     STRIPE_STANDARD_PRICE_ID: str = ""  # Price ID for $17.99/mo Standard plan (30 videos)
-    STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $14/mo effective Standard annual ($167.99/yr)
+    STRIPE_STANDARD_ANNUAL_PRICE_ID: str = ""  # Price ID for $13.99/mo effective Standard annual ($167.88/yr)
     STRIPE_LITE_PRICE_ID: str = ""  # Price ID for $9.99/mo Lite plan (10 videos)
     STRIPE_LITE_ANNUAL_PRICE_ID: str = ""  # Price ID for Lite annual billing
     STRIPE_PER_VIDEO_PRICE_ID: str = ""  # Legacy fixed per-video price (checkout now uses tiered ad-hoc prices from per_video_pricing)
