@@ -28,7 +28,7 @@ pytestmark = pytest.mark.depth
 @pytest.mark.parametrize("qty,cents", [
     (1, 200), (9, 200),      # casual zone
     (10, 150), (30, 150),    # pack zone
-    (31, 140), (200, 140),   # bulk zone
+    (31, 120), (200, 120),   # bulk zone
 ])
 def test_per_unit_cents__tier_boundaries(qty, cents):
     assert per_unit_cents(qty) == cents
@@ -36,7 +36,7 @@ def test_per_unit_cents__tier_boundaries(qty, cents):
 
 def test_per_unit_cents__clamps_out_of_range():
     assert per_unit_cents(0) == 200      # clamps up to MIN=1 (casual)
-    assert per_unit_cents(99999) == 140  # clamps down to MAX=200 (bulk)
+    assert per_unit_cents(99999) == 120  # clamps down to MAX=200 (bulk)
 
 
 def test_total_cents__multiplies_unit_by_qty():
