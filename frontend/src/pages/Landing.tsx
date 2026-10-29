@@ -25,7 +25,16 @@ import Seo from "../components/seo/Seo";
 import ExploreButton from "../components/ExploreButton";
 import { notestackUrl } from "../config/siblingSites";
 import { homepageSchema } from "../seo/schema";
-import { LITE_MONTHLY_PRICE } from "../content/pricingContent";
+import {
+  LITE_MONTHLY_PRICE,
+  STANDARD_MONTHLY_PRICE,
+  STANDARD_ANNUAL_MONTHLY_PRICE,
+  formatPrice,
+  PRO_MONTHLY_PRICE,
+  PRO_ANNUAL_MONTHLY_PRICE,
+  PER_VIDEO_CASUAL_PRICE,
+  PER_VIDEO_BULK_PRICE,
+} from "../content/pricingContent";
 
 // ─── Demo videos ─────────────────────────────────────────
 // Add more entries here to show them as tabs in "See it in action"
@@ -1135,8 +1144,8 @@ export default function Landing() {
             Start free. Pay per video. Lite, Standard, or Pro.
           </h2>
           <p className="text-sm text-gray-500 mb-10 max-w-lg mx-auto leading-relaxed">
-            Your first video is free. Then from $2.80/video pay-as-you-go, ${LITE_MONTHLY_PRICE}/month,
-            $34.99/month, $59.99/month with a monthly AI-edit allowance,
+            Your first video is free. Then from ${PER_VIDEO_BULK_PRICE.toFixed(2)}/video pay-as-you-go, ${LITE_MONTHLY_PRICE}/month,
+            ${STANDARD_MONTHLY_PRICE}/month, ${PRO_MONTHLY_PRICE}/month with a monthly AI-edit allowance,
             or custom plans for enterprise teams.
           </p>
 
@@ -1148,8 +1157,8 @@ export default function Landing() {
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Per Video</p>
-              <p className="text-3xl font-bold text-gray-900">$3.99</p>
-              <p className="text-xs text-gray-400 mt-1">from $2.80 bulk</p>
+              <p className="text-3xl font-bold text-gray-900">${PER_VIDEO_CASUAL_PRICE.toFixed(2)}</p>
+              <p className="text-xs text-gray-400 mt-1">from ${PER_VIDEO_BULK_PRICE.toFixed(2)} bulk</p>
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Lite</p>
@@ -1158,7 +1167,7 @@ export default function Landing() {
             </div>
             <div className="glass-card px-4 sm:px-7 py-6 text-center">
               <p className="text-sm font-medium text-gray-900 mb-1">Standard</p>
-              <p className="text-3xl font-bold text-gray-900">$27.99<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-3xl font-bold text-gray-900">${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">30 videos</p>
             </div>
             <div className="relative px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/60" style={{ background: "rgba(255,255,255,0.65)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(124,58,237,0.10), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.95)" }}>
@@ -1166,7 +1175,7 @@ export default function Landing() {
                 <span className="px-2.5 py-0.5 bg-purple-600 text-white text-[10px] font-medium rounded-full">Best value</span>
               </div>
               <p className="text-sm font-medium text-gray-900 mb-1">Pro</p>
-              <p className="text-3xl font-bold text-gray-900">$47.99<span className="text-sm font-normal text-gray-400">/mo</span></p>
+              <p className="text-3xl font-bold text-gray-900">${PRO_ANNUAL_MONTHLY_PRICE}<span className="text-sm font-normal text-gray-400">/mo</span></p>
               <p className="text-xs text-gray-400 mt-1">100 videos</p>
             </div>
             <div className="px-4 sm:px-7 py-6 text-center rounded-2xl border border-purple-200/50" style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.90)" }}>

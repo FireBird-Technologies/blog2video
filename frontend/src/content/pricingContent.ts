@@ -10,17 +10,22 @@ import type { FaqItem } from "./seoTypes";
 import type { PricingPage, PricingPlan } from "./pricingTypes";
 
 // ── Subscription prices ───────────────────────────────────────────────────────
-export const LITE_MONTHLY_PRICE = 19.99;
-export const LITE_ANNUAL_MONTHLY_PRICE = 15.99;
-export const LITE_ANNUAL_TOTAL_PRICE = 191.88; // $15.99 × 12
+/** Display a dollar amount: whole dollars stay bare (18), otherwise two decimals (14.40). */
+export function formatPrice(amount: number): string {
+  return Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+}
 
-export const STANDARD_MONTHLY_PRICE = 34.99;
-export const STANDARD_ANNUAL_MONTHLY_PRICE = 27.99;
-export const STANDARD_ANNUAL_TOTAL_PRICE = 335.88; // $27.99 × 12
+export const LITE_MONTHLY_PRICE = 9.99;
+export const LITE_ANNUAL_MONTHLY_PRICE = 7.99;
+export const LITE_ANNUAL_TOTAL_PRICE = 95.88; // $7.99 × 12
 
-export const PRO_MONTHLY_PRICE = 59.99;
-export const PRO_ANNUAL_MONTHLY_PRICE = 47.99;
-export const PRO_ANNUAL_TOTAL_PRICE = 575.88; // $47.99 × 12
+export const STANDARD_MONTHLY_PRICE = 17.99;
+export const STANDARD_ANNUAL_MONTHLY_PRICE = 14;
+export const STANDARD_ANNUAL_TOTAL_PRICE = 167.99; // ≈ $14 × 12
+
+export const PRO_MONTHLY_PRICE = 29.99;
+export const PRO_ANNUAL_MONTHLY_PRICE = 23.99;
+export const PRO_ANNUAL_TOTAL_PRICE = 287.88; // $23.99 × 12
 
 // Per-video cost per unit at Pro scale (for callout copy)
 export const PRO_COST_PER_VIDEO_MONTHLY = (PRO_MONTHLY_PRICE / 100).toFixed(2);
@@ -44,9 +49,9 @@ export const STANDARD_AI_EDIT_ALLOWANCE = 2000;
 export const PRO_AI_EDIT_ALLOWANCE = 5000;
 
 // ── Per-video tiers (re-exported for convenience) ────────────────────────────
-export const PER_VIDEO_CASUAL_PRICE  = CASUAL_PRICE_CENTS / 100;   // 4.00
-export const PER_VIDEO_PACK_PRICE    = PACK_PRICE_CENTS / 100;     // 3.00
-export const PER_VIDEO_BULK_PRICE    = BULK_PRICE_CENTS / 100;     // 2.80
+export const PER_VIDEO_CASUAL_PRICE  = CASUAL_PRICE_CENTS / 100;   // 2.00
+export const PER_VIDEO_PACK_PRICE    = PACK_PRICE_CENTS / 100;     // 1.50
+export const PER_VIDEO_BULK_PRICE    = BULK_PRICE_CENTS / 100;     // 1.40
 export const PER_VIDEO_CASUAL_MAX    = CASUAL_ZONE_END;             // 9
 export const PER_VIDEO_PACK_MAX      = PACK_ZONE_END;              // 30
 export const PER_VIDEO_BULK_MIN      = BULK_TIER_START_QTY;        // 31
@@ -144,8 +149,6 @@ export const pricingPlans: PricingPlan[] = [
       `1–${PER_VIDEO_CASUAL_MAX} videos: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}/video`,
       `${PER_VIDEO_CASUAL_MAX + 1}–${PER_VIDEO_PACK_MAX} videos: $${PER_VIDEO_PACK_PRICE.toFixed(2)}/video (pack tier)`,
       `${PER_VIDEO_BULK_MIN}+ videos: $${PER_VIDEO_BULK_PRICE.toFixed(2)}/video (bulk tier)`,
-      "In-app upgrade modal shows $5 for premium access on 2 videos",
-      "Upgrade plan modal shows $3/video starting price",
     ],
   },
   {
@@ -166,7 +169,6 @@ export const pricingPlans: PricingPlan[] = [
     featuresExcluded: [],
     notes: [
       `$${LITE_MONTHLY_PRICE}/mo monthly or $${LITE_ANNUAL_MONTHLY_PRICE}/mo billed annually ($${LITE_ANNUAL_TOTAL_PRICE}/year)`,
-      "No lifetime option",
     ],
   },
   {
@@ -186,7 +188,7 @@ export const pricingPlans: PricingPlan[] = [
     ],
     featuresExcluded: [],
     notes: [
-      `$${STANDARD_MONTHLY_PRICE}/mo monthly or $${STANDARD_ANNUAL_MONTHLY_PRICE}/mo billed annually ($${STANDARD_ANNUAL_TOTAL_PRICE}/year, save 20%)`,
+      `$${STANDARD_MONTHLY_PRICE}/mo monthly or $${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}/mo billed annually ($${formatPrice(STANDARD_ANNUAL_TOTAL_PRICE)}/year, save 20%)`,
     ],
   },
   {
@@ -238,7 +240,7 @@ export const pricingFaq: FaqItem[] = [
   },
   {
     question: "How does annual billing work?",
-    answer: `Choose annual billing and pay $${PRO_ANNUAL_TOTAL_PRICE}/year ($${PRO_ANNUAL_MONTHLY_PRICE}/month) instead of $${PRO_MONTHLY_PRICE * 12}/year — that's a 20% discount. Standard annual is $${STANDARD_ANNUAL_TOTAL_PRICE}/year ($${STANDARD_ANNUAL_MONTHLY_PRICE}/month) instead of $${STANDARD_MONTHLY_PRICE * 12}/year. Lite annual is $${LITE_ANNUAL_TOTAL_PRICE}/year ($${LITE_ANNUAL_MONTHLY_PRICE}/month) instead of $${(LITE_MONTHLY_PRICE * 12).toFixed(2)}/year — Lite has no lifetime option.`,
+    answer: `Choose annual billing and pay $${PRO_ANNUAL_TOTAL_PRICE}/year ($${PRO_ANNUAL_MONTHLY_PRICE}/month) instead of $${formatPrice(PRO_MONTHLY_PRICE * 12)}/year — that's a 20% discount. Standard annual is $${formatPrice(STANDARD_ANNUAL_TOTAL_PRICE)}/year ($${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}/month) instead of $${formatPrice(STANDARD_MONTHLY_PRICE * 12)}/year. Lite annual is $${LITE_ANNUAL_TOTAL_PRICE}/year ($${LITE_ANNUAL_MONTHLY_PRICE}/month) instead of $${(LITE_MONTHLY_PRICE * 12).toFixed(2)}/year.`,
   },
   {
     question: "Can I edit the video after generation?",
@@ -257,7 +259,7 @@ export const pricingFaq: FaqItem[] = [
   },
   {
     question: "How much does Blog2Video cost?",
-    answer: `Free plan: $0 (1 video). Pay per video: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}–$${PER_VIDEO_BULK_PRICE.toFixed(2)}/video. Lite: $${LITE_MONTHLY_PRICE}/mo (or $${LITE_ANNUAL_MONTHLY_PRICE}/mo annually). Standard: $${STANDARD_MONTHLY_PRICE}/mo (or $${STANDARD_ANNUAL_MONTHLY_PRICE}/mo annually). Pro: $${PRO_MONTHLY_PRICE}/mo (or $${PRO_ANNUAL_MONTHLY_PRICE}/mo annually). Enterprise: custom pricing.`,
+    answer: `Free plan: $0 (1 video). Pay per video: $${PER_VIDEO_CASUAL_PRICE.toFixed(2)}–$${PER_VIDEO_BULK_PRICE.toFixed(2)}/video. Lite: $${LITE_MONTHLY_PRICE}/mo (or $${LITE_ANNUAL_MONTHLY_PRICE}/mo annually). Standard: $${STANDARD_MONTHLY_PRICE}/mo (or $${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}/mo annually). Pro: $${PRO_MONTHLY_PRICE}/mo (or $${PRO_ANNUAL_MONTHLY_PRICE}/mo annually). Enterprise: custom pricing.`,
   },
   {
     question: "What is included in the free plan?",

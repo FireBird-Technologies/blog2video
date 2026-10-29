@@ -11,6 +11,7 @@ import {
   LITE_ANNUAL_TOTAL_PRICE,
   STANDARD_MONTHLY_PRICE,
   STANDARD_ANNUAL_MONTHLY_PRICE,
+  formatPrice,
   STANDARD_ANNUAL_TOTAL_PRICE,
   PRO_MONTHLY_PRICE,
   PRO_ANNUAL_MONTHLY_PRICE,
@@ -23,6 +24,7 @@ import {
   PRO_AI_EDIT_ALLOWANCE,
   AI_EDITS_PER_VIDEO,
 } from "../content/pricingContent";
+import { CASUAL_PRICE_CENTS, formatDollars } from "../lib/perVideoPricing";
 import { useAuth } from "../hooks/useAuth";
 
 interface Props {
@@ -174,7 +176,7 @@ export default function UpgradePlanModal({
                 <p className="text-xs text-gray-400 mt-0.5">Pay as you go</p>
               </div>
               <div className="mb-4">
-                <span className="text-2xl font-bold text-gray-900">$3.99</span>
+                <span className="text-2xl font-bold text-gray-900">{formatDollars(CASUAL_PRICE_CENTS)}</span>
                 <span className="text-xs text-gray-400 ml-1">/video</span>
               </div>
               <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
@@ -251,7 +253,7 @@ export default function UpgradePlanModal({
               <div className="mb-4">
                 {billingCycle === "annual" ? (
                   <>
-                    <span className="text-2xl font-bold text-gray-900">${STANDARD_ANNUAL_MONTHLY_PRICE}</span>
+                    <span className="text-2xl font-bold text-gray-900">${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}</span>
                     <span className="text-xs text-gray-400 ml-1">/month</span>
                     <div className="flex items-center gap-1.5 mt-1">
                       <span className="text-xs text-gray-400 line-through">${STANDARD_MONTHLY_PRICE}/mo</span>
@@ -259,14 +261,14 @@ export default function UpgradePlanModal({
                         Save 20%
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-0.5">${STANDARD_ANNUAL_TOTAL_PRICE} billed annually</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">${formatPrice(STANDARD_ANNUAL_TOTAL_PRICE)} billed annually</p>
                   </>
                 ) : (
                   <>
                     <span className="text-2xl font-bold text-gray-900">${STANDARD_MONTHLY_PRICE}</span>
                     <span className="text-xs text-gray-400 ml-1">/month</span>
                     <p className="text-[10px] text-gray-400 mt-1">
-                      or <span className="font-medium text-gray-500">${STANDARD_ANNUAL_MONTHLY_PRICE}/mo</span> billed annually
+                      or <span className="font-medium text-gray-500">${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}/mo</span> billed annually
                     </p>
                   </>
                 )}

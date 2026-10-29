@@ -11,6 +11,7 @@ import {
   PRO_AI_EDIT_ALLOWANCE,
   AI_EDITS_PER_VIDEO,
 } from "../content/pricingContent";
+import { CASUAL_PRICE_CENTS, formatDollars } from "../lib/perVideoPricing";
 import { useAuth } from "../hooks/useAuth";
 
 interface Props {
@@ -133,7 +134,7 @@ export default function UpgradeModal({
                     Premium access
                   </span>
                   <span className="text-lg font-bold text-gray-900">
-                    $5
+                    {formatDollars(CASUAL_PRICE_CENTS)}
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
@@ -172,7 +173,7 @@ export default function UpgradeModal({
                   disabled={anyLoading}
                   className="w-full py-2 px-3 rounded-lg text-xs font-medium bg-gray-900 hover:bg-gray-800 text-white transition-colors disabled:opacity-60"
                 >
-                  {loadingPlan === "per_video" ? "Redirecting..." : "Get premium access — $5"}
+                  {loadingPlan === "per_video" ? "Redirecting..." : `Get premium access — ${formatDollars(CASUAL_PRICE_CENTS)}`}
                 </button>
               </div>
 

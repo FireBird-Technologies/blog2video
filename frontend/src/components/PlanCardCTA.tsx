@@ -12,7 +12,6 @@ import {
 interface Props {
   tier: CardTier;
   currentSlug: CurrentSlug;
-  // Recurring cycles only — lifetime is handled by a dedicated button, not this CTA.
   billingCycle: Toggle;
   scheduledTargetSlug?: string | null;
   scheduledPending?: boolean;

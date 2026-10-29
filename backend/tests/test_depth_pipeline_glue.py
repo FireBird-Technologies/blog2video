@@ -26,22 +26,22 @@ pytestmark = pytest.mark.depth
 # ─── per_video_pricing — tier boundaries + clamping ─────────────────────────
 
 @pytest.mark.parametrize("qty,cents", [
-    (1, 400), (9, 400),      # casual zone
-    (10, 300), (30, 300),    # pack zone
-    (31, 280), (200, 280),   # bulk zone
+    (1, 200), (9, 200),      # casual zone
+    (10, 150), (30, 150),    # pack zone
+    (31, 140), (200, 140),   # bulk zone
 ])
 def test_per_unit_cents__tier_boundaries(qty, cents):
     assert per_unit_cents(qty) == cents
 
 
 def test_per_unit_cents__clamps_out_of_range():
-    assert per_unit_cents(0) == 400      # clamps up to MIN=1 (casual)
-    assert per_unit_cents(99999) == 280  # clamps down to MAX=200 (bulk)
+    assert per_unit_cents(0) == 200      # clamps up to MIN=1 (casual)
+    assert per_unit_cents(99999) == 140  # clamps down to MAX=200 (bulk)
 
 
 def test_total_cents__multiplies_unit_by_qty():
-    assert total_cents(10) == 300 * 10   # pack pricing
-    assert total_cents(1) == 400
+    assert total_cents(10) == 150 * 10   # pack pricing
+    assert total_cents(1) == 200
 
 
 # ─── scene_cta — round-trip encoder ─────────────────────────────────────────
