@@ -5,8 +5,9 @@ import warnings
 import shutil
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi import Depends, FastAPI, Header, HTTPException
 
 # Ensure app loggers (e.g. app.services.elevenlabs_voice_design) emit INFO to console
@@ -882,6 +883,15 @@ app.include_router(mcp_oauth.root_router)
 app.mount("/mcp", mcp_oauth.build_sdk_starlette_app(
     extra_routes=mcp_transport.starlette_routes(),
 ))
+
+
+_FAVICON_PATH = Path(__file__).resolve().parent / "static" / "favicon.png"
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    """Serve the Blog2Video brand icon for MCP clients and browsers."""
+    return FileResponse(_FAVICON_PATH, media_type="image/png")
 
 
 @app.get("/.well-known/openai-apps-challenge", response_class=PlainTextResponse)

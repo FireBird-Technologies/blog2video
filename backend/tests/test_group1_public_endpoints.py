@@ -13,6 +13,7 @@ Confirmed public (no get_current_user dependency):
   - GET  /api/embed/project/{token}
   - GET  /unsubscribe
   - GET  /mcp/.well-known/oauth-authorization-server
+  - GET  /favicon.ico
   - GET  /api/health
 """
 import pytest
@@ -90,6 +91,15 @@ def test_get_oauth_metadata__public__returns_rfc8414_document(client):
     assert body["response_types_supported"] == ["code"]
     assert body["code_challenge_methods_supported"] == ["S256"]
     assert body["issuer"].endswith("/mcp")
+
+
+# ─── GET /favicon.ico ────────────────────────────────────────────────
+
+def test_get_favicon__public__returns_blog2video_png(client):
+    resp = client.get("/favicon.ico")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "image/png"
+    assert resp.content.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 # ─── GET /api/health ────────────────────────────────────────────────────────
