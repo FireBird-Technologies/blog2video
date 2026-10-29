@@ -3182,5 +3182,41 @@
   "blog:ai-video-generators-that-are-not-slop@6b18f813bd5f9868@20aaebd1": {
     "keep": false,
     "reason": "Discusses AI video generators generally, not Blog2Video"
+  },
+  "marketing:/templates/starlit@3b8a92ea7a4217ee@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video template features and workflow."
+  },
+  "marketing:/lumen5-alternative@c2404beb87be2e9a@20aaebd1": {
+    "keep": false,
+    "reason": "Positions Blog2Video as Lumen5 alternative"
+  },
+  "marketing:/blog2video-vs-invideo@f3d52022065d009d@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against competitor InVideo"
+  },
+  "marketing:/veed-alternative@2dc2567e93761a58@20aaebd1": {
+    "keep": false,
+    "reason": "Positions Blog2Video as a VEED alternative and compares features."
+  },
+  "marketing:/blog2video-vs-lumen5@91bce048930c598d@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against competitor Lumen5"
+  },
+  "marketing:/blog2video-vs-invideo@01212cd1ae2d6657@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against competitor InVideo"
+  },
+  "marketing:/blog2video-vs-lumen5@76df7cd623a70543@20aaebd1": {
+    "keep": false,
+    "reason": "Document compares Blog2Video against competitor Lumen5"
+  },
+  "marketing:/lumen5-alternative@cd5b34a9a5483707@20aaebd1": {
+    "keep": false,
+    "reason": "Positions Blog2Video as Lumen5 alternative"
+  },
+  "marketing:/veed-alternative@7e0f8aee41785ecc@20aaebd1": {
+    "keep": false,
+    "reason": "Compares Blog2Video against competitor VEED"
   }
 }

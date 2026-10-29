@@ -35,7 +35,7 @@ const seeds: AlternativeSeed[] = [
       "Blog2Video extracts content directly from a live URL — no copy-paste.",
       "ElevenLabs voice integration with per-voice preview before generation.",
       "Scene structure follows your article's actual headings, not a generic template.",
-      "Standard plan ($34.99/mo) covers up to ~240 minutes of video a month — flat video count, no minute or credit caps.",
+      "Standard plan ($17.99/mo) covers up to ~240 minutes of video a month — flat video count, no minute or credit caps.",
     ],
     sections: [
       {
@@ -147,7 +147,7 @@ const seeds: AlternativeSeed[] = [
       "Blog2Video requires no manual scene building — the article structure does it.",
       "Full automation from URL to video in under three minutes.",
       "No subscription to a stock media library required.",
-      "InVideo AI Plus caps out around 50 AI-generation minutes a month at $25/mo — Blog2Video Standard covers up to ~240 minutes at $34.99/mo.",
+      "InVideo AI Plus caps out around 50 AI-generation minutes a month at $25/mo — Blog2Video Standard covers up to ~240 minutes at $17.99/mo.",
     ],
     sections: [
       {
@@ -240,7 +240,7 @@ const seeds: AlternativeSeed[] = [
       "No stock library browsing or slide-by-slide adjustment.",
       "Article headings drive scene structure automatically.",
       "ElevenLabs voice integration with preview before generation.",
-      "No published total-minutes cap on Lumen5's paid plans to compare against — Blog2Video Standard gives a clear, flat ~240 minutes a month for $35.",
+      "No published total-minutes cap on Lumen5's paid plans to compare against — Blog2Video Standard gives a clear, flat ~240 minutes a month for $17.99.",
     ],
     sections: [
       {
@@ -267,12 +267,12 @@ const seeds: AlternativeSeed[] = [
         title: "Lumen5 pricing vs Blog2Video pricing",
         body: [
           "Lumen5's paid plans start around $19/month (Starter) and scale to $79/month (Professional) before reaching the tier that removes the watermark and unlocks 1080p export, with total monthly video minutes capped rather than counted per finished video.",
-          "Blog2Video's Standard plan is $34.99/month for roughly 240 minutes of finished video, counted as a flat per-video allowance rather than a minute meter you have to budget against — and there is no separate AI-credit cap layered on top, which is the limit that usually binds first on AI-video tools priced like Lumen5.",
+          "Blog2Video's Standard plan is $17.99/month for roughly 240 minutes of finished video, counted as a flat per-video allowance rather than a minute meter you have to budget against — and there is no separate AI-credit cap layered on top, which is the limit that usually binds first on AI-video tools priced like Lumen5.",
         ],
         bullets: [
           "Lumen5 free plan: heavy watermark, 720p export, limited media library",
           "Lumen5 paid tiers: $19–$79/mo, minute-metered, watermark removed at higher tiers",
-          "Blog2Video Standard: $34.99/mo, ~240 minutes/month, no watermark, no separate credit cap",
+          "Blog2Video Standard: $17.99/mo, ~240 minutes/month, no watermark, no separate credit cap",
           "Both offer a free starting tier — Blog2Video's free videos are full-quality, not watermarked previews",
         ],
       },
@@ -292,7 +292,7 @@ const seeds: AlternativeSeed[] = [
       {
         question: "How much does Lumen5 cost compared to Blog2Video?",
         answer:
-          "Lumen5's paid plans run from about $19/month to $79/month depending on resolution and watermark removal, metered by total minutes. Blog2Video's Standard plan is $34.99/month for around 240 minutes of video, with no separate AI-credit cap layered on top of the minute allowance.",
+          "Lumen5's paid plans run from about $19/month to $79/month depending on resolution and watermark removal, metered by total minutes. Blog2Video's Standard plan is $17.99/month for around 240 minutes of video, with no separate AI-credit cap layered on top of the minute allowance.",
       },
       {
         question: "What is the best Lumen5 alternative for technical or blog content?",
@@ -698,7 +698,7 @@ const seeds: AlternativeSeed[] = [
       "URL-in workflow built for blog posts, articles, and structured written content.",
       "Less manual scene rebuilding than general editor-first workflows.",
       "Better fit for repeatable article-to-video production at scale.",
-      "VEED's export caps are per-video-length, not total monthly minutes — Blog2Video Standard gives a flat, predictable ~240 minutes a month for $35.",
+      "VEED's export caps are per-video-length, not total monthly minutes — Blog2Video Standard gives a flat, predictable ~240 minutes a month for $17.99.",
     ],
     sections: [
       {

@@ -1,6 +1,6 @@
 """
 Stripe billing router: checkout sessions, customer portal, webhooks.
-Supports both Pro subscription ($60/mo) and per-video purchase ($3).
+Supports Lite/Standard/Pro subscriptions and tiered per-video purchases (from $2).
 """
 import time
 from datetime import datetime, timedelta
@@ -109,10 +109,15 @@ class PlanOut(BaseModel):
 
 @router.get("/plans", response_model=list[PlanOut])
 def list_plans(db: Session = Depends(get_db)):
-    """Return all active subscription plans (public, no auth needed)."""
+    """Return all active subscription plans (public, no auth needed).
+
+    Lifetime plans are no longer sold; their rows stay for existing holders but
+    are not advertised.
+    """
     plans = (
         db.query(SubscriptionPlan)
         .filter(SubscriptionPlan.is_active == True)
+        .filter(SubscriptionPlan.slug.notin_(("standard_lifetime", "pro_lifetime")))
         .order_by(SubscriptionPlan.sort_order)
         .all()
     )
@@ -218,7 +223,7 @@ def _recalculate_video_limit_bonus(user: User, db: Session) -> None:
 
 class CheckoutRequest(BaseModel):
     plan: str = "pro"  # "lite", "standard", or "pro"
-    billing_cycle: str = "monthly"  # "monthly", "annual", or "lifetime" (lifetime unsupported for "lite")
+    billing_cycle: str = "monthly"  # "monthly" or "annual"
     apply_third_video_offer: bool = False  # Out-of-videos offer (15% monthly / 25% annual Standard)
     # Whether to schedule the post-checkout win-back coupon email. The frontend
     # sets this to False to suppress repeats within the same browser/day.
@@ -235,12 +240,10 @@ def create_checkout_session(
     if body.plan not in ("lite", "standard", "pro"):
         raise HTTPException(status_code=400, detail="plan must be 'lite', 'standard', or 'pro'")
 
-    # Lifetime is a one-time payment (mode="payment"), not a recurring subscription.
-    # Allowed even for users with an active recurring subscription — we don't auto-cancel
-    # the recurring plan here. Lite has no lifetime option.
-    is_lifetime = body.billing_cycle == "lifetime"
-    if is_lifetime and body.plan == "lite":
-        raise HTTPException(status_code=400, detail="Lite has no lifetime option")
+    # Lifetime deals are no longer sold. Existing lifetime holders keep their
+    # access via the webhook/rollover paths below.
+    if body.billing_cycle == "lifetime":
+        raise HTTPException(status_code=400, detail="Lifetime deals are no longer available")
 
     if body.plan == "lite":
         if user.plan == PlanTier.LITE:
@@ -258,42 +261,30 @@ def create_checkout_session(
         subscription_type = "lite_subscription"
         billing_cycle = body.billing_cycle
     elif body.plan == "standard":
-        if is_lifetime:
-            price_id = settings.STANDARD_PLAN_LIFETIME_DEAL
+        if user.plan == PlanTier.STANDARD:
+            raise HTTPException(status_code=400, detail="Already on Standard plan")
+        if body.billing_cycle == "annual":
+            price_id = settings.STRIPE_STANDARD_ANNUAL_PRICE_ID
             if not price_id:
-                raise HTTPException(status_code=400, detail="Standard lifetime deal not configured yet")
-            subscription_type = "standard_lifetime"
+                raise HTTPException(status_code=400, detail="Standard annual plan not configured yet")
         else:
-            if user.plan == PlanTier.STANDARD:
-                raise HTTPException(status_code=400, detail="Already on Standard plan")
-            if body.billing_cycle == "annual":
-                price_id = settings.STRIPE_STANDARD_ANNUAL_PRICE_ID
-                if not price_id:
-                    raise HTTPException(status_code=400, detail="Standard annual plan not configured yet")
-            else:
-                price_id = settings.STRIPE_STANDARD_PRICE_ID
-                if not price_id:
-                    raise HTTPException(status_code=400, detail="Standard plan not configured yet")
-            subscription_type = "standard_subscription"
+            price_id = settings.STRIPE_STANDARD_PRICE_ID
+            if not price_id:
+                raise HTTPException(status_code=400, detail="Standard plan not configured yet")
+        subscription_type = "standard_subscription"
         billing_cycle = body.billing_cycle
     else:  # pro
-        if is_lifetime:
-            price_id = settings.PRO_PLAN_LIFETIME_DEAL
+        if user.plan == PlanTier.PRO:
+            raise HTTPException(status_code=400, detail="Already on Pro plan")
+        if body.billing_cycle == "annual":
+            price_id = settings.STRIPE_PRO_ANNUAL_PRICE_ID
             if not price_id:
-                raise HTTPException(status_code=400, detail="Pro lifetime deal not configured yet")
-            subscription_type = "pro_lifetime"
+                raise HTTPException(status_code=400, detail="Annual plan not configured yet")
         else:
-            if user.plan == PlanTier.PRO:
-                raise HTTPException(status_code=400, detail="Already on Pro plan")
-            if body.billing_cycle == "annual":
-                price_id = settings.STRIPE_PRO_ANNUAL_PRICE_ID
-                if not price_id:
-                    raise HTTPException(status_code=400, detail="Annual plan not configured yet")
-            else:
-                price_id = settings.STRIPE_PRO_PRICE_ID
-                if not price_id:
-                    raise HTTPException(status_code=400, detail="Monthly plan not configured yet")
-            subscription_type = "pro_subscription"
+            price_id = settings.STRIPE_PRO_PRICE_ID
+            if not price_id:
+                raise HTTPException(status_code=400, detail="Monthly plan not configured yet")
+        subscription_type = "pro_subscription"
         billing_cycle = body.billing_cycle
 
     # Ensure the user has a Stripe customer
@@ -311,8 +302,6 @@ def create_checkout_session(
     # max_redemptions_per_customer: 1 on the coupons is the real abuse barrier.
     discounts = None
     if body.apply_third_video_offer:
-        if is_lifetime:
-            raise HTTPException(status_code=400, detail="Offer does not apply to lifetime deals")
         if user.plan != PlanTier.FREE:
             raise HTTPException(status_code=409, detail="Offer only available to free-plan users")
         if user.can_create_video:
@@ -329,7 +318,7 @@ def create_checkout_session(
 
     session_kwargs = dict(
         customer=user.stripe_customer_id,
-        mode="payment" if is_lifetime else "subscription",
+        mode="subscription",
         line_items=[
             {
                 "price": price_id,
@@ -364,7 +353,7 @@ def create_checkout_session(
     return CheckoutResponse(checkout_url=session.url)
 
 
-# ─── Per-Video Checkout ($3) ──────────────────────────────
+# ─── Per-Video Checkout (tiered, from $2) ──────────────────────────────
 
 @router.post("/checkout-per-video", response_model=CheckoutResponse)
 def create_per_video_checkout(
@@ -453,51 +442,11 @@ def create_per_video_checkout(
     return CheckoutResponse(checkout_url=session.url)
 
 
-# ─── Bulk 500-video credit pack ($300, never expires) ─────
+# ─── Bulk 500-video credit pack (retired) ─────────────────
+# No longer sold; kept so the webhook can still fulfil any in-flight bulk_500
+# checkout sessions.
 
 BULK_500_CREDITS = 500
-
-@router.post("/checkout-bulk-credits", response_model=CheckoutResponse)
-def create_bulk_credits_checkout(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Create a Stripe Checkout session for the 500-video credit pack ($300).
-
-    One-time payment (mode="payment") using the LIFETIME_DEAL_500 price. The
-    credits never expire — they are consumed only as the user makes videos.
-    """
-    price_id = settings.LIFETIME_DEAL_500
-    if not price_id:
-        raise HTTPException(status_code=400, detail="500-video deal not configured yet")
-
-    if not user.stripe_customer_id:
-        customer = stripe.Customer.create(
-            email=user.email,
-            name=user.name,
-            metadata={"user_id": str(user.id)},
-        )
-        user.stripe_customer_id = customer.id
-        db.commit()
-
-    session = stripe.checkout.Session.create(
-        customer=user.stripe_customer_id,
-        mode="payment",
-        line_items=[{"price": price_id, "quantity": 1}],
-        allow_promotion_codes=True,
-        success_url=f"{settings.FRONTEND_URL}/dashboard?purchased=true&session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{settings.FRONTEND_URL}/pricing",
-        metadata={
-            "user_id": str(user.id),
-            "type": "bulk_500",
-            "qty": str(BULK_500_CREDITS),
-        },
-        # Bounded lifetime + recovery so an uncompleted session fires
-        # checkout.session.expired and yields a resume-cart recovery URL.
-        expires_at=_checkout_expires_at(),
-        after_expiration=_checkout_after_expiration(allow_promotion_codes=True),
-    )
-    return CheckoutResponse(checkout_url=session.url)
 
 
 @router.post("/checkout-custom-template", response_model=CheckoutResponse)

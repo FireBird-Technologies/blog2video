@@ -671,7 +671,7 @@ export const createCheckoutSession = (
   options:
     | {
         plan?: CheckoutPlan;
-        billing_cycle?: "monthly" | "annual" | "lifetime";
+        billing_cycle?: "monthly" | "annual";
         apply_third_video_offer?: boolean;
       }
     | "monthly"
@@ -724,10 +724,6 @@ export const createCustomTemplateCheckout = (quantity: number = 1) =>
     quantity,
   });
 
-
-/** One-time $300 purchase of 500 never-expiring video credits. */
-export const createBulkCreditsCheckout = () =>
-  api.post<{ checkout_url: string }>("/billing/checkout-bulk-credits", {});
 
 export const createPortalSession = () =>
   api.post<{ portal_url: string }>("/billing/portal");

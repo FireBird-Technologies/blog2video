@@ -8,7 +8,6 @@ import {
   getDataSummary,
   createCheckoutSession,
   createPerVideoCheckout,
-  createBulkCreditsCheckout,
   createPortalSession,
   cancelSubscription,
   acceptRetentionOffer,
@@ -26,7 +25,6 @@ import { useAuth } from "../hooks/useAuth";
 import { useErrorModal, getErrorMessage } from "../contexts/ErrorModalContext";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
 import PerVideoSliderCard from "../components/PerVideoSliderCard";
-import LimitedSeatsBar from "../components/LimitedSeatsBar";
 import PlanSwitchConfirmModal from "../components/PlanSwitchConfirmModal";
 import PlanCardCTA from "../components/PlanCardCTA";
 import BillingCycleTabs from "../components/BillingCycleTabs";
@@ -37,6 +35,15 @@ import {
   LITE_MONTHLY_PRICE,
   LITE_ANNUAL_MONTHLY_PRICE,
   LITE_ANNUAL_TOTAL_PRICE,
+  STANDARD_MONTHLY_PRICE,
+  STANDARD_ANNUAL_MONTHLY_PRICE,
+  formatPrice,
+  STANDARD_ANNUAL_TOTAL_PRICE,
+  PRO_MONTHLY_PRICE,
+  PRO_ANNUAL_MONTHLY_PRICE,
+  PRO_ANNUAL_TOTAL_PRICE,
+  PRO_COST_PER_VIDEO_MONTHLY,
+  PRO_COST_PER_VIDEO_ANNUAL,
   FREE_CUSTOM_TEMPLATE_COUNT,
   LITE_CUSTOM_TEMPLATE_COUNT,
   STANDARD_CUSTOM_TEMPLATE_COUNT,
@@ -129,23 +136,10 @@ export default function Subscription() {
   const handleLiteUpgrade = async () => {
     setActionLoading("lite");
     try {
-      const res = await createCheckoutSession({ plan: "lite", billing_cycle: billingCycle === "lifetime" ? "monthly" : billingCycle });
+      const res = await createCheckoutSession({ plan: "lite", billing_cycle: billingCycle });
       window.location.href = res.data.checkout_url;
     } catch (err) {
       console.error("Failed to start Lite checkout:", err);
-      setActionLoading(null);
-    }
-  };
-
-  // One-time lifetime purchase (Standard $999.99 / Pro $1599.99). Goes straight to a
-  // mode=payment Stripe Checkout — bypasses the upgrade/downgrade switch flow.
-  const handleLifetimeBuy = async (plan: PlanKey) => {
-    setActionLoading(`lifetime-${plan}`);
-    try {
-      const res = await createCheckoutSession({ plan, billing_cycle: "lifetime" });
-      window.location.href = res.data.checkout_url;
-    } catch (err) {
-      console.error("Failed to start lifetime checkout:", err);
       setActionLoading(null);
     }
   };
@@ -650,7 +644,7 @@ export default function Subscription() {
             {isPaid ? "Your Plan" : "Available Plans"}
           </h2>
 
-          {/* Monthly / Annual / Lifetime tabs */}
+          {/* Monthly / Annual tabs */}
           <div className="flex items-center gap-2">
             <BillingCycleTabs active={billingCycle} onChange={setBillingCycle} />
             {billingCycle === "annual" && (
@@ -662,11 +656,7 @@ export default function Subscription() {
         </div>
 
 
-        <div
-          className={`grid w-full sm:grid-cols-2 gap-4 ${
-            billingCycle === "lifetime" ? "lg:grid-cols-4" : "lg:grid-cols-5"
-          }`}
-        >
+        <div className="grid w-full sm:grid-cols-2 gap-4 lg:grid-cols-5">
           {/* Free */}
           <div className={`glass-card p-5 flex flex-col ${!isPaid && billing?.plan === "free" ? "ring-2 ring-purple-200" : ""}`}>
             <div className="mb-4">
@@ -694,23 +684,11 @@ export default function Subscription() {
             )}
           </div>
 
-          {/* Per Video — slider normally; fixed 500/$300 deal on the Lifetime tab */}
+          {/* Per Video */}
           <PerVideoSliderCard
             variant="compact"
             loading={actionLoading === "per_video"}
             disabled={false}
-            bulkDeal={billingCycle === "lifetime"}
-            bulkLoading={actionLoading === "bulk_500"}
-            onBuyBulk={async () => {
-              setActionLoading("bulk_500");
-              try {
-                const res = await createBulkCreditsCheckout();
-                if (res.data.checkout_url) window.location.href = res.data.checkout_url;
-              } catch (err) {
-                console.error("Bulk credits checkout error:", err);
-                setActionLoading(null);
-              }
-            }}
             onBuy={async (quantity) => {
               setActionLoading("per_video");
               try {
@@ -723,94 +701,83 @@ export default function Subscription() {
             }}
           />
 
-          {/* Lite — monthly/annual only, no lifetime option */}
-          {billingCycle !== "lifetime" && (
-            <div className={`glass-card p-5 flex flex-col ${isLite ? "ring-2 ring-purple-200" : ""}`}>
-              <div className="mb-4">
-                <h3 className="text-sm font-semibold text-gray-900">Lite</h3>
-                <p className="text-xs text-gray-400 mt-0.5">10 videos/month</p>
-              </div>
-              <div className="mb-4">
-                {billingCycle === "annual" ? (
-                  <>
-                    <span className="text-2xl font-bold text-gray-900">${LITE_ANNUAL_MONTHLY_PRICE}</span>
-                    <span className="text-xs text-gray-400 ml-1">/month</span>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-xs text-gray-400 line-through">${LITE_MONTHLY_PRICE}/mo</span>
-                      <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
-                        Save 20%
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-gray-400 mt-0.5">${LITE_ANNUAL_TOTAL_PRICE} billed annually</p>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-2xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}</span>
-                    <span className="text-xs text-gray-400 ml-1">/month</span>
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      or <span className="font-medium text-gray-500">${LITE_ANNUAL_MONTHLY_PRICE}/mo</span> billed annually
-                    </p>
-                  </>
-                )}
-              </div>
-              <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
-                <li className="flex items-start gap-2"><CheckMark />10 videos / month</li>
-                <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
-                <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
-                <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
-                <li className="flex items-start gap-2"><CheckMark />{LITE_AI_EDIT_ALLOWANCE} AI edit credits/month</li>
-                <li className="flex items-start gap-2"><CheckMark />{LITE_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
-                <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
-                <li className="flex items-start gap-2"><CheckMark />Priority support</li>
-              </ul>
-              <PlanCardCTA
-                tier="lite"
-                currentSlug={currentSlug}
-                billingCycle={billingCycle}
-                scheduledTargetSlug={subscription?.scheduled_plan_slug}
-                scheduledPending={scheduledPending}
-                paymentBlocked={paymentBlocked}
-                onSubscribe={handleLiteUpgrade}
-                onSwitch={openSwitchModal}
-                subscribeLoading={actionLoading === "lite"}
-              />
+          {/* Lite */}
+          <div className={`glass-card p-5 flex flex-col ${isLite ? "ring-2 ring-purple-200" : ""}`}>
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Lite</h3>
+              <p className="text-xs text-gray-400 mt-0.5">10 videos/month</p>
             </div>
-          )}
+            <div className="mb-4">
+              {billingCycle === "annual" ? (
+                <>
+                  <span className="text-2xl font-bold text-gray-900">${LITE_ANNUAL_MONTHLY_PRICE}</span>
+                  <span className="text-xs text-gray-400 ml-1">/month</span>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-xs text-gray-400 line-through">${LITE_MONTHLY_PRICE}/mo</span>
+                    <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
+                      Save 20%
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-0.5">${LITE_ANNUAL_TOTAL_PRICE} billed annually</p>
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl font-bold text-gray-900">${LITE_MONTHLY_PRICE}</span>
+                  <span className="text-xs text-gray-400 ml-1">/month</span>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    or <span className="font-medium text-gray-500">${LITE_ANNUAL_MONTHLY_PRICE}/mo</span> billed annually
+                  </p>
+                </>
+              )}
+            </div>
+            <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
+              <li className="flex items-start gap-2"><CheckMark />10 videos / month</li>
+              <li className="flex items-start gap-2"><CheckMark />AI script generation</li>
+              <li className="flex items-start gap-2"><CheckMark />ElevenLabs voiceover</li>
+              <li className="flex items-start gap-2"><CheckMark />Render & download MP4</li>
+              <li className="flex items-start gap-2"><CheckMark />{LITE_AI_EDIT_ALLOWANCE} AI edit credits/month</li>
+              <li className="flex items-start gap-2"><CheckMark />{LITE_CUSTOM_TEMPLATE_COUNT} custom video templates</li>
+              <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
+              <li className="flex items-start gap-2"><CheckMark />Priority support</li>
+            </ul>
+            <PlanCardCTA
+              tier="lite"
+              currentSlug={currentSlug}
+              billingCycle={billingCycle}
+              scheduledTargetSlug={subscription?.scheduled_plan_slug}
+              scheduledPending={scheduledPending}
+              paymentBlocked={paymentBlocked}
+              onSubscribe={handleLiteUpgrade}
+              onSwitch={openSwitchModal}
+              subscribeLoading={actionLoading === "lite"}
+            />
+          </div>
 
           {/* Standard */}
           <div className={`glass-card p-5 flex flex-col ${isStandard ? "ring-2 ring-purple-200" : ""}`}>
-            {billingCycle === "lifetime" && (
-              <LimitedSeatsBar seed="standard-lifetime" seatsLeft={6} />
-            )}
             <div className="mb-4">
               <h3 className="text-sm font-semibold text-gray-900">Standard</h3>
               <p className="text-xs text-gray-400 mt-0.5">30 videos/month</p>
             </div>
             <div className="mb-4">
-              {billingCycle === "lifetime" ? (
+              {billingCycle === "annual" ? (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$999.99</span>
-                  <span className="text-xs text-gray-400 ml-1">one-time</span>
-                  <p className="text-[10px] text-gray-400 mt-1">Pay once, yours forever</p>
-                </>
-              ) : billingCycle === "annual" ? (
-                <>
-                  <span className="text-2xl font-bold text-gray-900">$27.99</span>
+                  <span className="text-2xl font-bold text-gray-900">${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-xs text-gray-400 line-through">$34.99/mo</span>
+                    <span className="text-xs text-gray-400 line-through">${STANDARD_MONTHLY_PRICE}/mo</span>
                     <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                       Save 20%
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">$335.88 billed annually</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">${formatPrice(STANDARD_ANNUAL_TOTAL_PRICE)} billed annually</p>
                 </>
               ) : (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$34.99</span>
+                  <span className="text-2xl font-bold text-gray-900">${STANDARD_MONTHLY_PRICE}</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <p className="text-[10px] text-gray-400 mt-1">
-                    or <span className="font-medium text-gray-500">$27.99/mo</span> billed annually
+                    or <span className="font-medium text-gray-500">${formatPrice(STANDARD_ANNUAL_MONTHLY_PRICE)}/mo</span> billed annually
                   </p>
                 </>
               )}
@@ -825,27 +792,17 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
-            {billingCycle === "lifetime" ? (
-              <button
-                onClick={() => handleLifetimeBuy("standard")}
-                disabled={actionLoading === "lifetime-standard"}
-                className="w-full py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
-              >
-                {actionLoading === "lifetime-standard" ? "Redirecting..." : "Buy lifetime"}
-              </button>
-            ) : (
-              <PlanCardCTA
-                tier="standard"
-                currentSlug={currentSlug}
-                billingCycle={billingCycle}
-                scheduledTargetSlug={subscription?.scheduled_plan_slug}
-                scheduledPending={scheduledPending}
-                paymentBlocked={paymentBlocked}
-                onSubscribe={handleStandardUpgrade}
-                onSwitch={openSwitchModal}
-                subscribeLoading={actionLoading === "standard"}
-              />
-            )}
+            <PlanCardCTA
+              tier="standard"
+              currentSlug={currentSlug}
+              billingCycle={billingCycle}
+              scheduledTargetSlug={subscription?.scheduled_plan_slug}
+              scheduledPending={scheduledPending}
+              paymentBlocked={paymentBlocked}
+              onSubscribe={handleStandardUpgrade}
+              onSwitch={openSwitchModal}
+              subscribeLoading={actionLoading === "standard"}
+            />
           </div>
 
           {/* Pro */}
@@ -857,38 +814,29 @@ export default function Subscription() {
                 </span>
               </div>
             )}
-            {billingCycle === "lifetime" && (
-              <LimitedSeatsBar seed="pro-lifetime" seatsLeft={8} />
-            )}
             <div className="mb-4">
               <h3 className="text-sm font-semibold text-gray-900">Pro</h3>
               <p className="text-xs text-gray-400 mt-0.5">For serious creators</p>
             </div>
             <div className="mb-4">
-              {billingCycle === "lifetime" ? (
+              {billingCycle === "annual" ? (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$1,599.99</span>
-                  <span className="text-xs text-gray-400 ml-1">one-time</span>
-                  <p className="text-[10px] text-gray-400 mt-1">Pay once, yours forever</p>
-                </>
-              ) : billingCycle === "annual" ? (
-                <>
-                  <span className="text-2xl font-bold text-gray-900">$47.99</span>
+                  <span className="text-2xl font-bold text-gray-900">${PRO_ANNUAL_MONTHLY_PRICE}</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-xs text-gray-400 line-through">$59.99/mo</span>
+                    <span className="text-xs text-gray-400 line-through">${PRO_MONTHLY_PRICE}/mo</span>
                     <span className="px-1.5 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded">
                       Save 20%
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">$575.88 billed annually</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">${PRO_ANNUAL_TOTAL_PRICE} billed annually</p>
                 </>
               ) : (
                 <>
-                  <span className="text-2xl font-bold text-gray-900">$59.99</span>
+                  <span className="text-2xl font-bold text-gray-900">${PRO_MONTHLY_PRICE}</span>
                   <span className="text-xs text-gray-400 ml-1">/month</span>
                   <p className="text-[10px] text-gray-400 mt-1">
-                    or <span className="font-medium text-gray-500">$47.99/mo</span> billed annually
+                    or <span className="font-medium text-gray-500">${PRO_ANNUAL_MONTHLY_PRICE}/mo</span> billed annually
                   </p>
                 </>
               )}
@@ -903,42 +851,26 @@ export default function Subscription() {
               <li className="flex items-start gap-2"><CheckMark />Premium voiceover + cloning</li>
               <li className="flex items-start gap-2"><CheckMark />Priority support</li>
             </ul>
-            {billingCycle === "lifetime" ? (
-              <button
-                onClick={() => handleLifetimeBuy("pro")}
-                disabled={actionLoading === "lifetime-pro"}
-                className="w-full py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-60"
-              >
-                {actionLoading === "lifetime-pro" ? "Redirecting..." : "Buy lifetime"}
-              </button>
-            ) : (
-              <PlanCardCTA
-                tier="pro"
-                currentSlug={currentSlug}
-                billingCycle={billingCycle}
-                scheduledTargetSlug={subscription?.scheduled_plan_slug}
-                scheduledPending={scheduledPending}
-                paymentBlocked={paymentBlocked}
-                onSubscribe={() => handleUpgrade()}
-                onSwitch={openSwitchModal}
-                subscribeLoading={actionLoading === "upgrade"}
-              />
-            )}
+            <PlanCardCTA
+              tier="pro"
+              currentSlug={currentSlug}
+              billingCycle={billingCycle}
+              scheduledTargetSlug={subscription?.scheduled_plan_slug}
+              scheduledPending={scheduledPending}
+              paymentBlocked={paymentBlocked}
+              onSubscribe={() => handleUpgrade()}
+              onSwitch={openSwitchModal}
+              subscribeLoading={actionLoading === "upgrade"}
+            />
           </div>
         </div>
 
         <CustomPlanSalesFooter className="mt-6" />
 
         {/* Cost comparison */}
-        {billingCycle === "lifetime" ? (
-          <p className="text-center text-[11px] text-gray-400 mt-3">
-            One-time payment, no recurring fees — keep your monthly video allotment forever.
-          </p>
-        ) : (
-          <p className="text-center text-[11px] text-gray-400 mt-3">
-            Pro works out to just <span className="font-medium text-gray-500">{billingCycle === "annual" ? "$0.48" : "$0.60"}</span> per video — 10x cheaper than pay-per-video.
-          </p>
-        )}
+        <p className="text-center text-[11px] text-gray-400 mt-3">
+          Pro works out to just <span className="font-medium text-gray-500">${billingCycle === "annual" ? PRO_COST_PER_VIDEO_ANNUAL : PRO_COST_PER_VIDEO_MONTHLY}</span> per video — a fraction of pay-per-video.
+        </p>
       </section>
 
       {/* Invoices */}

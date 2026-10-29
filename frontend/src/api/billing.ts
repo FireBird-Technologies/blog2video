@@ -10,7 +10,7 @@ import {
 } from "./types";
 
 export type PlanKey = "lite" | "standard" | "pro";
-export type BillingCycle = "monthly" | "annual" | "lifetime"; // "lifetime" unsupported for "lite"
+export type BillingCycle = "monthly" | "annual";
 
 // ─── Billing API ──────────────────────────────────────────
 
