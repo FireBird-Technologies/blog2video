@@ -4,7 +4,7 @@ import path from "node:path";
 import { blogPosts } from "../src/content/blogPosts";
 import { marketingPages } from "../src/content/siteContent";
 import { tools } from "../src/content/tools";
-import { pricingPage } from "../src/content/pricingContent";
+import { pricingPage, formatPrice } from "../src/content/pricingContent";
 import { errorReference } from "../src/content/errorReference";
 import { userManual } from "../src/content/userManual";
 import { helpPosts } from "../src/content/helpPosts";
@@ -288,7 +288,7 @@ function fromPricingPage(page: PricingPage): CorpusEntry {
   const faqQuestions = page.faq.map((f) => f.question);
   const planDetails = page.plans.map((p) => {
     const priceStr = p.monthlyPrice != null
-      ? `$${p.monthlyPrice}/month${p.annualMonthlyPrice != null ? ` (or $${p.annualMonthlyPrice}/month billed annually, $${p.annualTotalPrice}/year)` : ""}`
+      ? `$${formatPrice(p.monthlyPrice)}/month${p.annualMonthlyPrice != null ? ` (or $${formatPrice(p.annualMonthlyPrice)}/month billed annually, $${formatPrice(p.annualTotalPrice ?? 0)}/year)` : ""}`
       : "Custom pricing";
     const features = p.featuresIncluded.join(", ");
     const excluded = p.featuresExcluded.length > 0 ? ` Not included: ${p.featuresExcluded.join(", ")}.` : "";

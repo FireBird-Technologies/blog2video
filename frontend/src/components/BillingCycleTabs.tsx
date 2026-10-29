@@ -8,11 +8,10 @@ interface Props {
 const TABS: { id: BillingCycle; label: string }[] = [
   { id: "monthly", label: "Monthly" },
   { id: "annual", label: "Annual" },
-  { id: "lifetime", label: "Lifetime" },
 ];
 
 /**
- * Pill-style Monthly / Annual / Lifetime selector for the pricing & subscription
+ * Pill-style Monthly / Annual selector for the pricing & subscription
  * pages. Mirrors the styling of the project-page tab strip (ProjectTabs) but is
  * typed to BillingCycle rather than ProjectTabId.
  */

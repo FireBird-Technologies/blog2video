@@ -11,6 +11,7 @@ import {
   LITE_AI_EDIT_ALLOWANCE,
   STANDARD_MONTHLY_PRICE,
   STANDARD_ANNUAL_MONTHLY_PRICE,
+  formatPrice,
   STANDARD_AI_EDIT_ALLOWANCE,
   PRO_MONTHLY_PRICE,
   PRO_ANNUAL_MONTHLY_PRICE,
@@ -325,12 +326,12 @@ function PlanCard({
         <p className="text-xs text-gray-400 mt-0.5">{blurb}</p>
       </div>
       <div className="mb-4">
-        <span className="text-2xl font-bold text-gray-900">${isAnnual ? annualMonthly : monthly}</span>
+        <span className="text-2xl font-bold text-gray-900">${formatPrice(isAnnual ? annualMonthly : monthly)}</span>
         <span className="text-xs text-gray-400 ml-1">/month</span>
         <p className="text-[10px] text-gray-400 mt-1">
           {isAnnual
             ? `billed annually`
-            : <>or <span className="font-medium text-gray-500">${annualMonthly}/mo</span> billed annually</>}
+            : <>or <span className="font-medium text-gray-500">${formatPrice(annualMonthly)}/mo</span> billed annually</>}
         </p>
       </div>
       <ul className="space-y-2 mb-5 flex-1 text-xs text-gray-500">
