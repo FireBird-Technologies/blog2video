@@ -29,6 +29,7 @@ _PREVIEW_IDS = (
     "magazine",
     "sakura",
     "old-documentary-reel",
+    "starlit",
 )
 
 

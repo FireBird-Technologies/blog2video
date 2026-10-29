@@ -103,3 +103,5 @@ def test_mcp_template_gallery__serves_html(client):
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
     assert "<" in resp.text  # an actual HTML document, not an empty body
+    assert '"./previews/old-documentary-reel.webp"' in resp.text
+    assert '"./previews/starlit.webp"' in resp.text
