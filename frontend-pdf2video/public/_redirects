@@ -1,1 +1,9 @@
-/*  /index.html  200
+# App-only routes get the SPA shell. Every indexable page (blog, tools, marketing, templates, pricing) is prerendered
+# to a real file by scripts/build-seo.ts, and files win over these rewrites. There is deliberately NO /* catch-all:
+# with a root 404.html, Cloudflare Pages returns a real 404 for unknown URLs instead of a 200 soft-404.
+/signin       /  200
+/signup       /  200
+/help         /  200
+/terms        /  200
+/privacy      /  200
+/preview/*    /  200
