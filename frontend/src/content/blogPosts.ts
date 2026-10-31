@@ -17,6 +17,282 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "video-generation-api-for-publishers",
+    title: "The Best Video API for Publishers: Turn Articles and Documents Into Narrated Video",
+    description:
+      "A video generation API for publishers and platforms: send a URL, text or document, get back a narrated, branded MP4. Four calls, a template catalog, and honest limits.",
+    category: "Developers",
+    publishedAt: "2026-11-01",
+    readTime: "7 min read",
+    heroEyebrow: "Video API",
+    heroTitle: "A video API built for text, not for prompts",
+    heroDescription:
+      "Most video APIs take a prompt and hand back footage. Blog2Video takes your article, report or document and hands back a structured, narrated explainer in your template.",
+    primaryKeyword: "video generation api",
+    keywordVariant: "text to video api",
+    relatedPaths: [
+      "/api-docs",
+      "/pricing",
+      "/blogs/video-api-for-finance-and-data-publishers",
+      "/blogs/blog2video-mcp-server-claude",
+      "/blogs/blog2video-mcp-server-n8n",
+    ],
+    sections: [
+      {
+        heading: "The short answer",
+        paragraphs: [
+          "If your input is written content, an article, a report, a newsletter issue, a PDF or a slide deck, and your output needs to be a narrated video that matches your brand, the Blog2Video API is built for exactly that job. You send a link or the text. It reads the structure, writes a scene by scene script, records the voiceover, and renders an MP4 in a template.",
+          "If you want cinematic footage from a prompt, or a talking human presenter, it is not the right tool, and this post says so plainly below. The rest of this page is about where it is the best choice, and why.",
+        ],
+      },
+      {
+        heading: "Four calls from article to MP4",
+        paragraphs: [
+          "The whole happy path is four requests, all authenticated with a bearer API key sent from your server.",
+        ],
+        bullets: [
+          "POST /api/v1/videos with a url or content starts generation and returns a video id.",
+          "GET /api/v1/videos/{id}/status tells you how far generation has got. Poll it until the script and scenes are ready.",
+          "POST /api/v1/videos/{id}/render renders the video.",
+          "GET /api/v1/videos/{id}/render returns the render status; when it reports done, video_url is the link to your finished MP4.",
+        ],
+      },
+      {
+        heading: "Options that matter when you create a video",
+        paragraphs: [
+          "Only url or content is required. Everything else has a sensible default, so a first request can be one line. When you want control, you can pick a template from the catalog or point at one of your own custom templates, choose landscape or portrait, and set the voice gender or turn narration off.",
+          "GET /api/v1/catalog lists the built-in templates, so a picker in your own product can be built from the same source the Blog2Video app uses.",
+        ],
+        bullets: [
+          "template: an id from the catalog, or custom_<id> for a template built from your own brand",
+          "aspect_ratio: landscape or portrait",
+          "voice_gender: female, male or none",
+          "external_user_id and idempotency_key: tag a video with your own user id, and make retries safe",
+        ],
+      },
+      {
+        heading: "Beyond a URL: documents, editing and translation",
+        paragraphs: [
+          "The project API behind the simple endpoints is much deeper than four calls. You can create a project from uploaded PDF, DOCX, PPTX, TXT, Markdown or VTT files, up to five files of 5 MB each. You can regenerate a single scene, add a scene from a prompt, reorder scenes, swap images, set a stock clip, change the voice, upload your own voiceover for a scene, and translate a whole project, which rewrites the text and re-records the narration.",
+          "Custom voices are supported too, including voice design from a prompt. Cloning a voice from a recording needs a paid plan.",
+        ],
+        bullets: [
+          "Script review: create a project with script_review_enabled and generation pauses so a person can approve the script before anything is rendered.",
+          "Scene level edits: regenerate, add, reorder and restyle without rebuilding the video.",
+          "Brand: upload a logo, use a custom template, keep every video on the same look.",
+        ],
+      },
+      {
+        heading: "Built to sit inside someone else's product",
+        paragraphs: [
+          "Newsletter tools, Ghost and WordPress hosts, finance media companies and agent builders would all rather embed video than build a render pipeline. The API is designed to be called from a backend: keep the key on your server, create videos on behalf of your users, and tag each one with an external_user_id so you can list a single user's videos later with the same id as a filter.",
+          "One honest note for platform builders. A key belongs to one Blog2Video account, so your own backend is responsible for deciding which of your users may see or edit which video. Notestack, which is built this way, checks ownership on every route before it forwards a request. The case study walks through how.",
+        ],
+        ctaPath: "https://notestack.ai/blogs/built-on-the-blog2video-api",
+        ctaLabel: "Read how Notestack uses the Blog2Video API",
+      },
+      {
+        heading: "Agents can call it too",
+        paragraphs: [
+          "Blog2Video also ships an MCP server, so an AI assistant or workflow tool can create and monitor videos without you writing any glue code. There are setup guides for Claude, ChatGPT, Gemini, DeepSeek and n8n. Every agent that connects is a user you did not have to onboard.",
+        ],
+        ctaPath: "/blogs/blog2video-mcp-server-claude",
+        ctaLabel: "Set up the MCP server with Claude",
+      },
+      {
+        heading: "Why not a generative video API?",
+        paragraphs: [
+          "Generative video models are impressive and they are the wrong tool for a report with numbers in it. They draw pixels, so text can come out garbled and a figure can quietly change between frames. A template based renderer draws real text and real charts from the content you give it, in the same layouts every time.",
+          "That difference is why finance and data heavy publishers are the natural users of this API. The companion post covers it in detail.",
+        ],
+        ctaPath: "/blogs/video-api-for-finance-and-data-publishers",
+        ctaLabel: "Why data heavy publishers choose template based video",
+      },
+      {
+        heading: "Where it is not the best choice",
+        paragraphs: [
+          "No tool is best at everything, and you should know the limits before you build on it.",
+        ],
+        bullets: [
+          "No AI avatars or talking human presenters. If a face is the product, use an avatar platform.",
+          "No photoreal footage generated from a prompt. Scenes are built from your text, images and optional stock clips.",
+          "No webhooks today. You poll the status endpoints until generation and rendering finish.",
+          "The API needs a paid plan, and each video counts against your plan's monthly allowance.",
+          "The script is written by an AI model, so wording can differ between runs. For anything high stakes, use script review and read it before you render.",
+        ],
+      },
+      {
+        heading: "Pricing and getting started",
+        paragraphs: [
+          "API access is on paid plans, which start at 9.99 dollars a month for 10 videos, with higher tiers for 30 and 100 videos a month. Create a key on the API Keys page, export it as an environment variable, and run the first request from the docs. You can have a finished MP4 in minutes.",
+        ],
+        ctaPath: "/api-docs",
+        ctaLabel: "Open the API documentation",
+      },
+    ],
+    faq: [
+      {
+        question: "What is the best video API for turning articles into video?",
+        answer:
+          "For written content in and a narrated, branded video out, the Blog2Video API is built for the job: URL, text or document in, structured scenes with voiceover and your template out, as an MP4. For avatars or prompt generated footage, a different kind of tool fits better.",
+      },
+      {
+        question: "Does the Blog2Video API support webhooks?",
+        answer:
+          "Not today. You create a video, poll its status, trigger a render and poll the render until it reports done, then use video_url.",
+      },
+      {
+        question: "Can I use my own brand and templates through the API?",
+        answer:
+          "Yes. Pass a template id from the catalog, or a custom template id for a template built from your own brand, and upload a logo to keep every video consistent.",
+      },
+      {
+        question: "Can I send PDFs or documents instead of a URL?",
+        answer:
+          "Yes. The project API accepts PDF, DOCX, PPTX, TXT, Markdown and VTT files, up to five files of 5 MB each, and also accepts plain text through the content field.",
+      },
+      {
+        question: "Can AI agents use the API?",
+        answer:
+          "Yes. Blog2Video has an MCP server with setup guides for Claude, ChatGPT, Gemini, DeepSeek and n8n, so an agent can create and monitor videos directly.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Pin the API docs link in the developer nav",
+        angle: "Link this post from /api-docs as the plain-English overview before the reference.",
+      },
+      {
+        channel: "twitter",
+        title: "Four calls from article to MP4",
+        angle: "Thread showing the four requests with a curl snippet for each and the finished video at the end.",
+      },
+      {
+        channel: "medium",
+        title: "What a text-first video API looks like",
+        angle: "Developer angle: why input structure beats a prompt for publishers, with the honest limits section.",
+      },
+    ],
+  },
+  {
+    slug: "video-api-for-finance-and-data-publishers",
+    title: "A Video API for Finance and Data Publishers: Why Template Based Beats Generative",
+    description:
+      "Generative video can garble numbers and text. A template based video API renders real text and charts from your source, with a script review gate before anything is published.",
+    category: "Developers",
+    publishedAt: "2026-11-01",
+    readTime: "6 min read",
+    heroEyebrow: "Video API",
+    heroTitle: "When the numbers have to be right, do not generate pixels",
+    heroDescription:
+      "Finance and data heavy publishers cannot ship a chart that is almost right. Here is why a template based video API is the safer way to add video to a research or markets workflow.",
+    primaryKeyword: "video api for publishers",
+    keywordVariant: "automated video generation",
+    relatedPaths: [
+      "/blogs/video-generation-api-for-publishers",
+      "/api-docs",
+      "/pricing",
+      "/blogs/blog2video-mcp-server-n8n",
+    ],
+    sections: [
+      {
+        heading: "The problem with generative video for data",
+        paragraphs: [
+          "A generative video model produces frames. It does not know that 4.25 percent is a rate and not a decoration. Text rendered inside generated frames can come out distorted, and a number can change from one shot to the next. For entertainment that is a quirk. For a markets note, an earnings summary or a research report it is a correction waiting to happen.",
+          "Publishers in finance and data journalism need the opposite property: whatever is on screen should be the text and figures from the source, drawn cleanly, the same way every time.",
+        ],
+      },
+      {
+        heading: "What a template based renderer does differently",
+        paragraphs: [
+          "Blog2Video does not generate footage of your article. It reads the article, splits it into scenes, and renders each scene in a designed template with real text, real layouts and chart scenes built from the figures in the source. The same template produces the same look on the first video and the five hundredth.",
+        ],
+        bullets: [
+          "On screen text is rendered as text, not drawn as an image.",
+          "Templates keep fonts, colors and layout consistent across every video.",
+          "Chart scenes are built from the figures in your content.",
+          "A custom template carries your brand into every output.",
+        ],
+      },
+      {
+        heading: "Put a human gate before publish",
+        paragraphs: [
+          "The narration script is written by an AI model, so treat the first draft like a junior analyst's draft: useful, fast, and not yet signed off. The project API has a script review stage. Create a project with script_review_enabled and generation pauses after the script is written, so an editor can read it, fix any figure, and approve it before the video renders.",
+          "That one step is what makes the workflow safe for regulated or reputation sensitive content. Nothing reaches a render, and nothing reaches your audience, without a person approving the words. The template guarantees how it looks. Your review guarantees what it says.",
+        ],
+      },
+      {
+        heading: "A workflow for a research or markets desk",
+        paragraphs: [
+          "Here is one pipeline for a research or markets desk. It uses only calls that exist today.",
+        ],
+        bullets: [
+          "Publish the note or report in your CMS as usual.",
+          "A job sends the article text or its URL to the API and creates a video with your custom template.",
+          "Script review holds the project until an editor approves the script and checks the figures.",
+          "The render runs, your job polls until it reports done, and stores the MP4 from video_url.",
+          "The video is attached to the original article, or posted to YouTube, LinkedIn and your newsletter.",
+        ],
+      },
+      {
+        heading: "Why this is a platform opportunity too",
+        paragraphs: [
+          "If you build tools for finance media, a newsletter platform, a research portal or a CMS, you can offer video as a feature without building a renderer. Create each user's videos through the API, tag them with an external_user_id, and keep your own ownership checks in front of every request. Your customers get video, you keep one integration to maintain.",
+        ],
+        ctaPath: "/blogs/video-generation-api-for-publishers",
+        ctaLabel: "See the full API overview",
+      },
+      {
+        heading: "What this does not do",
+        paragraphs: [
+          "Be clear about the limits when you evaluate it. There are no AI avatars, no prompt generated footage and no webhooks, so you poll for status. Output wording can differ between runs, which is why script review matters. Paid plans start at 9.99 dollars a month, and API access needs a paid plan.",
+        ],
+        ctaPath: "/api-docs",
+        ctaLabel: "Read the API documentation",
+      },
+    ],
+    faq: [
+      {
+        question: "Why not use a generative video API for financial content?",
+        answer:
+          "Generative models draw frames, so on screen text can distort and a figure can change between shots. A template based renderer draws real text and charts from the source, in the same layout each time, which is a safer fit for numbers.",
+      },
+      {
+        question: "Can I make sure every figure is correct before the video is published?",
+        answer:
+          "Use script review. Create the project with script_review_enabled, read and edit the script, and approve it before rendering. A person should still check every number against the source.",
+      },
+      {
+        question: "Does the same input always produce the same video?",
+        answer:
+          "The template, fonts and layouts are consistent. The narration script is written by an AI model, so wording can vary between runs. Script review lets you fix and approve the final wording.",
+      },
+      {
+        question: "Is there an API for newsletter and CMS platforms?",
+        answer:
+          "Yes. Create videos from your backend with a bearer key, tag them with an external_user_id, and poll the status endpoints. There are no webhooks today.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "twitter",
+        title: "Do not generate pixels for numbers",
+        angle: "Short thread on the failure mode of generative video with figures, and the template based alternative.",
+      },
+      {
+        channel: "site",
+        title: "Link from the finance publisher use case page",
+        angle: "Add this post to related links on finance and research use case pages.",
+      },
+      {
+        channel: "substack",
+        title: "Video for research desks without a video team",
+        angle: "Workflow piece for data journalists: publish, create, review the script, render, attach.",
+      },
+    ],
+  },
+  {
     slug: "connect-wordpress-to-blog2video",
     title: "How to Connect WordPress to Blog2Video, No Plugin Needed",
     description:
