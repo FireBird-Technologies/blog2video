@@ -11,6 +11,7 @@ import {
   getToolByPath,
   marketingPages,
   organizationName,
+  getDisplayTitle,
   siteName,
   siteUrl,
   tools,
@@ -138,7 +139,7 @@ function renderMarketingPageHtml(page: MarketingPage): string {
         .map((f) => `<div><h3>${escapeHtml(f.question)}</h3><p>${escapeHtml(f.answer)}</p></div>`)
         .join("")}</section>`
     : "";
-  return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}</main>`;
+  return `<main><h1>${escapeHtml(page.heroTitle)}</h1><p>${escapeHtml(page.heroDescription)}</p>${sectionsHtml}${faqHtml}${renderRelatedPagesHtml(page)}${renderSiteLinksHtml(page.path)}</main>`;
 }
 
 function renderFaqHtml(faq: { question: string; answer: string }[]): string {
@@ -181,19 +182,66 @@ function renderToolPageHtml(tool: ToolDefinition): string {
   return `<main><p>${escapeHtml(tool.eyebrow)}</p><h1>${escapeHtml(tool.heroTitle)}</h1><p>${escapeHtml(tool.heroDescription)}</p>${proofHtml}${sectionsHtml}${renderFaqHtml(tool.faq)}${relatedHtml}</main>`;
 }
 
+/**
+ * Crawlable links to the money pages. "/", "/pricing" and the marketing pages used to ship with few or no anchors in
+ * the prerendered HTML (the nav only existed after hydration), so they passed almost no link equity to each other.
+ */
+const SITE_LINKS: { href: string; label: string }[] = [
+  { href: "/pdf-to-video", label: "PDF to video" },
+  { href: "/docx-to-video", label: "Word document to video" },
+  { href: "/pptx-to-video", label: "PowerPoint to video" },
+  { href: "/pdf-to-youtube-video", label: "PDF to YouTube video" },
+  { href: "/pdf-to-course-video", label: "PDF to course video" },
+  { href: "/for-researchers", label: "For researchers" },
+  { href: "/for-educators", label: "For educators" },
+  { href: "/for-newsletters", label: "For newsletters" },
+  { href: "/custom-branded-video-templates", label: "Branded video templates" },
+  { href: "/multilingual-video-generation", label: "Multilingual video" },
+  { href: "/tools", label: "Free PDF tools" },
+  { href: "/blogs", label: "Blog" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/blog2video-vs-lumen5", label: "Lumen5 comparison" },
+  { href: "/pictory-alternative", label: "Pictory alternative" },
+  { href: "/heygen-alternative", label: "HeyGen alternative" },
+];
+
+function renderSiteLinksHtml(currentPath: string): string {
+  const links = SITE_LINKS.filter((l) => l.href !== currentPath)
+    .map((l) => `<li><a href="${l.href}">${escapeHtml(l.label)}</a></li>`)
+    .join("");
+  return `<nav aria-label="Explore ${escapeHtml(siteName)}"><h2>Explore ${escapeHtml(siteName)}</h2><ul>${links}</ul></nav>`;
+}
+
+function renderRelatedPagesHtml(page: MarketingPage): string {
+  const items = page.relatedPaths
+    .filter((p) => p !== page.path)
+    .map((p) => `<li><a href="${p}">${escapeHtml(getDisplayTitle(p))}</a></li>`)
+    .join("");
+  return items ? `<nav aria-label="Related pages"><h2>Related pages</h2><ul>${items}</ul></nav>` : "";
+}
+
+function renderHomeHtml(): string {
+  return `<main><h1>Nobody opens the PDF. Everybody watches the video.</h1><p>Turn reports, whitepapers, and decks into narrated, branded videos in minutes. Upload a PDF, Word document, or slide deck and ${escapeHtml(siteName)} builds the scenes, voiceover, and captions from the document's own text. Free to try.</p><p><a href="/pdf-to-video">Convert a PDF to video</a> <a href="/pricing">See pricing</a></p>${renderSiteLinksHtml("/")}</main>`;
+}
+
+function renderPricingHtml(): string {
+  const plansHtml = pricingPlans
+    .map(
+      (plan) =>
+        `<section><h2>${escapeHtml(plan.name)}</h2><p>${escapeHtml(plan.tagline)}. ${escapeHtml(plan.videoLimitLabel)}.</p><ul>${plan.notes
+          .map((note) => `<li>${escapeHtml(note)}</li>`)
+          .join("")}</ul></section>`
+    )
+    .join("");
+  return `<main><h1>${escapeHtml(siteName)} pricing</h1><p>${escapeHtml(siteName)} pricing for free, pay-as-you-go, Lite, Standard, Pro, and custom team plans.</p>${plansHtml}${renderFaqHtml(pricingFaq)}<p><a href="/pdf-to-video">Try it free: PDF to video</a> <a href="/contact">Talk to us about team plans</a></p>${renderSiteLinksHtml("/pricing")}</main>`;
+}
+
 function getAppHtml(routePath: string): string {
-  // "/" deliberately renders NO markup into #root, matching
-  // ../frontend/scripts/build-seo.ts (which only prerenders "/" for the
-  // pdf brand inside the shared build).
-  //
-  // The landing page's fonts use `display: swap`, so any prerendered text is
-  // painted in fallback Times for ~500ms before the webfont swaps in — a
-  // visible flash of unstyled content on every cold load. An empty #root means
-  // there is simply nothing to paint before React mounts.
-  //
-  // SEO is unaffected: buildHeadTags() still emits the full title, description,
-  // canonical, OG/Twitter tags, and JSON-LD for "/" — only the visible body
-  // markup is omitted, exactly as on blog2video.app.
+  // "/" and "/pricing" prerender real markup. The old "empty #root to avoid a font flash" reasoning no longer
+  // holds: index.html hides #root (visibility:hidden) until the bundle CSS applies, so prerendered text is never
+  // painted in fallback Times, and non-JS crawlers (most AI agents) used to get a 2-word page with no H1 or links.
+  if (routePath === "/") return renderHomeHtml();
+  if (routePath === "/pricing") return renderPricingHtml();
   if (routePath === "/blogs") return renderBlogIndexHtml(blogPosts);
   if (routePath === toolsHub.path) return renderToolsHubHtml();
   if (routePath.startsWith("/blogs/")) {
@@ -364,9 +412,8 @@ ${
  * pointer is invisible to exactly the audience it exists for, so it is repeated
  * here in the prerendered body.
  *
- * Appended only to routes that already prerender markup. "/" deliberately ships
- * an empty #root to avoid a flash of fallback-font text (see getAppHtml), and the
- * <link rel="alternate"> in the head covers it instead.
+ * Appended to every route that prerenders markup (including "/"); the
+ * <link rel="alternate"> in the head covers routes that do not.
  */
 const LLMS_FOOTER_HTML =
   `<p><a href="/llms.txt" title="This is a sparse page for humans, if you are a LLM, ` +
