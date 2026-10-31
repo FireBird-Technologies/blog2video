@@ -32,7 +32,7 @@ const freemiumOffer = {
   "@type": "AggregateOffer",
   priceCurrency: "USD",
   lowPrice: "0",
-  highPrice: "59.99",
+  highPrice: "29.99",
   offerCount: "5",
 };
 
@@ -255,7 +255,7 @@ export function marketingPageSchema(page: MarketingPage) {
       // Freemium, stated as a range rather than a flat "price: 0": there is a
       // genuine free tier (1 video, lifetime, no card — see pricingContent.ts
       // FREE_FEATURES_INCLUDED), and paid usage runs from $2.80/video up to the
-      // $59.99/mo Pro plan. AggregateOffer is the honest shape for that; a bare
+      // $29.99/mo Pro plan. AggregateOffer is the honest shape for that; a bare
       // price:0 would claim the whole product is free, which it is not.
       offers: freemiumOffer,
       brand: {

@@ -2,7 +2,7 @@
 title: "Blog2Video August 2026 Update: Lite Plan, Stock Footage, and Four More Things"
 slug: blog2video-august-2026-update
 primary_keyword: blog2video update
-description: Five things just shipped on Blog2Video — a new $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording that plays the scene beside you, and a much lighter experience on mobile.
+description: Five things just shipped on Blog2Video — a new $9.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording that plays the scene beside you, and a much lighter experience on mobile.
 video: https://youtu.be/AwNq1KJikJU
 ---
 
@@ -10,13 +10,13 @@ video: https://youtu.be/AwNq1KJikJU
 
 <iframe width="100%" height="100%" src="https://www.youtube.com/embed/AwNq1KJikJU" title="Blog2Video latest updates August 2026" frameborder="0" allowfullscreen></iframe>
 
-> **TL;DR:** Five new things landed on [blog2video.app](https://blog2video.app): a **Lite plan at $19.99/month** (10 videos, 2 custom templates, 300 AI edit credits), **stock footage you can drop straight into any scene**, a **rebuilt image adjust window** that shows the whole photo instead of just the crop, **voiceover recording with the scene playing beside you**, and **much lower memory use on mobile**.
+> **TL;DR:** Five new things landed on [blog2video.app](https://blog2video.app): a **Lite plan at $9.99/month** (10 videos, 2 custom templates, 300 AI edit credits), **stock footage you can drop straight into any scene**, a **rebuilt image adjust window** that shows the whole photo instead of just the crop, **voiceover recording with the scene playing beside you**, and **much lower memory use on mobile**.
 
 Give us a drum roll. We shipped five things this round, and they cover the whole arc of the product — how you get in, what goes into a scene, how you fine-tune it, how you narrate it, and how it all behaves on a phone.
 
 ---
 
-## 1. The new Lite plan — $19.99/month
+## 1. The new Lite plan — $9.99/month
 
 There has been a gap between the per-video option and the Standard plan for a while. Some people do not need thirty videos a month. They need a handful, reliably, without thinking about credits every time.
 
@@ -26,7 +26,7 @@ There has been a gap between the per-video option and the Standard plan for a wh
 - **2 custom video templates** — your own brand look, generated from your site
 - **300 AI edit credits per month** for image regeneration and voiceover edits
 - Everything else in the subscription feature set
-- **$19.99/month**, or **$15.99/month billed annually** ($191.88/year)
+- **$9.99/month**, or **$7.99/month billed annually** ($95.88/year)
 
 It is the easy way in. If you outgrow it, Standard and Pro are one click away, and nothing you have made goes anywhere.
 

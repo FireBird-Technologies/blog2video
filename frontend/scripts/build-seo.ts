@@ -18,6 +18,16 @@ import {
   tools,
   toolsHub,
 } from "../src/content/siteContent";
+import {
+  LITE_ANNUAL_MONTHLY_PRICE,
+  LITE_MONTHLY_PRICE,
+  PER_VIDEO_BULK_PRICE,
+  PER_VIDEO_CASUAL_PRICE,
+  PRO_ANNUAL_MONTHLY_PRICE,
+  PRO_MONTHLY_PRICE,
+  STANDARD_ANNUAL_MONTHLY_PRICE,
+  STANDARD_MONTHLY_PRICE,
+} from "../src/content/pricingContent";
 import { getLinkedSections, type TextSegment } from "../src/content/inlineLinks";
 import type { BlogPost, HelpPost, MarketingPage, ToolDefinition } from "../src/content/seoTypes";
 import { getClusterNav } from "../src/content/topicClusters";
@@ -695,6 +705,9 @@ Disallow: /api/
 
 Sitemap: ${siteUrl}/sitemap.xml
 Sitemap: ${siteUrl}/sitemap-index.xml
+
+# LLM-readable summary of this site: ${siteUrl}/llms.txt
+# Full page and post index: ${siteUrl}/llms-full.txt
 `;
 
   const routeManifest = JSON.stringify(
@@ -742,10 +755,79 @@ Sitemap: ${siteUrl}/sitemap-index.xml
   ]);
 }
 
+/**
+ * llms.txt / llms-full.txt (llmstxt.org). Prices come from pricingContent.ts so the
+ * text AI engines quote cannot drift from the pricing page. Skipped for the PDF brand,
+ * which has its own generator in frontend-pdf2video.
+ */
+async function buildLlmsFiles() {
+  if (isPdfBrand) return;
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+  const link = (title: string, routePath: string, description: string) =>
+    `- [${title}](${siteUrl}${routePath}): ${description.replace(/\s+/g, " ").trim()}`;
+
+  const header = `# ${siteName}
+
+> ${siteName} (blog2video.app) turns blog posts, URLs, PDFs, and scripts into narrated, branded videos. It reads the real structure of the source and renders it scene by scene with AI voiceover and templates, instead of stitching stock footage. Built by Firebird Technologies.
+
+## Pricing
+
+- Free: 1 video, no credit card.
+- Pay per video: ${usd(PER_VIDEO_CASUAL_PRICE)} down to ${usd(PER_VIDEO_BULK_PRICE)} per video at volume, no subscription.
+- Lite: ${usd(LITE_MONTHLY_PRICE)}/month (${usd(LITE_ANNUAL_MONTHLY_PRICE)}/month billed annually), 10 videos per month.
+- Standard: ${usd(STANDARD_MONTHLY_PRICE)}/month (${usd(STANDARD_ANNUAL_MONTHLY_PRICE)}/month billed annually), 30 videos per month.
+- Pro: ${usd(PRO_MONTHLY_PRICE)}/month (${usd(PRO_ANNUAL_MONTHLY_PRICE)}/month billed annually), 100 videos per month.
+- Full detail: ${siteUrl}/pricing
+
+## Sister products
+
+- [PDF2Video](https://pdf2vid.com): turns PDFs, reports, and decks into narrated videos.
+- [BlogHub](https://bloghub.app): free blog and newsletter directory.
+`;
+
+  const pageLines = marketingPages.map((page) => link(page.title, page.path, page.description));
+  const toolLines = tools.map((tool) => link(tool.title, tool.path, tool.description));
+  const blogLines = blogPosts.map((post) => link(post.title, `/blogs/${post.slug}`, post.description));
+
+  const llms = `${header}
+## Key pages
+
+${pageLines.join("\n")}
+
+## Free tools
+
+${toolLines.join("\n")}
+
+## Optional: blog
+
+See ${siteUrl}/llms-full.txt for every blog post title and summary.
+`;
+
+  const llmsFull = `${header}
+## Pages
+
+${pageLines.join("\n")}
+
+## Free tools
+
+${toolLines.join("\n")}
+
+## Blog (${blogPosts.length} posts)
+
+${blogLines.join("\n")}
+`;
+
+  await Promise.all([
+    writeFile(path.join(distDir, "llms.txt"), llms, "utf8"),
+    writeFile(path.join(distDir, "llms-full.txt"), llmsFull, "utf8"),
+  ]);
+}
+
 async function main() {
   await buildPrerenderedPages();
   await buildLegalPages();
   await buildSeoFiles();
+  await buildLlmsFiles();
 }
 
 main().catch((error) => {

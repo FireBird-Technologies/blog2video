@@ -757,7 +757,7 @@ export const blogPosts: BlogPost[] = [
       {
         heading: "The honest math",
         paragraphs: [
-          "The free tier gives you a full-quality video with no watermark, which is enough to test whether your audience responds before you commit anything. Lite is $19.99 a month for 10 videos. Standard is $34.99 a month for 30. Pro is $59.99 a month for 100.",
+          "The free tier gives you a full-quality video with no watermark, which is enough to test whether your audience responds before you commit anything. Lite is $9.99 a month for 10 videos. Standard is $17.99 a month for 30. Pro is $29.99 a month for 100.",
           "Compare that against one freelance editor invoice, or against four hours of your own time per post. For most paid finance publications, a single subscriber retained for a few months covers the year.",
         ],
         ctaPath: "/pricing",
@@ -807,7 +807,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "What does Blog2Video cost for a newsletter writer?",
         answer:
-          "There is a free tier with no watermark so you can test whether your audience responds before committing. Paid plans run $19.99 a month for 10 videos, $34.99 for 30, and $59.99 for 100. For most paid finance publications a single subscriber retained for a few months covers the year.",
+          "There is a free tier with no watermark so you can test whether your audience responds before committing. Paid plans run $9.99 a month for 10 videos, $17.99 for 30, and $29.99 for 100. For most paid finance publications a single subscriber retained for a few months covers the year.",
       },
       {
         question: "Will video fix a newsletter nobody is reading?",
@@ -2185,17 +2185,17 @@ export const blogPosts: BlogPost[] = [
     slug: "blog2video-august-2026-update",
     title: "Blog2Video August 2026 Update: Lite Plan, Stock Footage, and Four More Things",
     description:
-      "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
+      "Five things just shipped on Blog2Video — a $9.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
     category: "Product Update",
     heroImage: "/blog/blog-cover-blog2video-august-2026-update.png",
     heroImageAlt:
-      "Five things just shipped on Blog2Video — a $19.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
+      "Five things just shipped on Blog2Video — a $9.99 Lite plan, stock footage inside your scenes, a rebuilt image adjust window, voiceover recording with the scene playing beside you, and much lower memory use on mobile.",
     publishedAt: "2026-08-04",
     readTime: "5 min read",
     heroEyebrow: "Product Update - August 2026",
     heroTitle: "Five new things just landed on Blog2Video.",
     heroDescription:
-      "A new Lite plan at $19.99, stock footage you can drop straight into any scene, an image adjust window that finally shows the whole photo, voiceover recording in time with the visuals, and a far lighter experience on mobile.",
+      "A new Lite plan at $9.99, stock footage you can drop straight into any scene, an image adjust window that finally shows the whole photo, voiceover recording in time with the visuals, and a far lighter experience on mobile.",
     primaryKeyword: "blog2video update",
     keywordVariant: "blog2video new features august 2026",
     relatedPaths: [
@@ -2207,17 +2207,17 @@ export const blogPosts: BlogPost[] = [
     ],
     sections: [
       {
-        heading: "1. The new Lite plan — $19.99 a month",
+        heading: "1. The new Lite plan — $9.99 a month",
         paragraphs: [
           "There has been a gap between the per-video option and the Standard plan for a while. Some people do not need thirty videos a month. They need a handful, reliably, without thinking about credits every time.",
-          "Lite fills that gap: 10 videos every month, 2 custom video templates built from your own site, and 300 AI edit credits for image regeneration and voiceover edits — for $19.99 a month, or $15.99 a month billed annually.",
+          "Lite fills that gap: 10 videos every month, 2 custom video templates built from your own site, and 300 AI edit credits for image regeneration and voiceover edits — for $9.99 a month, or $7.99 a month billed annually.",
           "It is the easy way in. If you outgrow it, Standard and Pro are one click away, and nothing you have already made goes anywhere.",
         ],
         bullets: [
           "10 videos per month",
           "2 custom video templates in your own brand look",
           "300 AI edit credits per month",
-          "$19.99/month, or $15.99/month billed annually ($191.88/year)",
+          "$9.99/month, or $7.99/month billed annually ($95.88/year)",
         ],
         ctaPath: "/pricing",
         ctaLabel: "See the Lite plan",
@@ -2267,7 +2267,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "What do you get on the Lite plan?",
         answer:
-          "10 videos per month, 2 custom video templates, and 300 AI edit credits per month, plus the standard subscription features. It costs $19.99 per month, or $15.99 per month if you pay annually ($191.88 per year).",
+          "10 videos per month, 2 custom video templates, and 300 AI edit credits per month, plus the standard subscription features. It costs $9.99 per month, or $7.99 per month if you pay annually ($95.88 per year).",
       },
       {
         question: "How does stock footage work in a scene?",
@@ -15976,8 +15976,8 @@ export const blogPosts: BlogPost[] = [
         bullets: [
           "Free: 2 videos, no watermark, no credit card required.",
           "Pay-as-you-go: $3.99/video (1–9), $3/video (10–30), $2.80/video (31–200).",
-          "Standard: $34.99/month ($27.99/month billed annually) — 30 videos/month.",
-          "Pro: $59.99/month ($47.99/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
+          "Standard: $17.99/month ($13.99/month billed annually) — 30 videos/month.",
+          "Pro: $29.99/month ($23.99/month billed annually) — 100 videos/month plus unlimited AI edit and image generation.",
           "No minute caps, no per-voice upsells, no credit system on subscription plans.",
         ],
       },
@@ -16163,7 +16163,7 @@ export const blogPosts: BlogPost[] = [
           "Entry-point pricing for each tool (cheapest paid plan, billed monthly unless noted), and what the mid-tier looks like for comparison.",
         ],
         bullets: [
-          "Blog2Video: Free (2 videos, no watermark) → $3.99/video pay-as-you-go → Standard $34.99/mo (30 videos) → Pro $59.99/mo (100 videos + unlimited AI)",
+          "Blog2Video: Free (2 videos, no watermark) → $3.99/video pay-as-you-go → Standard $17.99/mo (30 videos) → Pro $29.99/mo (100 videos + unlimited AI)",
           "Lumen5: Free (watermarked, 5 videos, 720p) → paid from ~$19/mo",
           "Pictory: 14-day trial → Starter $29/mo ($25 annual, 200 min, 100 AI credits) → Professional $59/mo ($35 annual) → Team $199/mo ($119 annual)",
           "InVideo AI: Free (watermarked, 10 exports/week) → Plus $25/mo ($20 annual, 50 videos, 1080p) → Max $59.99/mo ($48 annual, 120 videos, 4K)",
@@ -16243,7 +16243,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "Which blog-to-video tool is cheapest in 2026?",
         answer:
-          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $3.99/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $34.99/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
+          "VideoGen at $12/month (annual billing) is the cheapest subscription. Blog2Video's pay-as-you-go tier starts at $3.99/video with no monthly commitment, which is the most affordable entry point for low-volume users. For teams producing 10+ videos per month, Blog2Video Standard at $17.99/month and Predis.ai Core at $19/month are the most affordable mid-tier options.",
       },
       {
         question: "Does any blog-to-video tool offer a free plan without a watermark?",
@@ -16263,7 +16263,7 @@ export const blogPosts: BlogPost[] = [
       {
         question: "How does Blog2Video pricing compare to Pictory?",
         answer:
-          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $34.99/month (or $28 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
+          "Pictory Starter is $29/month (or $25 annual) and gives 200 video minutes plus 100 AI credits — a dual-cap system that trips users up. Blog2Video Standard is $17.99/month (or $14 annual) and gives 30 complete videos per month with no minute or credit caps. For teams that consistently hit Pictory's limits, Blog2Video's flat pricing is more predictable at scale.",
       },
     ],
     distributionPlan: [
@@ -16325,18 +16325,18 @@ export const blogPosts: BlogPost[] = [
         heading: "Blog2Video: flat plans, no credit math",
         paragraphs: [
           "Blog2Video's subscription plans are priced by video count, not by minute or credit. A video runs as long as the source article needs — typically 5 to 8 minutes for the Detailed preset most explainer content uses — and there's no separate meter running underneath the plan once you're inside your monthly video count.",
-          "At the Detailed preset's upper bound of roughly 8 minutes per video, that works out to up to 240 minutes a month on Standard and up to 800 minutes a month on Pro. Scaling from Standard to Pro costs 71% more per month and buys 233% more video.",
+          "At the Detailed preset's upper bound of roughly 8 minutes per video, that works out to up to 240 minutes a month on Standard and up to 800 minutes a month on Pro. Scaling from Standard to Pro costs 67% more per month and buys 233% more video.",
         ],
         bullets: [
-          "Standard — $34.99/mo ($27.99/mo billed annually): 30 videos/month, up to ~240 minutes total",
-          "Pro — $59.99/mo ($47.99/mo billed annually): 100 videos/month, up to ~800 minutes total",
+          "Standard — $17.99/mo ($13.99/mo billed annually): 30 videos/month, up to ~240 minutes total",
+          "Pro — $29.99/mo ($23.99/mo billed annually): 100 videos/month, up to ~800 minutes total",
           "No credits, no per-minute add-on charges, no separate AI-feature cap layered on top",
         ],
       },
       {
-        heading: "HeyGen: the same $29–$49 buys about a tenth of the video",
+        heading: "HeyGen: $29–$49 buys about a tenth of the video",
         paragraphs: [
-          "HeyGen's Creator plan is priced close to Blog2Video Standard — $29/month versus $34.99/month. But HeyGen doesn't sell video minutes directly. It sells credits, and its premium avatar rendering burns through them fast.",
+          "HeyGen's Creator plan is priced well above Blog2Video Standard — $29/month versus $17.99/month. But HeyGen doesn't sell video minutes directly. It sells credits, and its premium avatar rendering burns through them fast.",
           "Creator includes 200 monthly credits, and HeyGen's Avatar IV avatars cost about 20 credits per minute of rendered video. That caps Creator at roughly 30 minutes of avatar video a month, even though the plan is marketed around unlimited video count. Pro, at $49/month, raises the pool to 1,000 credits — about 50 minutes of the same avatar video. Scaling from Creator to Pro costs 69% more per month for 67% more video.",
         ],
         bullets: [
@@ -16374,8 +16374,8 @@ export const blogPosts: BlogPost[] = [
           "Converting every plan to a price-per-minute makes the comparison concrete — and shows where the real gaps are, not just the headline numbers.",
         ],
         bullets: [
-          "Blog2Video Standard: $35 ÷ 240 min ≈ $0.15/minute",
-          "Blog2Video Pro: $60 ÷ 800 min ≈ $0.08/minute",
+          "Blog2Video Standard: $18 ÷ 240 min ≈ $0.07/minute",
+          "Blog2Video Pro: $30 ÷ 800 min ≈ $0.04/minute",
           "HeyGen Creator: $29 ÷ 30 min ≈ $0.97/minute",
           "HeyGen Pro: $49 ÷ 50 min ≈ $0.98/minute",
           "Synthesia Starter: $29 ÷ 10 min ≈ $2.90/minute",
@@ -16402,12 +16402,12 @@ export const blogPosts: BlogPost[] = [
     ],
     faq: [
       {
-        question: "How much video can I actually make on Blog2Video's $34.99/month plan?",
+        question: "How much video can I actually make on Blog2Video's $17.99/month plan?",
         answer:
           "Up to 240 minutes — 30 videos a month, each as long as the source article needs (typically 5 to 8 minutes for a Detailed-preset explainer). There's no separate credit pool layered on top of the video count.",
       },
       {
-        question: "Why does HeyGen cost about the same as Blog2Video but produce so much less video?",
+        question: "Why does HeyGen cost more than Blog2Video but produce so much less video?",
         answer:
           "HeyGen's Creator plan sells credits, not minutes, and its premium Avatar IV rendering burns about 20 credits per minute. At $29/month and 200 credits, that caps out around 30 minutes of avatar video even though the plan markets unlimited video count. Blog2Video's plans are priced by video count with no credit conversion.",
       },
