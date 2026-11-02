@@ -295,6 +295,7 @@ def google_login(
             body.credential,
             google_requests.Request(),
             settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=settings.GOOGLE_TOKEN_CLOCK_SKEW_SECONDS,
         )
     except ValueError as e:
         logger.error("[AUTH ERROR] Google token verification failed: %s", e)
@@ -556,6 +557,9 @@ def forgot_password_complete(
 
     user.password_hash = hash_password(body.new_password)
     user.token_version = (user.token_version or 0) + 1
+    # Password reset is an account-compromise boundary, so unlike ordinary
+    # website logout it also revokes long-lived MCP OAuth credentials.
+    user.mcp_token_version = (user.mcp_token_version or 0) + 1
     verification.clear_codes(db, email=email)
     rate_limit.login_email_limiter.clear(rate_limit.email_key(email))
     return _finalize_login(
@@ -597,10 +601,9 @@ def logout_cleanup(
     which matters most on a shared or public machine, exactly where people press
     "log out" deliberately.
 
-    Note this signs the account out everywhere, not just this browser: with one
-    counter per user there is no way to revoke a single token. That is the
-    conservative direction for a security control, and it is what "log out"
-    already implies to most people.
+    This signs website sessions out everywhere, but deliberately leaves hosted
+    MCP OAuth grants connected. MCP credentials have an independent revocation
+    counter; account-wide security events such as password reset advance both.
     """
     user.token_version = (user.token_version or 0) + 1
     db.commit()
