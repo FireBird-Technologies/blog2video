@@ -50,7 +50,7 @@ const STOP_WORDS = new Set([
 
 /**
  * Vocabulary bridges for the handful of questions agents actually arrive with.
- * The site says "pricing" and "$19.99"; a model asks "how much does it cost".
+ * The site says "pricing" and "$9.99"; a model asks "how much does it cost".
  * Without this the pricing page loses to any blog post that happens to use the
  * word "cost" in passing. Kept deliberately short — this is a bridge for known
  * commercial intents, not a general thesaurus.

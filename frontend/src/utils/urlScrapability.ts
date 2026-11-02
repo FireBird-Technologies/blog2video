@@ -4,8 +4,8 @@ export const HARD_BLOCKED_DOMAINS: string[] = [];
 // Paywalled sites: allowed but warned, since scrapes often return a truncated/paywall stub.
 export const PAYWALL_DOMAINS = ["nytimes.com"];
 
-// Social sites: blocked only on the main page, but a specific post/reference is allowed
-// (e.g. linkedin.com/feed/sjbgbreg, instagram.com/p/abc, x.com/user/status/123).
+// Social sites: blocked on the main page. A specific post/reference is either
+// allowed or warned depending on the platform (see WARN_SOCIAL_DOMAINS).
 export const SOCIAL_DOMAINS = [
   "x.com",
   "twitter.com",
@@ -14,6 +14,10 @@ export const SOCIAL_DOMAINS = [
   "facebook.com",
   "fb.com",
 ];
+
+// Specific Instagram posts/reels can still require authentication or reject
+// scraping, so allow submission but show the same warning used for YouTube.
+const WARN_SOCIAL_DOMAINS = ["instagram.com"];
 
 // Paths that are still "the main page" even though they aren't bare "/".
 const SOCIAL_LANDING_PATHS = ["/feed", "/home", "/login", "/explore"];
@@ -113,7 +117,7 @@ function isMainPage(pathname: string): boolean {
 /**
  * Classify a link by how scrapable it is, with an optional message for "warn":
  *  - "blocked": known non-scrapable site, social main page, or adult site — disallow.
- *  - "warn": allowed but flagged (YouTube, or AI-chat/Docs share links — ensure public).
+ *  - "warn": allowed but flagged (YouTube, Instagram, or AI-chat/Docs share links).
  *  - "ok": no known issue (existing dot/space validation still applies).
  */
 export function classifyUrl(s: string): UrlClassification {
@@ -126,9 +130,14 @@ export function classifyUrl(s: string): UrlClassification {
   if (HARD_BLOCKED_DOMAINS.some((d) => matchesDomain(host, d))) return { kind: "blocked" };
   if (ADULT_KEYWORDS.some((kw) => host.includes(kw))) return { kind: "blocked" };
 
-  // Social: block the main page, allow a specific post/reference (silently).
+  // Social: block landing pages. Instagram post/reel links are allowed with a
+  // warning because their public scrape availability varies by link/account.
   if (SOCIAL_DOMAINS.some((d) => matchesDomain(host, d))) {
-    return isMainPage(path) ? { kind: "blocked" } : { kind: "ok" };
+    if (isMainPage(path)) return { kind: "blocked" };
+    if (WARN_SOCIAL_DOMAINS.some((d) => matchesDomain(host, d))) {
+      return { kind: "warn", message: MAYBE_UNSCRAPABLE_WARNING };
+    }
+    return { kind: "ok" };
   }
 
   // Google Drive: warn on any Drive file/folder link — ensure public + text-readable.
