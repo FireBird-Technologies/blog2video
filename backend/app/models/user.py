@@ -205,15 +205,21 @@ class User(Base):
     # credential in this table.
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    # Bumped to invalidate every JWT already issued for this account. Our tokens
-    # are stateless, so without this there is no way to revoke one before it
-    # expires: signing out only clears the browser's copy, and changing a
-    # password would leave a thief's token working for the rest of its 72 hours.
-    # Every token carries the value current at issue (the "tv" claim) and
-    # get_current_user rejects any that no longer matches. Tokens minted before
-    # this column existed have no claim and are read as 0, which is the default,
-    # so adding it logs nobody out.
+    # Bumped to invalidate website-session JWTs issued for this account. Web
+    # tokens are stateless, so without this there is no way to revoke one before
+    # its 72-hour expiry. Every website token carries the value current at issue
+    # (the "tv" claim), and get_current_user rejects a stale value. Hosted MCP
+    # credentials use the independent counter below.
     token_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+    # Independent revocation counter for hosted MCP OAuth credentials. Website
+    # logout bumps token_version only, so signing out of blog2video.app does not
+    # silently disconnect long-lived ChatGPT/Claude integrations. Security
+    # events that must revoke every credential (for example password reset)
+    # bump both counters.
+    mcp_token_version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
 

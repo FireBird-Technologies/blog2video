@@ -37,8 +37,7 @@ from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
 
 from app.auth import (
-    REFRESH_TOKEN_EXPIRATION_DAYS,
-    create_access_token,
+    create_mcp_access_token,
     create_refresh_token,
     decode_token_full,
 )
@@ -50,15 +49,15 @@ from app.models.mcp_oauth import MCPAuthCode, MCPClient
 AUTH_CODE_TTL_SECONDS = 600  # 10 minutes
 
 
-def _token_version(db, user_id: int) -> int:
-    """The account's current revocation counter, or 0 if it has no row.
+def _mcp_token_version(db, user_id: int) -> int:
+    """The account's current MCP revocation counter, or 0 if absent.
 
     Read at issue time so the token carries the value it must still match to be
     accepted; see app/auth.py::token_version_is_current.
     """
     from app.models.user import User
 
-    value = db.query(User.token_version).filter(User.id == user_id).scalar()
+    value = db.query(User.mcp_token_version).filter(User.id == user_id).scalar()
     return int(value or 0)
 
 
@@ -189,13 +188,13 @@ class BlogVideoOAuthProvider(
             row.used = True
             db.commit()
 
-            tv = _token_version(db, row.user_id)
-            access_token = create_access_token(row.user_id, tv)
-            refresh_token = create_refresh_token(row.user_id, tv)
+            mtv = _mcp_token_version(db, row.user_id)
+            access_token = create_mcp_access_token(row.user_id, mtv)
+            refresh_token = create_refresh_token(row.user_id, mtv)
             return OAuthToken(
                 access_token=access_token,
                 token_type="Bearer",
-                expires_in=settings.JWT_EXPIRATION_HOURS * 3600,
+                expires_in=settings.MCP_ACCESS_TOKEN_EXPIRATION_DAYS * 86400,
                 scope=" ".join(row.scopes) if row.scopes else None,
                 refresh_token=refresh_token,
             )
@@ -234,17 +233,21 @@ class BlogVideoOAuthProvider(
         # quietly reissue itself past a password change.
         db = SessionLocal()
         try:
-            tv = _token_version(db, user_id)
+            mtv = _mcp_token_version(db, user_id)
         finally:
             db.close()
-        if int(payload.get("tv", 0)) != tv:
+        # Tokens minted before MCP got its own counter carry `tv`. The migration
+        # initializes mcp_token_version from token_version, so those grants keep
+        # refreshing without being tied to future website logouts.
+        token_mtv = payload.get("mtv", payload.get("tv", 0))
+        if int(token_mtv) != mtv:
             raise TokenError(error="invalid_grant", error_description="Invalid refresh token")
-        new_access = create_access_token(user_id, tv)
-        new_refresh = create_refresh_token(user_id, tv)
+        new_access = create_mcp_access_token(user_id, mtv)
+        new_refresh = create_refresh_token(user_id, mtv)
         return OAuthToken(
             access_token=new_access,
             token_type="Bearer",
-            expires_in=settings.JWT_EXPIRATION_HOURS * 3600,
+            expires_in=settings.MCP_ACCESS_TOKEN_EXPIRATION_DAYS * 86400,
             scope=" ".join(scopes) if scopes else None,
             refresh_token=new_refresh,
         )
