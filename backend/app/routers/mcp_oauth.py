@@ -266,6 +266,7 @@ async def google_callback(request: Request):
             credential,
             google_requests.Request(),
             settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=settings.GOOGLE_TOKEN_CLOCK_SKEW_SECONDS,
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
@@ -672,6 +673,7 @@ async def google_oauth_callback(
             raw_id_token,
             google_requests.Request(),
             settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=settings.GOOGLE_TOKEN_CLOCK_SKEW_SECONDS,
         )
     except ValueError as e:
         raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")

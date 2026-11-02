@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
+    # Google ID tokens can be issued a few seconds ahead of this host when the
+    # two clocks are not perfectly synchronized. Keep the allowance small: it
+    # only affects the token's time checks; signature, issuer, and audience are
+    # still verified normally.
+    GOOGLE_TOKEN_CLOCK_SKEW_SECONDS: int = 10
 
     # ─── Social publishing (YouTube / X) ──────────────────────────────────────
     # Deliberately a SEPARATE OAuth client from GOOGLE_CLIENT_ID above. That one
@@ -190,6 +195,9 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 72
+    # Hosted MCP access tokens have a separate lifetime from website sessions.
+    # Override with MCP_ACCESS_TOKEN_EXPIRATION_DAYS in the environment.
+    MCP_ACCESS_TOKEN_EXPIRATION_DAYS: int = 30
 
     # Shared secret guarding the internal template-capture endpoints (capture-data
     # + preview-image upload). The puppeteer snapshot script and the in-process
