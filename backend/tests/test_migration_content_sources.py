@@ -251,4 +251,44 @@ def test_drop_partner_app_cleans_up_an_old_partner_schema(tmp_path):
         p.name for p in _REV.parent.glob("*.py")
         if 'down_revision = "drop_partner_app"' in p.read_text()
     ]
-    assert children == []
+    assert children == ["separate_mcp_token_version.py"]
+
+
+_MCP_TOKEN_REV = _REV.parent / "separate_mcp_token_version.py"
+
+
+def test_separate_mcp_token_version_backfills_and_is_reversible(tmp_path):
+    spec = importlib.util.spec_from_file_location("rev_mcp_token_version", _MCP_TOKEN_REV)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.down_revision == "drop_partner_app"
+
+    engine = sa.create_engine(f"sqlite:///{tmp_path / 'mcp-token.db'}")
+    with engine.begin() as conn:
+        conn.execute(sa.text(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, token_version INTEGER)"
+        ))
+        conn.execute(sa.text(
+            "INSERT INTO users (id, token_version) VALUES (1, 0), (2, 4), (3, NULL)"
+        ))
+
+    def run(fn):
+        with engine.begin() as conn:
+            ctx = MigrationContext.configure(conn)
+            with Operations.context(ctx):
+                getattr(mod, fn)()
+
+    run("upgrade")
+    run("upgrade")  # compatibility migration may have already added the column
+    assert "mcp_token_version" in _columns(engine, "users")
+    with engine.connect() as conn:
+        versions = {
+            row.id: row.mcp_token_version
+            for row in conn.execute(sa.text(
+                "SELECT id, mcp_token_version FROM users ORDER BY id"
+            ))
+        }
+    assert versions == {1: 0, 2: 4, 3: 0}
+
+    run("downgrade")
+    assert "mcp_token_version" not in _columns(engine, "users")

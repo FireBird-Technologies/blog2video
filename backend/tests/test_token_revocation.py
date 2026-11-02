@@ -1,19 +1,21 @@
 """
-Depth tier — JWT revocation via users.token_version.
+Depth tier — independent website and MCP JWT revocation counters.
 
 Our access tokens are stateless, so the only thing standing between a leaked
 token and a live session is this counter. The properties under test:
 
 1. Bumping the counter invalidates every token issued before the bump.
-2. Logging out and resetting a password both bump it — the two moments a user
-   expects their old sessions to die.
+2. Website logout bumps only the website counter; password reset also bumps
+   the independent MCP counter because it is an account-security event.
 3. A token minted before the ``tv`` claim existed still works, so shipping this
    signs nobody out.
 """
+from types import SimpleNamespace
+
 import jwt as pyjwt
 import pytest
 
-from app.auth import create_access_token, create_refresh_token
+from app.auth import create_access_token, create_mcp_access_token, create_refresh_token
 from app.config import settings
 from app.models.user import AuthProvider, PlanTier, User
 from app.services import rate_limit
@@ -119,6 +121,7 @@ def test_legacy_token_dies_once_the_account_revokes_once(client, db_session):
 def test_new_users_start_at_version_zero(client, db_session):
     user = _make_email_user(db_session, email="tv5@test.local")
     assert user.token_version == 0
+    assert user.mcp_token_version == 0
 
 
 # ─── Revocation triggers ────────────────────────────────────────────────────
@@ -163,6 +166,8 @@ def test_password_reset_revokes_tokens_issued_under_the_old_password(
     # is not bounced out of the browser they just reset from.
     fresh = res.json()["access_token"]
     assert client.get("/api/auth/me", headers=_bearer(fresh)).status_code == 200
+    db_session.refresh(user)
+    assert user.mcp_token_version == 1
 
 
 def test_login_issues_a_token_carrying_the_current_version(client, db_session):
@@ -206,6 +211,81 @@ def test_signup_issues_a_token_that_works(client, db_session, monkeypatch):
 
 # ─── MCP refresh tokens ─────────────────────────────────────────────────────
 
+def test_mcp_access_token_has_an_independent_lifetime(monkeypatch):
+    monkeypatch.setattr(settings, "JWT_EXPIRATION_HOURS", 2)
+    monkeypatch.setattr(settings, "MCP_ACCESS_TOKEN_EXPIRATION_DAYS", 17)
+
+    web_payload = pyjwt.decode(
+        create_access_token(1),
+        settings.JWT_SECRET,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+    mcp_payload = pyjwt.decode(
+        create_mcp_access_token(1),
+        settings.JWT_SECRET,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+
+    assert web_payload["exp"] - web_payload["iat"] == 2 * 3600
+    assert mcp_payload["exp"] - mcp_payload["iat"] == 17 * 86400
+
+
+async def test_website_logout_does_not_revoke_mcp_credentials(
+    client, db_session, monkeypatch
+):
+    """Website session revocation and hosted MCP grants are independent."""
+    import app.services.mcp_provider as mcp_provider
+
+    user = _make_email_user(db_session, email="mcp-logout@test.local")
+    web_token = create_access_token(user.id, user.token_version)
+    mcp_access = create_mcp_access_token(user.id, user.mcp_token_version)
+    mcp_refresh = create_refresh_token(user.id, user.mcp_token_version)
+
+    assert client.post("/api/auth/logout", headers=_bearer(web_token)).status_code == 200
+    db_session.refresh(user)
+    assert user.token_version == 1
+    assert user.mcp_token_version == 0
+
+    # Tool calls continue to work through the existing MCP access token.
+    assert client.get("/api/auth/me", headers=_bearer(mcp_access)).status_code == 200
+
+    monkeypatch.setattr(
+        mcp_provider, "SessionLocal", lambda: _NonClosing(db_session), raising=True
+    )
+    provider = mcp_provider.BlogVideoOAuthProvider()
+    oauth_client = SimpleNamespace(client_id="c1")
+    loaded = await provider.load_refresh_token(
+        client=oauth_client, refresh_token=mcp_refresh
+    )
+    assert loaded is not None
+    renewed = await provider.exchange_refresh_token(
+        client=oauth_client, refresh_token=loaded, scopes=[]
+    )
+    assert renewed.access_token and renewed.refresh_token
+    assert renewed.expires_in == settings.MCP_ACCESS_TOKEN_EXPIRATION_DAYS * 86400
+    renewed_access = pyjwt.decode(
+        renewed.access_token,
+        settings.JWT_SECRET,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+    renewed_refresh = pyjwt.decode(
+        renewed.refresh_token,
+        settings.JWT_SECRET,
+        algorithms=[settings.JWT_ALGORITHM],
+    )
+    assert renewed_access["typ"] == "mcp_access"
+    assert renewed_access["mtv"] == 0
+    assert renewed_refresh["typ"] == "refresh"
+    assert renewed_refresh["mtv"] == 0
+
+
+def test_mcp_refresh_token_cannot_authenticate_resource_api(client, db_session):
+    user = _make_email_user(db_session, email="mcp-refresh-bearer@test.local")
+    refresh = create_refresh_token(user.id, user.mcp_token_version)
+
+    assert client.get("/api/auth/me", headers=_bearer(refresh)).status_code == 401
+
+
 async def test_revoked_refresh_token_cannot_mint_a_new_pair(db_session, monkeypatch):
     """Otherwise revocation undoes itself: the 30-day MCP credential would
     quietly reissue past a password change."""
@@ -214,9 +294,9 @@ async def test_revoked_refresh_token_cannot_mint_a_new_pair(db_session, monkeypa
     import app.services.mcp_provider as mcp_provider
 
     user = _make_email_user(db_session, email="mcp@test.local")
-    stale = create_refresh_token(user.id, user.token_version)
+    stale = create_refresh_token(user.id, user.mcp_token_version)
 
-    user.token_version = (user.token_version or 0) + 1
+    user.mcp_token_version = (user.mcp_token_version or 0) + 1
     db_session.commit()
 
     # The provider opens its own SessionLocal(), which under the suite's
@@ -247,7 +327,7 @@ async def test_current_refresh_token_still_mints_a_new_pair(db_session, monkeypa
     import app.services.mcp_provider as mcp_provider
 
     user = _make_email_user(db_session, email="mcp-ok@test.local")
-    good = create_refresh_token(user.id, user.token_version)
+    good = create_refresh_token(user.id, user.mcp_token_version)
 
     monkeypatch.setattr(
         mcp_provider, "SessionLocal", lambda: _NonClosing(db_session), raising=True
