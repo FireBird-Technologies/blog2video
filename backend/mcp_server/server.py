@@ -16,9 +16,13 @@ from mcp.types import TextContent, Tool
 from mcp_server.client import Blog2VideoClient
 from mcp_server.config import get_config
 from mcp_server.handlers import dispatch
-from mcp_server.tools import get_tool_definitions
+from mcp_server.tools import MCP_SERVER_INSTRUCTIONS, get_tool_definitions
 
-server = Server("blog2video")
+server = Server(
+    "blog2video",
+    version="1.23.0",
+    instructions=MCP_SERVER_INSTRUCTIONS,
+)
 _client: Blog2VideoClient | None = None
 
 

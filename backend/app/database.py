@@ -213,6 +213,8 @@ def _migrate_sqlite(eng) -> None:
             "password_hash": "VARCHAR(255)",
             # JWT revocation counter; see app/auth.py.
             "token_version": "INTEGER DEFAULT 0",
+            # Separate hosted-MCP credential revocation counter.
+            "mcp_token_version": "INTEGER DEFAULT 0",
             "script_preferences": "TEXT",
             "script_preferences_version": "INTEGER DEFAULT 0",
             "script_preferences_updated_at": "DATETIME",
@@ -223,6 +225,13 @@ def _migrate_sqlite(eng) -> None:
                     conn.execute(
                         text(f"ALTER TABLE users ADD COLUMN {col_name} {col_def}")
                     )
+            if "mcp_token_version" not in user_cols:
+                conn.execute(
+                    text(
+                        "UPDATE users SET mcp_token_version = "
+                        "COALESCE(token_version, 0)"
+                    )
+                )
 
     # ─── Assets table ────────────────────────────────────────────────
     if "assets" in insp.get_table_names():

@@ -38,45 +38,68 @@ def create_access_token(user_id: int, token_version: int = 0) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_refresh_token(user_id: int, token_version: int = 0) -> str:
+def create_mcp_access_token(user_id: int, mcp_token_version: int = 0) -> str:
+    """Create an access JWT for a hosted MCP OAuth connection.
+
+    MCP credentials use their own revocation counter so ordinary website
+    logout does not disconnect ChatGPT or Claude. The distinct token type lets
+    API authentication select the MCP counter when a tool calls back into the
+    Blog2Video API.
+    """
+    payload = {
+        "sub": str(user_id),
+        "exp": datetime.utcnow()
+        + timedelta(days=settings.MCP_ACCESS_TOKEN_EXPIRATION_DAYS),
+        "iat": datetime.utcnow(),
+        "typ": "mcp_access",
+        "mtv": mcp_token_version,
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_refresh_token(user_id: int, mcp_token_version: int = 0) -> str:
     """Create a JWT refresh token for a user (30-day TTL).
 
-    Used by the MCP OAuth provider so claude.ai can refresh access tokens
-    without redoing the Google login. Carries the same ``tv`` claim, so a
+    Used by the MCP OAuth provider so MCP hosts can refresh access tokens
+    without redoing the login. Carries the MCP-specific ``mtv`` claim, so a
     password reset disconnects the integration rather than leaving a 30-day
-    credential alive behind a changed password.
+    credential alive behind a changed password. Website logout intentionally
+    does not change this counter.
     """
     payload = {
         "sub": str(user_id),
         "exp": datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRATION_DAYS),
         "iat": datetime.utcnow(),
         "typ": "refresh",
-        "tv": token_version,
+        "mtv": mcp_token_version,
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
 def token_version_is_current(payload: dict | None, user: "User") -> bool:
-    """Whether a decoded token is still valid for ``user``'s revocation counter.
+    """Whether a decoded token matches its credential class's counter.
 
-    Tokens minted before the ``tv`` claim existed are treated as version 0, which
-    is every account's starting value — so deploying this does not sign anyone
-    out. Once an account revokes for the first time its counter moves to 1 and
-    those legacy tokens stop validating along with everything else.
+    Website access tokens use ``tv``/``token_version``; MCP access tokens use
+    ``mtv``/``mcp_token_version``. Tokens minted before ``tv`` existed are read
+    as version 0 for backward compatibility.
     """
     if payload is None:
         return False
+    if payload.get("typ") == "mcp_access":
+        return int(payload.get("mtv", 0)) == int(user.mcp_token_version or 0)
     return int(payload.get("tv", 0)) == int(user.token_version or 0)
 
 
 def decode_access_token(token: str) -> Optional[int]:
     """Decode and validate a JWT token. Returns user_id or None.
 
-    Accepts both access and refresh tokens — callers that need to distinguish
-    should use decode_token_full() instead.
+    Accepts website and MCP access tokens. Refresh tokens are credentials for
+    the OAuth token endpoint only and must never authenticate a resource call.
     """
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("typ") == "refresh":
+            return None
         user_id = int(payload.get("sub", 0))
         return user_id if user_id else None
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
@@ -119,6 +142,10 @@ def get_current_user(
         return owner
 
     payload = decode_token_full(raw)
+    # A refresh token is valid only at /mcp/token. It must never be accepted as
+    # a bearer credential by the Blog2Video resource API.
+    if payload and payload.get("typ") == "refresh":
+        payload = None
     try:
         user_id = int(payload["sub"]) if payload else 0
     except (KeyError, TypeError, ValueError):

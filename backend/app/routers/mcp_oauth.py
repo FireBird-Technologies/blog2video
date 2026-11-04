@@ -6,10 +6,10 @@ has authenticated.
 Routes exposed:
   GET  /mcp/.well-known/oauth-authorization-server  (SDK)
   POST /mcp/register                                 (SDK, DCR)
-  GET  /mcp/authorize                                (SDK; delegates to BlogVideoOAuthProvider.authorize → /mcp/google-start)
+  GET  /mcp/authorize                                (SDK; delegates to BlogVideoOAuthProvider.authorize → /mcp/signup)
   POST /mcp/token                                    (SDK)
 
-  GET  /mcp/google-start?code=...                   (this file; renders the Google JS SDK page)
+  GET  /mcp/google-start?code=...                   (returning-user sign-in page)
   POST /mcp/google-callback                         (this file; verifies the Google credential and finalizes the auth code)
 """
 import logging
