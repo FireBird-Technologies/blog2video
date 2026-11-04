@@ -6,7 +6,7 @@
     <title>Blog2Video Settings</title>
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: light;
         --fg: #16161a;
         --muted: #6b6b76;
         --card: #ffffff;
@@ -14,22 +14,13 @@
         --accent: #6d5efc;
         --chip: #f2f2f6;
       }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --fg: #ececf1;
-          --muted: #9a9aa5;
-          --card: #1c1c22;
-          --border: #2e2e38;
-          --chip: #26262e;
-        }
-      }
       * { box-sizing: border-box; }
       body {
         margin: 0;
         padding: 12px;
-        background: transparent;
+        background: #ffffff;
         color: var(--fg);
-        font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font: 14px/1.45 "Plus Jakarta Sans", "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
       }
       #status { color: var(--muted); padding: 8px 2px; }
       .section-label {
@@ -183,8 +174,7 @@
       <div class="srow">
         <label for="s-length">Video length</label>
         <select id="s-length" data-key="video_length">
-          <option value="auto" selected>Auto (recommended)</option>
-          <option value="short">Short · 4–5 scenes</option>
+          <option value="short" selected>Short · 4–5 scenes</option>
           <option value="medium">Medium · 12–15 scenes</option>
           <option value="detailed" data-paid="1">Detailed · 23–30 scenes</option>
           <option value="more_detailed" data-paid="1">More detailed · 35–40 scenes</option>
@@ -193,8 +183,7 @@
       <div class="srow">
         <label for="s-style">Video style</label>
         <select id="s-style" data-key="video_style">
-          <option value="auto" selected>Auto (recommended)</option>
-          <option value="explainer">Explainer</option>
+          <option value="explainer" selected>Explainer</option>
           <option value="promotional">Promotional</option>
           <option value="storytelling">Storytelling</option>
         </select>

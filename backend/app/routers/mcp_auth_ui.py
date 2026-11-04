@@ -12,80 +12,97 @@ from html import escape
 
 from app.services.email_verification import CODE_TTL_SECONDS, RESEND_COOLDOWN_SECONDS
 
-SESSION_MINUTES = 10  # mirrors mcp_provider.AUTH_CODE_TTL_SECONDS
-
 _CSS = """
 :root{color-scheme:light;--brand:#9333ea;--brand-d:#7e22ce;--brand-soft:#faf5ff;--brand-line:#e9d5ff;
---text:#111827;--muted:#6b7280;--soft:#f9fafb;--line:#e5e7eb;--card:#fff;
+--text:#111827;--muted:#4b5563;--soft:#f9fafb;--line:#e5e7eb;--card:#fff;
 --err-bg:#fff1f2;--err:#be123c;--err-line:#fecdd3;--ok-bg:#ecfdf5;--ok:#047857;--ok-line:#a7f3d0}
 *{box-sizing:border-box}
-html{min-width:320px;background:#fff}
-body{margin:0;min-height:100vh;color:var(--text);font:15px/1.5 "Plus Jakarta Sans","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
-background:linear-gradient(180deg,#faf7ff 0,#fff 42%,#fff 100%);-webkit-font-smoothing:antialiased}
-.page{position:relative;isolation:isolate;min-height:100vh;display:flex;flex-direction:column;overflow:hidden}
-.page:before,.page:after{content:"";position:absolute;z-index:-1;border-radius:999px;pointer-events:none;filter:blur(2px)}
-.page:before{width:540px;height:540px;left:-270px;top:-250px;background:radial-gradient(circle,rgba(147,51,234,.12),rgba(147,51,234,0) 70%)}
-.page:after{width:480px;height:480px;right:-260px;bottom:-260px;background:radial-gradient(circle,rgba(192,132,252,.10),rgba(192,132,252,0) 70%)}
-.topbar{height:68px;display:flex;align-items:center;border-bottom:1px solid rgba(229,231,235,.78);background:rgba(255,255,255,.76);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
-.topbar-inner{width:100%;max-width:1152px;margin:auto;padding:0 24px}
-.brand{width:max-content;display:flex;align-items:center;gap:11px;color:var(--text);text-decoration:none}
-.logo{width:38px;height:38px;border-radius:10px;background:var(--brand);color:#fff;display:grid;place-items:center;
-font-weight:800;font-size:13px;letter-spacing:-.35px;box-shadow:0 7px 18px rgba(147,51,234,.22)}
-.brand-name{font-size:19px;font-weight:700;letter-spacing:-.45px}
-.content{width:100%;flex:1;display:grid;place-items:center;padding:48px 20px 56px}
-.stack{width:100%;max-width:440px}
-.connection{display:flex;align-items:center;justify-content:center;gap:7px;margin:0 0 14px;color:var(--brand-d);font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
-.connection svg{width:15px;height:15px}
-.card{position:relative;width:100%;background:rgba(255,255,255,.96);border:1px solid rgba(233,213,255,.86);border-radius:22px;
-padding:34px 36px;box-shadow:0 24px 70px rgba(88,28,135,.10),0 2px 10px rgba(17,24,39,.04)}
-.card:before{content:"";position:absolute;left:28px;right:28px;top:-1px;height:2px;border-radius:0 0 999px 999px;background:linear-gradient(90deg,transparent,#c084fc,transparent);opacity:.9}
-h1{font-size:24px;line-height:1.25;margin:0 0 8px;text-align:center;letter-spacing:-.55px;font-weight:700}
-.sub{color:var(--muted);margin:0 0 22px;text-align:center;font-size:13.5px;line-height:1.65}
-.tabs{display:grid;grid-template-columns:1fr 1fr;background:#f7f3fb;border:1px solid #eee7f5;border-radius:12px;padding:4px;margin-bottom:22px}
-.tabs a{text-align:center;padding:8px 10px;border-radius:9px;font-size:13px;font-weight:650;color:var(--muted);text-decoration:none;transition:color .15s,background .15s,box-shadow .15s}
-.tabs a:hover{color:var(--brand-d)}
-.tabs a.on{background:#fff;color:var(--brand-d);box-shadow:0 1px 4px rgba(88,28,135,.10)}
-.banner{border:1px solid transparent;border-radius:11px;padding:11px 13px;font-size:13px;line-height:1.45;margin:0 0 17px;display:flex;gap:9px;align-items:flex-start}
+html{min-width:320px;min-height:100%;background:#fff}
+body{margin:0;min-height:100vh;color:var(--text);font:16px/1.5 "Plus Jakarta Sans","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;background:#fff}
+.page{min-height:100vh;display:flex;flex-direction:column;background:#fff}
+.topbar{position:sticky;top:0;z-index:50;border-bottom:1px solid rgba(229,231,235,.6);background:rgba(255,255,255,.7);
+backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.topbar-inner{width:100%;max-width:1152px;margin:auto;padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.brand{width:max-content;display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none}
+.logo{width:36px;height:36px;border-radius:8px;background:#9333ea;color:#fff;display:grid;place-items:center;
+font-weight:700;font-size:14px;line-height:20px;letter-spacing:normal}
+.brand-name{font-size:20px;line-height:28px;font-weight:600;letter-spacing:normal}
+.navlinks{display:flex;align-items:center;gap:16px}
+.navlinks a{color:#6b7280;text-decoration:none;font-size:14px;line-height:20px;font-weight:400;white-space:nowrap}
+.navlinks a:hover{color:#111827}.navlinks .contact{padding:8px 16px;border-radius:8px;background:#9333ea;color:#fff;font-weight:500}
+.navlinks .contact:hover{background:#7e22ce;color:#fff}.chev{display:inline-block;width:12px;margin-left:2px;vertical-align:-2px}
+.menu-toggle{display:none;width:40px;height:40px;padding:8px;border:0;border-radius:8px;background:transparent;color:#4b5563;cursor:pointer}
+.menu-toggle:hover{background:#f3f4f6;color:#111827}.menu-toggle svg{display:block;width:24px;height:24px}
+.mobile-nav{display:none;border-top:1px solid rgba(229,231,235,.6);background:rgba(255,255,255,.96);padding:8px 24px 16px}
+.mobile-nav.open{display:grid}.mobile-nav a{padding:9px 0;color:#6b7280;text-decoration:none;font-size:14px}.mobile-nav .contact{color:#7e22ce;font-weight:600}
+.content{width:100%;min-height:calc(100vh - 64px);display:flex;align-items:center;justify-content:center;padding:48px 16px}
+.stack{width:100%;max-width:512px;border-radius:16px;background:#fff;padding:32px 40px}
+.card{width:100%;background:#fff;padding:0}
+h1{font-size:24px;line-height:32px;margin:0;text-align:center;letter-spacing:normal;font-weight:600;color:#111827}
+.sub{color:#4b5563;margin:4px 0 0;text-align:center;font-size:14px;line-height:20px}
+.auth-body{width:100%;margin-top:24px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.column{width:340px;max-width:100%}
+.banner{width:340px;max-width:100%;border:1px solid transparent;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.45;margin:0;display:flex;gap:9px;align-items:flex-start}
 .banner.err{background:var(--err-bg);border-color:var(--err-line);color:var(--err)}
 .banner.ok{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
 .banner.info{background:var(--brand-soft);border-color:var(--brand-line);color:#6b21a8}
 .banner svg{flex:none;margin-top:1px}
-label{display:block;font-size:12.5px;font-weight:650;margin:0 0 6px;color:#374151}
-.field{margin-bottom:15px}
-input[type=text],input[type=email],input[type=password]{width:100%;min-height:45px;padding:11px 13px;border:1px solid #d1d5db;
-border-radius:10px;font:inherit;font-size:14px;background:#fff;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
+label{display:block;font-size:12px;font-weight:600;margin:0 0 6px;color:#374151}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.field{margin-bottom:12px}
+input[type=text],input[type=email],input[type=password]{width:100%;min-height:40px;padding:8px 12px;border:1px solid #d1d5db;
+border-radius:8px;font:inherit;font-size:14px;line-height:20px;background:#fff;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
 input::placeholder{color:#9ca3af}input:hover{border-color:#b8bdc7}
 input:focus{border-color:#a855f7;box-shadow:0 0 0 3px rgba(168,85,247,.13)}
 .pw{position:relative}.pw input{padding-right:58px}.pw button{position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:0;
 color:var(--brand-d);font:inherit;font-size:12px;font-weight:650;cursor:pointer;padding:7px 7px;border-radius:6px}.pw button:hover{background:var(--brand-soft)}
 .hint{font-size:11.5px;line-height:1.5;color:var(--muted);margin:6px 0 0}
-.btn{width:100%;min-height:45px;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 16px;border-radius:10px;
-font:inherit;font-size:13.5px;font-weight:650;cursor:pointer;text-decoration:none;border:1px solid #d1d5db;background:#fff;color:#374151;transition:transform .15s,background .15s,border-color .15s,box-shadow .15s,opacity .15s}
+.btn{width:340px;max-width:100%;min-height:40px;display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 16px;border-radius:8px;
+font:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;text-decoration:none;border:1px solid #d1d5db;background:#fff;color:#374151;transition:transform .15s,background .15s,border-color .15s,box-shadow .15s,opacity .15s}
 .btn:hover{background:var(--soft);border-color:#b8bdc7}.btn:active{transform:translateY(1px)}
-.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 8px 20px rgba(147,51,234,.20)}
-.btn.primary:hover{background:var(--brand-d);border-color:var(--brand-d);box-shadow:0 10px 24px rgba(126,34,206,.25)}
-.btn[disabled]{opacity:.58;cursor:not-allowed;box-shadow:none;transform:none}
+.btn.google{position:relative;width:300px;min-height:44px;justify-content:center;border-radius:9999px;color:#3c4043;
+font-family:"Roboto",Arial,sans-serif;font-size:14px;line-height:20px;font-weight:400}.btn.google svg{position:absolute;left:12px}
+.btn.primary{min-height:40px;padding:10px 16px;border:0;background:#9333ea;color:#fff}
+.btn.primary:hover{background:#7e22ce}
+.btn[disabled]{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
 .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;display:none}
 .btn.loading .spin{display:inline-block}@keyframes s{to{transform:rotate(360deg)}}
-.or{display:flex;align-items:center;gap:12px;color:#9ca3af;font-size:10.5px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;margin:19px 0}
+.or{width:340px;max-width:100%;display:flex;align-items:center;gap:12px;color:#9ca3af;font-size:12px;line-height:16px;font-weight:400;letter-spacing:.025em;text-transform:uppercase;padding:4px 0;margin:0}
 .or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
 .code{font:700 27px/1 ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.42em;text-align:center;padding:15px 7px 15px 18px!important}
 .row{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:15px;font-size:12.5px;color:var(--muted)}
+.mode-switch{margin:0;text-align:center;font-size:14px;line-height:20px;color:#6b7280}
+.mode-switch a{font-weight:500;color:#9333ea;text-decoration:underline}
 .linkbtn{background:none;border:0;color:var(--brand-d);font:inherit;font-weight:650;cursor:pointer;padding:0}
-.linkbtn:hover,a:hover{color:#6b21a8}.linkbtn[disabled]{color:#9ca3af;cursor:not-allowed;font-weight:500}
+.linkbtn:hover,.row a:hover{color:#6b21a8}.linkbtn[disabled]{color:#9ca3af;cursor:not-allowed;font-weight:500}
 a{color:var(--brand-d)}
-.foot{margin:19px 8px 0;text-align:center;font-size:10.5px;line-height:1.6;color:#9ca3af}
-.secure{display:flex;align-items:center;justify-content:center;gap:7px;margin:16px 0 0;color:#9ca3af;font-size:11px}
-.secure svg{width:13px;height:13px}
+.foot{margin:24px 8px 0;text-align:center;font-size:12px;line-height:19.5px;font-weight:400;color:#9ca3af}
+.foot a{color:inherit;text-decoration:underline}.foot a:hover{color:#4b5563}
 .big{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 14px;border:1px solid var(--brand-line);border-radius:17px;background:var(--brand-soft);font-size:29px;text-align:center}
-@media(max-width:520px){.topbar{height:62px}.topbar-inner{padding:0 18px}.logo{width:34px;height:34px;border-radius:9px}.brand-name{font-size:17px}
-.content{place-items:start center;padding:34px 16px 42px}.card{padding:29px 22px;border-radius:18px}h1{font-size:22px}.row{align-items:flex-start;flex-direction:column;gap:10px}}
+@media(max-width:767px){.navlinks{display:none}.menu-toggle{display:block}}
+@media(max-width:520px){.topbar-inner{padding:12px 18px}.logo{width:34px;height:34px}.brand-name{font-size:18px}
+.content{align-items:flex-start;padding:64px 16px 40px}.stack{padding:24px 8px}h1{font-size:22px;line-height:30px}.row{align-items:flex-start;flex-direction:column;gap:10px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 """
 
 _JS = """
+document.querySelectorAll('form[data-email-stage]').forEach(function(f){
+  var email=f.querySelector('input[type=email]'),submit=f.querySelector('button[type=submit]');
+  if(!email||!submit){return}
+  function sync(){submit.disabled=!email.value.trim()||!email.checkValidity()}
+  email.addEventListener('input',sync);sync();
+});
 document.querySelectorAll('form[data-once]').forEach(function(f){
-  f.addEventListener('submit',function(){
+  f.addEventListener('submit',function(e){
+    var details=f.querySelector('[data-auth-details]');
+    if(details&&details.hidden){
+      e.preventDefault();details.hidden=false;
+      details.querySelectorAll('[disabled]').forEach(function(i){i.disabled=false});
+      var next=f.querySelector('[data-next-label]'),lbl=f.querySelector('.lbl');
+      if(next&&lbl){lbl.textContent=next.dataset.nextLabel||lbl.textContent}
+      var focus=details.querySelector('input');if(focus){focus.focus()}
+      return false;
+    }
     if(f.dataset.sent){return false}
     f.dataset.sent='1';
     f.querySelectorAll('button[type=submit]').forEach(function(b){b.disabled=true;b.classList.add('loading');
@@ -108,6 +125,10 @@ if(cd){
 }
 var otp=document.getElementById('otp');
 if(otp){otp.addEventListener('input',function(){otp.value=otp.value.replace(/\\D/g,'').slice(0,6)});otp.focus()}
+var menu=document.getElementById('menu-toggle'),mobile=document.getElementById('mobile-nav');
+if(menu&&mobile){menu.addEventListener('click',function(){
+  var open=mobile.classList.toggle('open');menu.setAttribute('aria-expanded',open?'true':'false');
+})}
 """
 
 _ICON_ERR = ('<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V6h2v3z"/></svg>')
@@ -123,21 +144,34 @@ def _shell(title: str, inner: str, site_url: str = "") -> str:
         s = escape(site_url.rstrip("/"))
         home = s
         favicon = f'<link rel="icon" href="{s}/favicon.ico">'
-        legal = (f'<p class="foot">By continuing you agree to the <a href="{s}/terms" target="_blank" rel="noopener">Terms</a> '
+        legal = (f'<p class="foot">By continuing you agree to our <a href="{s}/terms" target="_blank" rel="noopener">Terms</a> '
                  f'and <a href="{s}/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>')
+    def link(path: str) -> str:
+        return f"{escape(site_url.rstrip('/'))}{path}" if site_url else "#"
+
     return (f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>{escape(title)} · Blog2Video</title>'
             f'<meta name="viewport" content="width=device-width, initial-scale=1">{favicon}'
             f'<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-            f'<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
+            f'<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500&display=swap" rel="stylesheet">'
             f'<style>{_CSS}</style></head><body><div class="page"><header class="topbar"><div class="topbar-inner">'
             f'<a class="brand" href="{home}"><span class="logo">B2V</span><span class="brand-name">Blog2Video</span></a>'
-            f'</div></header><main class="content"><div class="stack"><div class="connection">'
-            f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
-            f'<path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></svg>'
-            f'<span>MCP connection</span></div><section class="card">{inner}</section>{legal}'
-            f'<p class="secure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">'
-            f'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>'
-            f'<span>Secure authorization powered by Blog2Video</span></p></div></main></div><script>{_JS}</script></body></html>')
+            f'<nav class="navlinks" aria-label="Main navigation">'
+            f'<a href="{link("/blog-to-video")}">Blog to Video</a>'
+            f'<a href="{link("/for-technical-bloggers")}">Use Cases</a>'
+            f'<a href="{link("/templates/nightfall")}">Templates</a>'
+            f'<a href="{link("/tools")}">Tools <svg class="chev" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></a>'
+            f'<a href="{link("/help")}">Help</a><a href="{link("/blogs")}">Blog</a>'
+            f'<a href="{link("/api-docs")}">API docs</a><a href="{link("/pricing")}">Pricing</a>'
+            f'<a class="contact" href="{link("/contact")}">Contact</a></nav>'
+            f'<button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open navigation" aria-controls="mobile-nav" aria-expanded="false">'
+            f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg></button>'
+            f'</div><nav id="mobile-nav" class="mobile-nav" aria-label="Mobile navigation">'
+            f'<a href="{link("/blog-to-video")}">Blog to Video</a><a href="{link("/for-technical-bloggers")}">Use Cases</a>'
+            f'<a href="{link("/templates/nightfall")}">Templates</a><a href="{link("/tools")}">Tools</a>'
+            f'<a href="{link("/help")}">Help</a><a href="{link("/blogs")}">Blog</a><a href="{link("/api-docs")}">API docs</a>'
+            f'<a href="{link("/pricing")}">Pricing</a><a class="contact" href="{link("/contact")}">Contact</a></nav>'
+            f'</header><main class="content"><div class="stack"><section class="card">{inner}</section>{legal}'
+            f'</div></main></div><script>{_JS}</script></body></html>')
 
 
 def _banners(error: str | None, info: str | None) -> str:
@@ -149,10 +183,13 @@ def _banners(error: str | None, info: str | None) -> str:
     return out
 
 
-def _tabs(active: str, backend: str, code: str) -> str:
+def _mode_switch(active: str, backend: str, code: str) -> str:
     c = escape(code)
-    return (f'<nav class="tabs"><a class="{"on" if active == "login" else ""}" href="{backend}/mcp/google-start?code={c}">Sign in</a>'
-            f'<a class="{"on" if active == "signup" else ""}" href="{backend}/mcp/signup?code={c}">Create account</a></nav>')
+    if active == "login":
+        return (f'<p class="mode-switch">Don\'t have an account? '
+                f'<a href="{backend}/mcp/signup?code={c}">Create account</a></p>')
+    return (f'<p class="mode-switch">Already have an account? '
+            f'<a href="{backend}/mcp/google-start?code={c}">Sign in</a></p>')
 
 
 def _hidden(code: str, email: str = "") -> str:
@@ -162,50 +199,63 @@ def _hidden(code: str, email: str = "") -> str:
     return h
 
 
-def _submit(label: str, busy: str) -> str:
-    return (f'<button class="btn primary" type="submit" data-busy="{escape(busy)}"><span class="spin"></span>'
+def _submit(label: str, busy: str, next_label: str = "") -> str:
+    next_attr = f' data-next-label="{escape(next_label)}"' if next_label else ""
+    return (f'<button class="btn primary" type="submit" data-busy="{escape(busy)}"{next_attr}><span class="spin"></span>'
             f'<span class="lbl">{escape(label)}</span></button>')
 
 
 def login_page(*, code: str, backend: str, google_url: str, site_url: str,
                error: str | None = None, email: str = "") -> str:
+    details_hidden = "" if error else " hidden"
+    details_disabled = "" if error else " disabled"
+    submit_label = "Sign in" if error else "Continue"
     inner = f"""
-<h1>Connect your account</h1>
-<p class="sub">Sign in to let your AI assistant create and manage videos in Blog2Video.</p>
-{_tabs("login", backend, code)}{_banners(error, None)}
-<a class="btn" href="{escape(google_url)}">{_GOOGLE}<span>Continue with Google</span></a>
-<div class="or">or use email</div>
-<form method="post" action="{backend}/mcp/email-login" data-once>{_hidden(code)}
-  <div class="field"><label for="email">Email</label>
+<h1>Sign in to Blog2Video</h1>
+<p class="sub">Choose how you'd like to continue.</p>
+<div class="auth-body">
+{_banners(error, None)}
+<a class="btn google" href="{escape(google_url)}"><span>Continue with Google</span>{_GOOGLE}</a>
+<div class="or">OR</div>
+<form class="column" method="post" action="{backend}/mcp/email-login" data-once data-email-stage>{_hidden(code)}
+  <div class="field"><label class="sr-only" for="email">Email</label>
     <input id="email" type="email" name="email" value="{escape(email)}" required autocomplete="email" placeholder="you@example.com"></div>
-  <div class="field"><label for="password">Password</label>
-    <div class="pw"><input id="password" type="password" name="password" required autocomplete="current-password" placeholder="Your password">
-    <button type="button" data-toggle-pw="password">Show</button></div></div>
-  {_submit("Sign in", "Signing in…")}
+  <div data-auth-details{details_hidden}><div class="field"><label class="sr-only" for="password">Password</label>
+    <div class="pw"><input id="password" type="password" name="password" required{details_disabled} autocomplete="current-password" placeholder="Your password">
+    <button type="button" data-toggle-pw="password">Show</button></div></div></div>
+  {_submit(submit_label, "Signing in…", "Sign in")}
 </form>
-<p class="foot" style="margin-top:14px">This sign-in link expires in {SESSION_MINUTES} minutes.</p>"""
+{_mode_switch("login", backend, code)}
+</div>"""
     return _shell("Sign in", inner, site_url)
 
 
 def signup_page(*, code: str, backend: str, google_url: str, site_url: str,
                 error: str | None = None, email: str = "", name: str = "") -> str:
+    details_hidden = "" if error else " hidden"
+    details_disabled = "" if error else " disabled"
+    submit_label = "Send verification code" if error else "Continue"
     inner = f"""
-<h1>Create your account</h1>
-<p class="sub">Free to start. We'll email you a 6-digit code to confirm your address.</p>
-{_tabs("signup", backend, code)}{_banners(error, None)}
-<a class="btn" href="{escape(google_url)}">{_GOOGLE}<span>Sign up with Google</span></a>
-<div class="or">or use email</div>
-<form method="post" action="{backend}/mcp/signup-start" data-once>{_hidden(code)}
-  <div class="field"><label for="name">Name <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-    <input id="name" type="text" name="name" value="{escape(name)}" autocomplete="name" placeholder="Your name"></div>
-  <div class="field"><label for="email">Email</label>
+<h1>Create your Blog2Video account</h1>
+<p class="sub">Choose how you'd like to get started.</p>
+<div class="auth-body">
+{_banners(error, None)}
+<a class="btn google" href="{escape(google_url)}"><span>Continue with Google</span>{_GOOGLE}</a>
+<div class="or">OR</div>
+<form class="column" method="post" action="{backend}/mcp/signup-start" data-once data-email-stage>{_hidden(code)}
+  <div class="field"><label class="sr-only" for="email">Email</label>
     <input id="email" type="email" name="email" value="{escape(email)}" required autocomplete="email" placeholder="you@example.com"></div>
-  <div class="field"><label for="password">Password</label>
-    <div class="pw"><input id="password" type="password" name="password" required autocomplete="new-password" placeholder="Create a password">
+  <div data-auth-details{details_hidden}>
+  <div class="field"><label class="sr-only" for="name">Name (optional)</label>
+    <input id="name" type="text" name="name" value="{escape(name)}"{details_disabled} autocomplete="name" placeholder="Your name (optional)"></div>
+  <div class="field"><label class="sr-only" for="password">Password</label>
+    <div class="pw"><input id="password" type="password" name="password" required{details_disabled} autocomplete="new-password" placeholder="Create a password">
     <button type="button" data-toggle-pw="password">Show</button></div>
-    <p class="hint">At least 8 characters, with an uppercase letter and a special character.</p></div>
-  {_submit("Send verification code", "Sending code…")}
-</form>"""
+    <p class="hint">At least 8 characters, with an uppercase letter and a special character.</p></div></div>
+  {_submit(submit_label, "Sending code…", "Send verification code")}
+</form>
+{_mode_switch("signup", backend, code)}
+</div>"""
     return _shell("Create account", inner, site_url)
 
 
@@ -215,8 +265,9 @@ def verify_page(*, code: str, backend: str, site_url: str, email: str,
 <div class="big">📬</div>
 <h1 style="text-align:center">Check your email</h1>
 <p class="sub" style="text-align:center">We sent a 6-digit code to<br><b style="color:var(--text)">{escape(email)}</b></p>
+<div class="auth-body">
 {_banners(error, info)}
-<form method="post" action="{backend}/mcp/signup-verify" data-once>{_hidden(code, email)}
+<form class="column" method="post" action="{backend}/mcp/signup-verify" data-once>{_hidden(code, email)}
   <div class="field"><label for="otp">Verification code</label>
     <input id="otp" class="code" type="text" name="otp" inputmode="numeric" pattern="[0-9]{{6}}" maxlength="6"
       autocomplete="one-time-code" placeholder="••••••" required>
@@ -227,7 +278,7 @@ def verify_page(*, code: str, backend: str, site_url: str, email: str,
   <form method="post" action="{backend}/mcp/signup-resend" data-once style="margin:0">{_hidden(code, email)}
     <button id="resend-btn" class="linkbtn" type="submit" data-wait="{wait}"><span id="resend-lbl">Resend code</span></button></form>
   <a href="{backend}/mcp/signup?code={escape(code)}&email={escape(email)}">Wrong email?</a>
-</div>"""
+</div></div>"""
     return _shell("Verify email", inner, site_url)
 
 

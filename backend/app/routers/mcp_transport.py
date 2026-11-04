@@ -144,7 +144,7 @@ _REQUEST_TOKEN: contextvars.ContextVar[str] = contextvars.ContextVar(
 # MCP server instance (shared across all SSE connections)
 # ---------------------------------------------------------------------------
 
-mcp_server = Server("blog2video")
+mcp_server = Server("blog2video", version="1.23.0")
 
 
 @mcp_server.list_tools()
@@ -190,14 +190,14 @@ async def _call_tool(name: str, arguments: dict):
 # per-result _meta and this resource read can never drift apart.
 from mcp_server.handlers import SETUP_RESOURCE_URI as _SETUP_URI
 
-_GALLERY_URI = "ui://blog2video/template_gallery_v4"
+_GALLERY_URI = "ui://blog2video/template_gallery_v5"
 # _v2: the original bundle predated MCP Apps — it never called app.connect(), so
 # claude.ai kept its iframe hidden. Rebuilt from ui_src/src/voice_gallery_app.ts;
 # the URI must change or existing connectors keep serving the cached broken HTML.
-_VOICES_URI  = "ui://blog2video/voice_gallery_v2"
+_VOICES_URI  = "ui://blog2video/voice_gallery_v3"
 # Third step of the Manual chain (templates → voices → settings). Built from
-# ui_src/src/settings_panel_app.ts, so it performs the app.connect() handshake
-# the hand-written setup_gallery.html never did.
+# ui_src/src/settings_panel_app.ts and performs the same app.connect() handshake
+# now used by the combined setup gallery.
 # _v2: the v1 bundle called app.callServerTool("create_project") itself, which
 # claude.ai silently drops (no consent prompt, no dispatch). Rebuilt to announce
 # the settings via app.sendMessage so the MODEL creates the project. claude.ai
@@ -207,7 +207,7 @@ _VOICES_URI  = "ui://blog2video/voice_gallery_v2"
 # medium length, music: moment_of_peace") instead of raw JSON, which the user saw
 # in the composer. claude.ai caches widget HTML per URI and never re-reads it, so
 # the URI must change or connectors keep serving the cached v2 bundle.
-_SETTINGS_URI = "ui://blog2video/settings_panel_v3"
+_SETTINGS_URI = "ui://blog2video/settings_panel_v5"
 _GALLERY_MIME = "text/html;profile=mcp-app"
 
 
@@ -220,15 +220,9 @@ async def _fetch_templates() -> list[dict]:
             resp = await client.get(f"{base}/api/templates")
             if resp.status_code == 200:
                 raw = resp.json()
-                builtins = [
-                    {
-                        "id": t.get("id", "?"),
-                        "name": t.get("name") or t.get("id", "?"),
-                        "genres": t.get("genres") or [],
-                        "custom": False,
-                    }
-                    for t in raw
-                ]
+                from mcp_server.handlers import _built_in_gallery_templates
+
+                builtins = _built_in_gallery_templates(raw)
                 return builtins + await _fetch_custom_templates()
     except Exception as exc:
         logger.warning("setup_gallery: failed to fetch templates: %s", exc)
@@ -397,7 +391,8 @@ async def _read_resource(uri):
 
     # Superseded URIs are served the CURRENT bundle — see the setup branch below
     # for why (cached tool lists keep requesting the old version).
-    if uri_str in (_GALLERY_URI, "ui://blog2video/template_gallery_v3",
+    if uri_str in (_GALLERY_URI, "ui://blog2video/template_gallery_v4",
+                   "ui://blog2video/template_gallery_v3",
                    "ui://blog2video/template_gallery_v2",
                    "ui://blog2video/template_gallery"):
         # The widget's primary data channel is the tool result's
@@ -413,7 +408,8 @@ async def _read_resource(uri):
         html = html.replace("</head>", f"{injection}</head>", 1)
         return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
 
-    if uri_str in (_VOICES_URI, "ui://blog2video/voice_gallery"):
+    if uri_str in (_VOICES_URI, "ui://blog2video/voice_gallery_v2",
+                   "ui://blog2video/voice_gallery"):
         from mcp_server.handlers import _VOICE_CACHE
         voices_json = json.dumps(_VOICE_CACHE, ensure_ascii=False)
         html = load_html("voice_gallery")
@@ -426,7 +422,25 @@ async def _read_resource(uri):
     # until the connector is re-added — a bump alone makes every fetch fail with
     # "Unknown resource", which ChatGPT surfaces as "Failed to fetch template".
     # Serving the current bundle for old URIs makes a bump non-breaking.
-    if uri_str in (_SETUP_URI, "ui://blog2video/setup_gallery_v7",
+    if uri_str in (_SETUP_URI, "ui://blog2video/setup_gallery_v25",
+                   "ui://blog2video/setup_gallery_v24",
+                   "ui://blog2video/setup_gallery_v23",
+                   "ui://blog2video/setup_gallery_v22",
+                   "ui://blog2video/setup_gallery_v21",
+                   "ui://blog2video/setup_gallery_v20",
+                   "ui://blog2video/setup_gallery_v19",
+                   "ui://blog2video/setup_gallery_v18",
+                   "ui://blog2video/setup_gallery_v17",
+                   "ui://blog2video/setup_gallery_v16",
+                   "ui://blog2video/setup_gallery_v15",
+                   "ui://blog2video/setup_gallery_v14",
+                   "ui://blog2video/setup_gallery_v13",
+                   "ui://blog2video/setup_gallery_v12",
+                   "ui://blog2video/setup_gallery_v11",
+                   "ui://blog2video/setup_gallery_v10",
+                   "ui://blog2video/setup_gallery_v9",
+                   "ui://blog2video/setup_gallery_v8",
+                   "ui://blog2video/setup_gallery_v7",
                    "ui://blog2video/setup_gallery_v6",
                    "ui://blog2video/setup_gallery_v5",
                    "ui://blog2video/setup_gallery_v4",
@@ -440,38 +454,28 @@ async def _read_resource(uri):
         # fires before the user can interact, and carries fresher data.
         # bgm_tracks has no unauthenticated fetch (the endpoint needs a JWT), and
         # is_paid fails closed so paid-only lengths stay hidden when unknown.
-        # Prefer THIS user's stashed URL over the process-wide last-seen one.
-        # The shared global is wrong whenever two users overlap, and empty on a
-        # cold read — which is ChatGPT's normal path, since it preloads widgets
-        # before any tool runs. An empty blog_url makes the Create button send
-        # blog_url:"" and the call fail.
-        blog_url = h._SETUP_BLOG_URL
-        token = _REQUEST_TOKEN.get()
-        if token:
-            import anyio
-
-            try:
-                blog_url = await anyio.to_thread.run_sync(
-                    lambda: h._recall_setup_url(
-                        Blog2VideoClient(jwt_token=token, base_url=settings.BACKEND_URL)
-                    )
-                ) or blog_url
-            except Exception as exc:  # noqa: BLE001 - never fail the resource read
-                logger.warning("_read_resource: blog_url recall failed: %s", exc)
-
+        # Resource reads can happen before the current setup_video result and
+        # are cached independently by the host. Never inject a previously used
+        # source here: the current tool result overlays this blank state with an
+        # explicitly supplied URL or the current request's cached chat text.
         setup = {
             "templates": templates,
             "voices": voices,
             "bgm_tracks": h._BGM_CACHE,
             "is_paid": False,
-            "blog_url": blog_url,
+            "blog_url": "",
+            "source_type": "url",
+            "initial_mode": "link",
+            "source": None,
         }
         html = load_html("setup_gallery")
         injection = f"<script>window.__B2V_SETUP__={json.dumps(setup, ensure_ascii=False)};</script>"
         html = html.replace("</head>", f"{injection}</head>", 1)
         return [ReadResourceContents(content=html, mime_type=_GALLERY_MIME)]
 
-    if uri_str == _SETTINGS_URI:
+    if uri_str in (_SETTINGS_URI, "ui://blog2video/settings_panel_v4",
+                   "ui://blog2video/settings_panel_v3",
+                   "ui://blog2video/settings_panel_v2"):
         import mcp_server.handlers as h
         # Cold-read fallback only — the tool-call path (structuredContent) always
         # fires before the user can interact and carries fresher data. bgm_tracks

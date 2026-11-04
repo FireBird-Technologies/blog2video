@@ -37,6 +37,9 @@ type Template = {
    *  separate "Your templates" section — they have no bundled .webp preview. */
   custom?: boolean;
   colors?: { accent?: string; bg?: string; text?: string };
+  new_template?: boolean;
+  new_scenes?: boolean;
+  popular_template?: boolean;
 };
 
 const grid = document.getElementById("grid") as HTMLElement;
@@ -50,6 +53,20 @@ const app = new App(
 
 let selectedId: string | null = null;
 
+function templateRank(t: Template): number {
+  if (t.new_template) return 0;
+  if (t.new_scenes) return 1;
+  if (t.popular_template) return 2;
+  return 3;
+}
+
+function templateBadge(t: Template): { label: string; popular: boolean } | null {
+  if (t.new_template) return { label: "New", popular: false };
+  if (t.new_scenes) return { label: "New Scenes", popular: false };
+  if (t.popular_template) return { label: "Popular", popular: true };
+  return null;
+}
+
 function render(templates: Template[]): void {
   if (!templates.length) {
     status.textContent = "No templates available.";
@@ -61,7 +78,7 @@ function render(templates: Template[]): void {
   // Built-ins first, then the user's own templates under a heading. Custom ones
   // arrive with id "custom_<n>" and no bundled .webp, so they fall through to
   // the initials placeholder below unless the backend rendered a thumbnail.
-  const builtIns = templates.filter((t) => !t.custom);
+  const builtIns = templates.filter((t) => !t.custom).sort((a, b) => templateRank(a) - templateRank(b));
   const customs = templates.filter((t) => t.custom);
 
   for (const t of [...builtIns, ...customs]) {
@@ -79,6 +96,8 @@ function render(templates: Template[]): void {
 
     // Bundled data URI first; the server-supplied R2 url is only a fallback for
     // hosts that do allow external images (ChatGPT, direct browser loads).
+    const thumbWrap = document.createElement("div");
+    thumbWrap.className = "thumb-wrap";
     const src = previewFor(t.id) ?? t.preview_url;
     if (src) {
       const img = document.createElement("img");
@@ -94,13 +113,22 @@ function render(templates: Template[]): void {
         ph.textContent = (t.name ?? t.id).slice(0, 2).toUpperCase();
         img.replaceWith(ph);
       });
-      card.appendChild(img);
+      thumbWrap.appendChild(img);
     } else {
       const ph = document.createElement("div");
       ph.className = "thumb placeholder";
       ph.textContent = (t.name ?? t.id).slice(0, 2).toUpperCase();
-      card.appendChild(ph);
+      thumbWrap.appendChild(ph);
     }
+
+    const badgeInfo = templateBadge(t);
+    if (badgeInfo) {
+      const badge = document.createElement("span");
+      badge.className = `template-badge${badgeInfo.popular ? " popular" : ""}`;
+      badge.textContent = badgeInfo.label;
+      thumbWrap.appendChild(badge);
+    }
+    card.appendChild(thumbWrap);
 
     const meta = document.createElement("div");
     meta.className = "meta";

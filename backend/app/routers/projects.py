@@ -3627,11 +3627,17 @@ def create_project_from_upload(
     template: Optional[str] = Form(None),
     video_style: Optional[str] = Form("explainer"),
     video_length: Optional[str] = Form("auto"),
+    playback_speed: Optional[float] = Form(1.0),
     content_language: Optional[str] = Form(None),
     bgm_track_id: Optional[str] = Form(None),
     bgm_volume: Optional[float] = Form(0.10),
     stock_footage_enabled: Optional[bool] = Form(False),
     script_review_enabled: Optional[bool] = Form(False),
+    captions_enabled: Optional[bool] = Form(False),
+    caption_position: Optional[str] = Form("bottom_center"),
+    caption_font_family: Optional[str] = Form("inter"),
+    caption_font_size: Optional[str] = Form("36"),
+    caption_offset: Optional[int] = Form(0),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -3705,7 +3711,7 @@ def create_project_from_upload(
         avatar_size=_default_avatar_size(aspect_ratio or "landscape"),
         video_style=normalized_video_style,
         video_length=_normalize_video_length(video_length, user),
-        playback_speed=_normalize_playback_speed(None),
+        playback_speed=_normalize_playback_speed(playback_speed),
         content_language=normalize_preferred_language_code(content_language),
         bgm_track_id=bgm_track_id or None,
         bgm_volume=bgm_volume if bgm_volume is not None else 0.10,
@@ -3713,6 +3719,11 @@ def create_project_from_upload(
             stock_footage_enabled, user, template_id
         ),
         script_review_enabled=bool(script_review_enabled),
+        captions_enabled=bool(captions_enabled),
+        caption_position=caption_position or "bottom_center",
+        caption_font_family=caption_font_family or "inter",
+        caption_font_size=caption_font_size or "36",
+        caption_offset=int(caption_offset or 0),
         status=ProjectStatus.CREATED,
     )
     from app.services.script_style import snapshot_style_for_project
