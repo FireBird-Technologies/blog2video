@@ -48,9 +48,8 @@ let data: SettingsData = {};
 let ready = false;
 let bgmAudio: HTMLAudioElement | null = null;
 
-// Mirrors ProjectCreate (app/schemas/schemas.py). Every control starts at its
-// default, and a control still AT its default is omitted from the args entirely
-// — that is what "skip this setting" means.
+// Most controls mirror ProjectCreate defaults. Length and style deliberately
+// start at explicit, non-auto values, so collectSettings sends them.
 const DEFAULTS: Record<string, unknown> = {
   video_length: "auto",
   video_style: "auto",

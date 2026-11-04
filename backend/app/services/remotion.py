@@ -1762,6 +1762,51 @@ def write_remotion_data(
                 and not scene_layout_props[i].get("visualClearedByUser")
                 and i != _outro_idx
             ]
+
+            # A template/script regeneration releases every clip before the
+            # image cascade. When scraped images cover every eligible scene,
+            # the cascade above can leave no open slot and strand all those
+            # clips even though the project still has stock footage enabled.
+            # That is especially visible through MCP: the create call correctly
+            # sends stock_footage_enabled=true, generation assigns a clip, then
+            # a later change_template silently replaces it with a still.
+            #
+            # Preserve the feature's contract by yielding tail image slots to
+            # the already-owned clips. Images still get first choice, and this
+            # only runs during an explicit redistribution with stock footage
+            # enabled. A slot the user deliberately cleared remains protected.
+            if getattr(project, "stock_footage_enabled", False):
+                extra_slots_needed = max(0, len(spare_videos) - len(open_slots))
+                if extra_slots_needed:
+                    candidates = [
+                        i
+                        for i in reversed(range(len(scenes)))
+                        if i not in open_slots
+                        and i not in video_scene_indices
+                        and scene_base_layouts[i] not in no_image_layouts
+                        and not scene_layout_props[i].get("visualClearedByUser")
+                        and i != _outro_idx
+                    ]
+                    yielded: list[int] = []
+                    for idx in candidates[:extra_slots_needed]:
+                        lp = scene_layout_props[idx]
+                        lp.pop("assignedImage", None)
+                        lp.pop("imageFocusX", None)
+                        lp.pop("imageFocusY", None)
+                        lp.pop("imageZoom", None)
+                        scene_image_map[idx] = []
+                        hide_image_flags[idx] = False
+                        dirty.add(idx)
+                        yielded.append(idx)
+                    open_slots.extend(yielded)
+                    if yielded:
+                        logger.info(
+                            "[REMOTION] project=%s: preserved %s stock clip slot(s) "
+                            "during visual redistribution",
+                            project.id,
+                            len(yielded),
+                        )
+
             for idx, filename in zip(open_slots, spare_videos):
                 lp = scene_layout_props[idx]
                 lp["assignedVideo"] = filename

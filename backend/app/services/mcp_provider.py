@@ -10,8 +10,8 @@ Flow:
      mcp_oauth_clients.
   2. claude.ai redirects user to /mcp/authorize → authorize() inserts a
      pending mcp_oauth_codes row (user_id=NULL) and returns a redirect URL
-     pointing at our /mcp/google-start page.
-  3. The Google login bridge (in app/routers/mcp_oauth.py) resolves the user
+     pointing at our /mcp/signup page.
+  3. The account bridge (in app/routers/mcp_oauth.py) resolves the user
      and updates the row's user_id, then redirects the browser back to
      claude.ai's redirect_uri with code + state.
   4. claude.ai POSTs to /mcp/token with the code → exchange_authorization_code()
@@ -106,7 +106,7 @@ class BlogVideoOAuthProvider(
         client: OAuthClientInformationFull,
         params: AuthorizationParams,
     ) -> str:
-        """Insert a pending auth code, return URL of our Google login bridge."""
+        """Insert a pending auth code, return URL of our account bridge."""
         code = secrets.token_urlsafe(32)
         db = SessionLocal()
         try:
@@ -126,11 +126,11 @@ class BlogVideoOAuthProvider(
         finally:
             db.close()
 
-        # Redirect the browser to our Google login bridge. After Google login,
-        # the bridge updates the code row with user_id and then redirects back
-        # to params.redirect_uri with the code + state.
+        # Match the web app's auth surface: open on account creation, with an
+        # "Already have an account? Sign in" link for returning users. After
+        # either flow, the bridge fills user_id and redirects to the MCP client.
         backend = settings.BACKEND_URL.rstrip("/")
-        return f"{backend}/mcp/google-start?code={code}"
+        return f"{backend}/mcp/signup?code={code}"
 
     async def load_authorization_code(
         self,

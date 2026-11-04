@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 import requests
@@ -62,6 +63,14 @@ class Blog2VideoClient:
         self._raise(resp)
         return resp.json()
 
+    def _post_multipart(self, path: str, *, data: dict, files) -> dict:
+        """POST multipart form data without overriding the session auth header."""
+        t0 = time.time()
+        resp = self.session.post(f"{self.base}{path}", data=data, files=files)
+        self._log("POST", path, resp.status_code, (time.time() - t0) * 1000)
+        self._raise(resp)
+        return resp.json()
+
     def _put(self, path: str, json: dict | None = None) -> dict:
         t0 = time.time()
         resp = self.session.put(f"{self.base}{path}", json=json)
@@ -80,6 +89,46 @@ class Blog2VideoClient:
 
     def create_project(self, **fields) -> dict:
         return self._post("/api/projects", json=fields)
+
+    def create_project_from_text(self, content_text: str, **fields) -> dict:
+        """Create through the same TXT-upload path used by the web app."""
+        form = {key: value for key, value in fields.items() if value is not None}
+        return self._post_multipart(
+            "/api/projects/upload",
+            data=form,
+            files={
+                "files": (
+                    "pasted-content.txt",
+                    content_text.encode("utf-8"),
+                    "text/plain",
+                )
+            },
+        )
+
+    def create_project_from_files(
+        self,
+        files: list[tuple[str, bytes, str]],
+        **fields,
+    ) -> dict:
+        """Create one project from up to five downloaded widget documents."""
+        form = {key: value for key, value in fields.items() if value is not None}
+        multipart = [
+            ("files", (filename, content, mime_type))
+            for filename, content, mime_type in files
+        ]
+        return self._post_multipart(
+            "/api/projects/upload",
+            data=form,
+            files=multipart,
+        )
+
+    def create_projects_bulk(self, projects: list[dict]) -> dict:
+        """Create multiple URL projects through the web app's bulk endpoint."""
+        return self._post_multipart(
+            "/api/projects/bulk",
+            data={"projects": json.dumps(projects)},
+            files=[],
+        )
 
     def list_projects(self) -> list:
         return self._get("/api/projects")

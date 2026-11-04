@@ -866,6 +866,67 @@ def test_redistribute_assigns_images_before_clips(db_session, paid_user, tmp_pat
     assert placed == ["scene_1_1.mp4"]
 
 
+def test_redistribute_preserves_stock_clip_when_images_cover_every_scene(
+    db_session, paid_user, tmp_path, monkeypatch
+):
+    """Template changes must not silently remove MCP-enabled stock footage."""
+    from app.models.asset import Asset, AssetType
+    from app.services import remotion as remotion_service
+
+    # Three scenes with a final outro leave two clip-capable slots. Supply more
+    # than enough images to cover both, which reproduced project 2641 losing its
+    # assignedVideo immediately after change_template.
+    project, scenes = _newscast_project(db_session, paid_user, n_scenes=3)
+    project.stock_footage_enabled = True
+
+    clip_path = tmp_path / "scene_2_stock.mp4"
+    clip_path.write_bytes(b"fake-mp4")
+    db_session.add(Asset(
+        project_id=project.id,
+        asset_type=AssetType.VIDEO,
+        local_path=str(clip_path),
+        filename="scene_2_stock.mp4",
+        duration_seconds=6.0,
+        excluded=False,
+    ))
+    for name in ("one.jpg", "two.jpg", "three.jpg"):
+        image_path = tmp_path / name
+        image_path.write_bytes(b"fake-jpg")
+        db_session.add(Asset(
+            project_id=project.id,
+            asset_type=AssetType.IMAGE,
+            local_path=str(image_path),
+            filename=name,
+            excluded=False,
+        ))
+    db_session.commit()
+
+    workspace = tmp_path / "stock-preserved"
+    (workspace / "public").mkdir(parents=True)
+    monkeypatch.setattr(
+        remotion_service,
+        "provision_workspace",
+        lambda *a, **k: str(workspace),
+    )
+
+    db_session.refresh(project)
+    remotion_service.write_remotion_data(
+        project,
+        db_session.query(Scene)
+        .filter(Scene.project_id == project.id)
+        .order_by(Scene.order)
+        .all(),
+        db_session,
+        redistribute_images=True,
+    )
+
+    data = json.loads((workspace / "public" / "data.json").read_text())
+    placed = [scene.get("video") for scene in data["scenes"] if scene.get("video")]
+    assert placed == ["scene_2_stock.mp4"]
+    clip_scene = next(scene for scene in data["scenes"] if scene.get("video"))
+    assert clip_scene["images"] == []
+
+
 def test_manual_clip_survives_plain_save(db_session, paid_user, tmp_path, monkeypatch):
     """Without redistribute_images a user's clip choice stays put."""
     from app.models.asset import Asset, AssetType
