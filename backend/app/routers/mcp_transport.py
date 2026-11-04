@@ -34,7 +34,7 @@ from mcp_server.handlers import dispatch
 # it would be circular), but only this layer sees the ASGI scope, so the transport
 # sets it and current_client_name() reads it.
 from mcp_server.handlers import _CLIENT_UA as _handler_client_ua
-from mcp_server.tools import get_tool_definitions
+from mcp_server.tools import MCP_SERVER_INSTRUCTIONS, get_tool_definitions
 
 
 logger = logging.getLogger(__name__)
@@ -144,7 +144,11 @@ _REQUEST_TOKEN: contextvars.ContextVar[str] = contextvars.ContextVar(
 # MCP server instance (shared across all SSE connections)
 # ---------------------------------------------------------------------------
 
-mcp_server = Server("blog2video", version="1.23.0")
+mcp_server = Server(
+    "blog2video",
+    version="1.23.0",
+    instructions=MCP_SERVER_INSTRUCTIONS,
+)
 
 
 @mcp_server.list_tools()
