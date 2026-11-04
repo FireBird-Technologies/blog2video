@@ -10,10 +10,16 @@ renders rich tables, links, and embedded video previews directly in the chat
 bubble. See plan: /Users/humeraraheel/.claude/plans/how-would-you-make-mellow-dolphin.md
 """
 import contextvars
+import ipaddress
 import json
 import logging
+import os
+import socket
 import time
 from datetime import datetime, timezone
+from urllib.parse import urljoin, urlparse
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +54,9 @@ _BGM_CACHE: list[dict] = []
 # mcp_transport imports this, and tools.py's setup_video _meta must match it.
 # claude.ai caches widget HTML per URI and never re-reads it, so shipping a
 # changed bundle requires bumping the version suffix here AND in tools.py.
-# _v4: the bundle is now Vite-built so its template previews inline as data URIs
-# instead of being fetched from R2, and templates with no artwork render an
-# initials chip rather than a broken image. Hosts cache widget HTML per URI and
-# never re-read it, so the suffix must change or connectors keep serving v3.
-SETUP_RESOURCE_URI = "ui://blog2video/setup_gallery_v8"
+# _v26: Multi Link Step 3 now mirrors BlogUrlForm's language, no-voiceover,
+# Voice/Advanced tabs, richer voice cards, and apply-settings-to-all controls.
+SETUP_RESOURCE_URI = "ui://blog2video/setup_gallery_v26"
 
 # Fallback template for auto_video when the LLM picker can't run (scrape or LLM
 # failure). Set AUTO_TEMPLATE_PICK = False to skip the picker entirely and always
@@ -61,12 +65,12 @@ AUTO_TEMPLATE = "newscast"
 AUTO_TEMPLATE_PICK = True
 _TEMPLATE_GALLERY_SHOWN_AT: float = 0.0
 _VOICE_GALLERY_SHOWN_AT: float = 0.0
-_SETUP_BLOG_URL: str = ""  # last blog_url seen, any user. Cold-read fallback only.
-# Per-user blog_url, keyed by user id. The hosted transport serves every user
-# from one process, so a single global gets clobbered between concurrent users —
-# and start_video widens that window (the question turn and the answer turn can
-# be minutes apart). Falls back to _SETUP_BLOG_URL when the user id is unknown.
-_SETUP_BLOG_URL_BY_USER: dict[int, str] = {}
+_SETUP_SOURCE: dict[str, str] = {}  # last source seen, any user. Cold-read fallback only.
+# Per-user source, keyed by user id. The hosted transport serves every user from
+# one process, so a single global gets clobbered between concurrent users — and
+# start_video widens that window (the question turn and answer can be minutes
+# apart). Falls back to _SETUP_SOURCE when the user id is unknown.
+_SETUP_SOURCE_BY_USER: dict[int, dict[str, str]] = {}
 
 # id (used by backend) → marketing slug (used by blog2video.app/templates/<slug>)
 TEMPLATE_SLUGS = {
@@ -105,6 +109,19 @@ GENERATION_STEPS = {
 }
 
 FRONTEND_BASE_URL = "https://blog2video.app"
+
+_WIDGET_MAX_FILES = 5
+_WIDGET_MAX_FILE_BYTES = 5 * 1024 * 1024
+_WIDGET_ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".markdown", ".txt", ".vtt"}
+_WIDGET_ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "text/markdown",
+    "text/x-markdown",
+    "text/vtt",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +253,24 @@ def _template_url(template_id: str) -> str:
 
 
 def _project_url(project_id: int) -> str:
-    return f"{FRONTEND_BASE_URL}/projects/{project_id}"
+    return f"{FRONTEND_BASE_URL}/project/{project_id}"
+
+
+def _public_watch_url(response: dict) -> str | None:
+    """Return the public frontend URL for an embed-token response.
+
+    Local MCP development commonly runs with FRONTEND_URL=localhost:5173, so
+    the backend's preview_url is valid only on the developer's machine. ChatGPT
+    users need the public frontend origin. The embed token itself is unchanged.
+    """
+    raw_url = str(response.get("preview_url") or "").strip()
+    token = str(response.get("embed_token") or "").strip()
+    path = urlparse(raw_url).path if raw_url else ""
+    if not path and token:
+        path = f"/embed/{token}"
+    if not path.startswith("/embed/"):
+        return None
+    return f"{FRONTEND_BASE_URL.rstrip('/')}{path}"
 
 
 def _watch_url(project_id: int, client: "Blog2VideoClient") -> str | None:
@@ -248,7 +282,7 @@ def _watch_url(project_id: int, client: "Blog2VideoClient") -> str | None:
     callers can fall back to the editor link.
     """
     try:
-        return client.generate_embed_token(project_id).get("preview_url") or None
+        return _public_watch_url(client.generate_embed_token(project_id))
     except Exception as e:  # noqa: BLE001 - a missing link must not fail the tool
         logger.warning("Could not mint preview url for project %s: %s", project_id, e)
         return None
@@ -315,10 +349,12 @@ def _relative_time(iso_string: str | None) -> str:
 
 def _humanize_generation_progress(status: dict) -> tuple[str, str | None]:
     """Return (markdown_line, terminal_state) where terminal_state is
-    'done' / 'error' / None (still running)."""
+    'done' / 'error' / 'review' / None (still running)."""
     state = status.get("status")
     if state in ("generated", "done"):
         return ("✅ Generation complete.", "done")
+    if state == "awaiting_script_review":
+        return ("📝 Script ready for review.", "review")
     err = status.get("error")
     if err or state in ("failed", "error"):
         return (f"❌ Generation failed: {err or 'unknown error'}", "error")
@@ -344,7 +380,13 @@ def dispatch(
     """Dispatch a single MCP tool call. Returns TextContent list (never raises)."""
     import json as _json
     try:
-        _arg_preview = _json.dumps(arguments, ensure_ascii=False)[:300]
+        _log_arguments = arguments
+        if isinstance(arguments.get("content_text"), str):
+            _log_arguments = {
+                **arguments,
+                "content_text": f"<{len(arguments['content_text'])} chars>",
+            }
+        _arg_preview = _json.dumps(_log_arguments, ensure_ascii=False)[:300]
     except Exception:
         _arg_preview = str(arguments)[:300]
     # host= is the clientInfo.name from the initialize handshake ("" when unknown).
@@ -362,6 +404,10 @@ def dispatch(
             return _setup_video(arguments, client)
         if name == "create_project":
             return _create_project(arguments, client)
+        if name == "create_project_from_files":
+            return _create_project_from_files(arguments, client)
+        if name == "create_projects_bulk":
+            return _create_projects_bulk(arguments, client)
         # create_video: COMMENTED OUT alongside its tool definition in tools.py
         # (manifest-size experiment — it was 13% of the manifest and nothing
         # routed to it). _create_video below is kept; uncomment both to restore.
@@ -463,21 +509,184 @@ def _current_user_id(client: Blog2VideoClient) -> int | None:
         return None
 
 
-def _remember_setup_url(client: Blog2VideoClient, blog_url: str) -> None:
-    """Stash the blog_url so a later create_project can backfill it."""
-    global _SETUP_BLOG_URL
-    _SETUP_BLOG_URL = blog_url
+def _remember_setup_source(
+    client: Blog2VideoClient,
+    *,
+    blog_url: str = "",
+    content_text: str = "",
+) -> None:
+    """Stash one source so a later create_project can backfill it."""
+    global _SETUP_SOURCE
+    source = {"content_text": content_text} if content_text else {"blog_url": blog_url}
     uid = _current_user_id(client)
     if uid is not None:
-        _SETUP_BLOG_URL_BY_USER[uid] = blog_url
+        _SETUP_SOURCE_BY_USER[uid] = source.copy()
+    # A shared URL fallback is useful for local/legacy clients whose /me lookup
+    # failed. Never put pasted article text in shared process state: if identity
+    # lookup failed for two users, that could expose one user's content to the
+    # other. Authenticated hosted flows use the per-user map above.
+    _SETUP_SOURCE = {"blog_url": blog_url} if blog_url else {}
 
 
-def _recall_setup_url(client: Blog2VideoClient) -> str:
-    """This user's last setup blog_url, falling back to the shared global."""
+def _recall_setup_source(client: Blog2VideoClient) -> dict[str, str]:
+    """This user's last setup source, falling back to the shared global."""
     uid = _current_user_id(client)
-    if uid is not None and _SETUP_BLOG_URL_BY_USER.get(uid):
-        return _SETUP_BLOG_URL_BY_USER[uid]
-    return _SETUP_BLOG_URL
+    if uid is not None and _SETUP_SOURCE_BY_USER.get(uid):
+        return _SETUP_SOURCE_BY_USER[uid].copy()
+    return _SETUP_SOURCE.copy()
+
+
+def _forget_cached_text_source(client: Blog2VideoClient) -> None:
+    """Drop pasted text from process memory after its project is created."""
+    uid = _current_user_id(client)
+    if uid is not None and "content_text" in _SETUP_SOURCE_BY_USER.get(uid, {}):
+        _SETUP_SOURCE_BY_USER.pop(uid, None)
+
+
+def _source_values(args: dict) -> tuple[str, str]:
+    """Return normalized URL and verbatim pasted text from tool arguments."""
+    blog_url = str(args.get("blog_url") or "").strip()
+    content_text = args.get("content_text") or ""
+    if not isinstance(content_text, str):
+        content_text = str(content_text)
+    return blog_url, content_text
+
+
+def _source_validation_error(blog_url: str, content_text: str) -> str | None:
+    has_url = bool(blog_url)
+    has_text = bool(content_text.strip())
+    if has_url and has_text:
+        return "Pass exactly one source: `blog_url` or `content_text`, not both."
+    if not has_url and not has_text:
+        return "A source is required. Ask the user for an article URL or pasted article text."
+    if has_url and not (blog_url.startswith("http://") or blog_url.startswith("https://")):
+        return "blog_url must be a valid http(s) URL."
+    if has_text and len(content_text.encode("utf-8")) > 5 * 1024 * 1024:
+        return "content_text is larger than the 5 MB text-upload limit."
+    return None
+
+
+def _setup_source_payload(blog_url: str, content_text: str) -> dict:
+    """Small, user-visible source summary for the setup widget.
+
+    The full text stays in the per-user setup cache so a multi-megabyte article
+    never has to cross the MCP UI boundary. The preview is deliberately long
+    enough to make the chosen chat content recognizable and auditable.
+    """
+    if content_text:
+        preview_limit = 3000
+        return {
+            "type": "text",
+            "label": "Content from this chat",
+            "preview": content_text[:preview_limit],
+            "character_count": len(content_text),
+            "truncated": len(content_text) > preview_limit,
+        }
+    return {
+        "type": "url",
+        "label": "Article link",
+        "url": blog_url,
+    }
+
+
+def _validate_public_https_url(url: str) -> None:
+    """Reject local/private download targets before fetching widget files."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("Uploaded files must use a secure HTTPS download URL.")
+    if parsed.port not in (None, 443):
+        raise ValueError("Uploaded file URLs must use the standard HTTPS port.")
+    try:
+        addresses = socket.getaddrinfo(parsed.hostname, 443, type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise ValueError("The uploaded file host could not be resolved.") from exc
+    for address in addresses:
+        ip = ipaddress.ip_address(address[4][0])
+        if not ip.is_global:
+            raise ValueError("Uploaded file URLs cannot target private or local networks.")
+
+
+def _download_widget_files(file_args: object) -> list[tuple[str, bytes, str]]:
+    """Download authorized ChatGPT file objects with frontend-equivalent limits."""
+    if not isinstance(file_args, list) or not 1 <= len(file_args) <= _WIDGET_MAX_FILES:
+        raise ValueError(f"Choose between 1 and {_WIDGET_MAX_FILES} documents.")
+
+    downloaded: list[tuple[str, bytes, str]] = []
+    for index, item in enumerate(file_args):
+        if not isinstance(item, dict):
+            raise ValueError("Each uploaded document must be a file object.")
+        url = str(item.get("download_url") or "").strip()
+        file_id = str(item.get("file_id") or "").strip()
+        filename = os.path.basename(str(item.get("file_name") or "").strip())
+        mime_type = str(item.get("mime_type") or "application/octet-stream").split(";", 1)[0].lower()
+        if not url or not file_id:
+            raise ValueError("Each uploaded document needs a file id and download URL.")
+        _validate_public_https_url(url)
+
+        extension = os.path.splitext(filename)[1].lower()
+        if extension not in _WIDGET_ALLOWED_EXTENSIONS and mime_type not in _WIDGET_ALLOWED_MIME_TYPES:
+            raise ValueError(f"{filename or 'That file'} is not a supported document type.")
+        if not filename:
+            fallback_extension = {
+                "application/pdf": ".pdf",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+                "text/markdown": ".md",
+                "text/x-markdown": ".md",
+                "text/vtt": ".vtt",
+                "text/plain": ".txt",
+            }.get(mime_type, ".txt")
+            filename = f"document-{index + 1}{fallback_extension}"
+
+        current_url = url
+        response = None
+        for _ in range(6):
+            _validate_public_https_url(current_url)
+            response = requests.get(
+                current_url,
+                stream=True,
+                timeout=(5, 30),
+                allow_redirects=False,
+            )
+            if response.is_redirect or response.is_permanent_redirect:
+                location = response.headers.get("location")
+                response.close()
+                if not location:
+                    raise ValueError(f"{filename} returned an invalid redirect.")
+                current_url = urljoin(current_url, location)
+                continue
+            break
+        else:
+            raise ValueError(f"{filename} redirected too many times.")
+
+        if response is None:
+            raise ValueError(f"{filename} could not be downloaded.")
+        with response:
+            response.raise_for_status()
+            content_length = int(response.headers.get("content-length") or 0)
+            if content_length > _WIDGET_MAX_FILE_BYTES:
+                raise ValueError(f"{filename} exceeds the 5 MB size limit.")
+            chunks: list[bytes] = []
+            size = 0
+            for chunk in response.iter_content(chunk_size=64 * 1024):
+                if not chunk:
+                    continue
+                size += len(chunk)
+                if size > _WIDGET_MAX_FILE_BYTES:
+                    raise ValueError(f"{filename} exceeds the 5 MB size limit.")
+                chunks.append(chunk)
+        downloaded.append((filename, b"".join(chunks), mime_type))
+    return downloaded
+
+
+def _create_project_for_source(args: dict, client: Blog2VideoClient) -> dict:
+    """Route URL sources to JSON creation and pasted text to the upload path."""
+    fields = {key: value for key, value in args.items() if value is not None}
+    content_text = fields.pop("content_text", "")
+    if content_text:
+        fields.pop("blog_url", None)
+        return client.create_project_from_text(content_text, **fields)
+    return client.create_project(**fields)
 
 
 # User-Agent of the current request, set by mcp_transport._mcp_endpoint (which
@@ -553,7 +762,7 @@ _MODE_QUESTION = (
 
 
 def _start_video(args: dict, client: Blog2VideoClient):
-    """Entry point for every 'make a video from <url>' request.
+    """Entry point for every 'make a video from <URL or pasted text>' request.
 
     Two-step: the first call (no `mode`) returns the Auto/Manual question with no
     widget; the second carries the answer and delegates to the unchanged
@@ -564,16 +773,38 @@ def _start_video(args: dict, client: Blog2VideoClient):
     auto_video/setup_video directly — otherwise the model learns mid-thread that
     those tools are callable and skips the fork on the next URL.
     """
-    blog_url = (args.get("blog_url") or "").strip()
-    if not (blog_url.startswith("http://") or blog_url.startswith("https://")):
-        return _err(
-            "blog_url is required and must be a valid http(s) URL. Ask the user for "
-            "the article URL they want to convert, then call start_video again."
-        )
+    blog_url, content_text = _source_values(args)
+    source_mode = str(args.get("source_mode") or "").strip().lower()
+    if blog_url or content_text.strip():
+        source_error = _source_validation_error(blog_url, content_text)
+        if source_error:
+            return _err(source_error)
+    elif source_mode not in ("", "link", "upload", "bulk"):
+        return _err("source_mode must be 'link', 'upload', or 'bulk'.")
+    if not blog_url and not content_text.strip() and not source_mode:
+        source_mode = "link"
 
     mode = (args.get("mode") or "").strip().lower()
     if mode == "auto":
+        if source_mode or (not blog_url and not content_text.strip()):
+            return _err("Automatic creation needs a URL or pasted text. Open the manual setup widget to choose a source.")
         return _auto_video(args, client)
+
+    # ChatGPT must receive the widget on the FIRST tool result. The previous
+    # implementation returned an invisible instruction asking the model to call
+    # setup_video next. Live OpenAI traffic showed both calls completing, but
+    # the host then remained on the blue loading dot and never requested the UI
+    # resource. Returning setup_video's CallToolResult directly removes that
+    # fragile model-mediated handoff; its per-result outputTemplate attaches the
+    # setup widget to start_video even though start_video has no tool-level UI
+    # binding (which is important for the explicit Auto branch above).
+    if _is_chatgpt_host():
+        setup_args = dict(args)
+        setup_args.pop("mode", None)
+        if not blog_url and not content_text.strip() and not source_mode:
+            setup_args["source_mode"] = "link"
+        return _setup_video(setup_args, client)
+
     if mode == "manual":
         # Hand off rather than calling the next handler inline. claude.ai decides
         # whether to render a widget from the TOOL definition's _meta.ui, not
@@ -583,13 +814,13 @@ def _start_video(args: dict, client: Blog2VideoClient):
         # name.
         #
         # Manual is a CHAIN of single-purpose widgets (templates → voices →
-        # settings) rather than the combined setup_video panel: setup_gallery.html
-        # is hand-written and never performs the MCP Apps `ui/initialize`
-        # handshake, so claude.ai keeps its iframe permanently hidden. The three
-        # chain widgets are built from ui_src/ and call app.connect().
-        # blog_url is stashed here because list_templates/list_voices/show_settings
-        # take no arguments — _create_project backfills it via _recall_setup_url.
-        _remember_setup_url(client, blog_url)
+        # settings) rather than the combined setup_video panel. The combined
+        # panel now performs the MCP Apps handshake too, but the chain remains
+        # the Claude flow because its selections advance through ui/message.
+        # The source is stashed here because list_templates/list_voices/show_settings
+        # take no arguments — _create_project backfills it later.
+        if blog_url or content_text.strip():
+            _remember_setup_source(client, blog_url=blog_url, content_text=content_text)
 
         # Host-specific routing. The widget chain advances by having each widget
         # app.sendMessage() its selection and letting the model act on it. On
@@ -597,10 +828,9 @@ def _start_video(args: dict, client: Blog2VideoClient):
         # pipeline (documented OpenAI bug), so the chain renders yet stalls at
         # every step until the user manually types "next".
         #
-        # setup_gallery.html has the opposite profile: no ui/initialize handshake
-        # (so Claude never renders it) but its Create button uses
-        # window.openai.callTool directly — zero sendMessage calls — which is
-        # ChatGPT's native, working path. Send each host to the flow that works.
+        # setup_gallery.html uses window.openai.callTool directly — zero
+        # sendMessage calls — which is ChatGPT's native, working path. Send each
+        # host to the flow whose interaction bridge it supports.
         #
         # Revert this branch once OpenAI fixes ui/message; the chain is the
         # better UX and the only one that stays in sync with the Vite build.
@@ -610,15 +840,6 @@ def _start_video(args: dict, client: Blog2VideoClient):
         # panel above" even on turns where it never made the follow-up call —
         # so the user was told to use a widget that was never rendered. State
         # the required action, never a completed outcome.
-        if _is_chatgpt_host():
-            return _md(
-                f'<!-- NOT DONE YET. You MUST now call `setup_video` with blog_url="{blog_url}". '
-                "This tool rendered nothing. Do NOT tell the user to use a panel, and do "
-                "NOT describe any UI, until `setup_video` has returned — only then does a "
-                "panel exist. If you cannot call it, say so plainly instead of describing "
-                "a panel. -->"
-            )
-
         return _md(
             "<!-- NOT DONE YET. You MUST now call `list_templates`. This tool rendered "
             "nothing. Do NOT tell the user to pick from a gallery, and do NOT describe "
@@ -631,44 +852,26 @@ def _start_video(args: dict, client: Blog2VideoClient):
             f"Unknown mode {mode!r}. Call start_video again with mode='auto' or mode='manual'."
         )
 
-    # Step 1 — ask. Stash the URL so the manual branch can backfill it even if
+    # Step 1 — ask. Stash the source so the manual branch can backfill it even if
     # the model drops it from the follow-up call.
-    _remember_setup_url(client, blog_url)
-
-    # ChatGPT loses the connector on FOLLOW-UP turns (GPT-5.6 regression): the
-    # first message of a conversation reliably reaches us, the user's answer to
-    # this question often does not — nothing arrives at the server at all, so no
-    # server-side change can rescue it and the user has to type "@b2v manual".
-    #
-    # So skip the question entirely for that host and open the panel on the turn
-    # that DOES work. The Auto/Manual choice is not lost — it moves into the
-    # panel as a toggle (see setup_gallery.html), which costs no extra turn.
-    #
-    # Claude keeps the two-step fork: it has no such regression, and the question
-    # reads better in chat than as a widget control.
-    if _is_chatgpt_host():
-        return _md(
-            f'<!-- NOT DONE YET. You MUST now call `setup_video` with blog_url="{blog_url}". '
-            "Do NOT ask the user to choose Auto or Manual first — the panel has that "
-            "toggle built in. This tool rendered nothing; do NOT describe any UI until "
-            "`setup_video` has returned. If the user ALREADY said they want it fully "
-            "automatic, call `start_video` again with mode=\"auto\" instead. -->"
-        )
+    if blog_url or content_text.strip():
+        _remember_setup_source(client, blog_url=blog_url, content_text=content_text)
 
     return _md(
         _MODE_QUESTION
         + "\n\n<!-- Relay the question above to the user in one short line and STOP. "
         "Do not call another tool. When they answer, call "
-        f'start_video(blog_url="{blog_url}", mode="auto"|"manual"). -->'
+        "start_video again with the exact same source and mode=\"auto\"|\"manual\". -->"
     )
 
 
 def _setup_video(args: dict, client: Blog2VideoClient):
     """Warm the template+voice data and open the combined setup widget.
 
-    The widget (ui://blog2video/setup_gallery) shows templates and voices in one
-    panel; clicking Create calls create_project with the user's selections. This
-    satisfies the create_project gate (both galleries shown).
+    The widget (ui://blog2video/setup_gallery) guides the user through template,
+    voice, and optional settings steps; clicking Create calls create_project
+    with the selections. This satisfies the create_project gate (both galleries
+    shown).
 
     Returns a CallToolResult that carries the templates+voices as
     `structuredContent`. ChatGPT exposes structuredContent as
@@ -680,11 +883,23 @@ def _setup_video(args: dict, client: Blog2VideoClient):
     from mcp.types import CallToolResult
     global _VOICE_CACHE, _BGM_CACHE, _TEMPLATE_GALLERY_SHOWN_AT, _VOICE_GALLERY_SHOWN_AT
 
-    blog_url = str(args.get("blog_url") or "")
-    if blog_url:
-        _remember_setup_url(client, blog_url)
-    else:
-        blog_url = _recall_setup_url(client)
+    blog_url, content_text = _source_values(args)
+    source_mode = str(args.get("source_mode") or "").strip().lower()
+    if blog_url or content_text.strip():
+        source_error = _source_validation_error(blog_url, content_text)
+        if source_error:
+            return _err(source_error)
+        _remember_setup_source(client, blog_url=blog_url, content_text=content_text)
+    elif args.get("use_cached_source") is True:
+        recalled = _recall_setup_source(client)
+        blog_url, content_text = _source_values(recalled)
+
+    if blog_url or content_text.strip():
+        source_error = _source_validation_error(blog_url, content_text)
+        if source_error:
+            return _err(source_error)
+    elif source_mode not in ("link", "upload", "bulk", ""):
+        return _err("source_mode must be 'link', 'upload', or 'bulk'.")
 
     # Populate cache with the user's voices (4-tier cascade — see _fetch_user_voices).
     _VOICE_CACHE = _fetch_user_voices(client)
@@ -709,16 +924,7 @@ def _setup_video(args: dict, client: Blog2VideoClient):
     templates: list[dict] = []
     try:
         raw = client.list_templates() or []
-        templates = [
-            {
-                "id": t.get("id", "?"),
-                "name": t.get("name") or t.get("id", "?"),
-                "genres": t.get("genres") or [],
-                "preview_url": get_template_preview_urls().get(t.get("id", ""), ""),
-                "custom": False,
-            }
-            for t in raw
-        ]
+        templates = _built_in_gallery_templates(raw)
         # /api/templates is built-ins only. Append the user's finished custom
         # templates so this panel matches the list_templates gallery — without
         # this, someone who built a template cannot pick it here.
@@ -750,6 +956,11 @@ def _setup_video(args: dict, client: Blog2VideoClient):
             "bgm_tracks": _BGM_CACHE,
             "is_paid": is_paid,
             "blog_url": blog_url,
+            "source_type": "text" if content_text else "url",
+            "initial_mode": source_mode or "link",
+            # A bounded preview makes chat content visible without echoing a
+            # potentially multi-megabyte article through the widget payload.
+            "source": _setup_source_payload(blog_url, content_text) if (blog_url or content_text) else None,
         },
         isError=False,
         **{"_meta": {
@@ -763,22 +974,21 @@ def _create_project(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     now = time.time()
     window = 1800  # 30 minutes
 
-    # Backfill blog_url from the setup widget's cached URL if the widget passed
-    # an empty string (happens when the create button fires before the model
-    # populated blog_url into the widget args). Prefer this user's own stashed
-    # URL over the shared global.
-    if not (args.get("blog_url") or "").strip():
-        recalled = _recall_setup_url(client)
-        if recalled:
-            args["blog_url"] = recalled
+    # Backfill the source from the setup flow if the widget omitted it. Pasted
+    # text is intentionally not echoed through structuredContent because it can
+    # be several megabytes; the per-user cache carries it across the UI steps.
+    blog_url, content_text = _source_values(args)
+    if not blog_url and not content_text.strip():
+        recalled = _recall_setup_source(client)
+        args.update(recalled)
+        blog_url, content_text = _source_values(args)
 
-    blog_url = (args.get("blog_url") or "").strip()
-    if not blog_url or not (blog_url.startswith("http://") or blog_url.startswith("https://")):
+    source_error = _source_validation_error(blog_url, content_text)
+    if source_error:
         return _md(
-            "❌ Cannot create project — `blog_url` is missing or not a valid http(s) URL.\n\n"
-            "Ask the user for the article URL they want to convert, then call "
-            "`setup_video` with that URL so the template/voice picker has the right "
-            "context. Do NOT invent or guess a URL."
+            f"❌ Cannot create project — {source_error}\n\n"
+            "Ask the user for an article URL or pasted article text, then call "
+            "`setup_video` with that source so the template/voice picker has the right context."
         )
 
     missing = []
@@ -812,22 +1022,24 @@ def _create_project(args: dict, client: Blog2VideoClient) -> list[TextContent]:
         if isinstance(args.get(_k), str) and not args[_k].strip():
             args.pop(_k)
 
-    fields = {k: v for k, v in args.items() if v is not None}
     try:
-        project = client.create_project(**fields)
+        project = _create_project_for_source(args, client)
     except APIError as e:
         friendly = _friendly_create_error(e)
         if friendly:
             return _md(friendly)
         raise
+    if content_text:
+        _forget_cached_text_source(client)
     pid = project["id"]
     template = project.get("template", "default")
     voice = f"{project.get('voice_gender', 'female')} · {project.get('voice_accent', 'american')}"
     aspect = project.get("aspect_ratio", "landscape")
     length = project.get("video_length", "auto")
+    source_label = "pasted text" if content_text else f"`{project.get('blog_url')}`"
 
     md = (
-        f"✅ Created **project #{pid}** from `{project.get('blog_url')}`.\n\n"
+        f"✅ Created **project #{pid}** from {source_label}.\n\n"
         f"| | |\n"
         f"|---|---|\n"
         f"| **Template** | {template} {_color_swatch(project.get('preview_colors'))} |\n"
@@ -840,23 +1052,88 @@ def _create_project(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     return _md(md)
 
 
+def _create_project_from_files(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """Create one upload-backed project from ChatGPT-authorized file objects."""
+    try:
+        files = _download_widget_files(args.get("files"))
+    except (ValueError, requests.RequestException) as exc:
+        return _err(f"Could not use those documents: {exc}")
+
+    fields = {
+        key: value
+        for key, value in args.items()
+        if key != "files" and value is not None
+    }
+    for key in ("custom_voice_id", "bgm_track_id", "accent_color", "bg_color", "text_color"):
+        if isinstance(fields.get(key), str) and not fields[key].strip():
+            fields.pop(key)
+
+    try:
+        project = client.create_project_from_files(files, **fields)
+    except APIError as exc:
+        friendly = _friendly_create_error(exc)
+        return _md(friendly) if friendly else _err(exc.detail)
+
+    pid = project["id"]
+    label = "document" if len(files) == 1 else "documents"
+    names = ", ".join(filename for filename, _, _ in files)
+    return _md(
+        f"✅ Created **project #{pid}** from {len(files)} uploaded {label}.\n\n"
+        f"**Files:** {names}\n\n"
+        f"**Status:** {_status_badge(project.get('status'))}"
+    )
+
+
+def _create_projects_bulk(args: dict, client: Blog2VideoClient) -> list[TextContent]:
+    """Create a batch of URL projects from the widget's Multi Link tab."""
+    projects = args.get("projects")
+    if not isinstance(projects, list) or not 1 <= len(projects) <= 10:
+        return _err("Enter between 1 and 10 article URLs.")
+
+    cleaned: list[dict] = []
+    for item in projects:
+        if not isinstance(item, dict):
+            return _err("Every Multi Link row must be a project object.")
+        url = str(item.get("blog_url") or "").strip()
+        if not (url.startswith("http://") or url.startswith("https://")):
+            return _err(f"Invalid Multi Link URL: {url or '(empty row)'}")
+        project = {key: value for key, value in item.items() if value is not None}
+        project["blog_url"] = url
+        for key in ("custom_voice_id", "bgm_track_id", "accent_color", "bg_color", "text_color"):
+            if isinstance(project.get(key), str) and not project[key].strip():
+                project.pop(key)
+        cleaned.append(project)
+
+    result = client.create_projects_bulk(cleaned)
+    project_ids = [int(pid) for pid in (result.get("project_ids") or [])]
+    if not project_ids:
+        return _err("The bulk request completed without creating any projects.")
+    ids = ", ".join(str(pid) for pid in project_ids)
+    return _md(
+        f"✅ Created **{len(project_ids)} projects** from Multi Link.\n\n"
+        f"project_ids: {ids}\n\n"
+        "Start generation for each project id."
+    )
+
+
 def _create_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
-    """One-shot: create a project from a blog URL and generate the video.
+    """One-shot: create a project from a URL or pasted text and generate it.
 
     Unlike create_project this calls the backend directly and bypasses the
     gallery-shown gate — the caller passes template/voice as explicit args, so
     the widget UX is irrelevant. Blocks until scenes are ready; when
     render=True it also renders a downloadable MP4 before returning.
     """
-    blog_url = (args.get("blog_url") or "").strip()
-    if not blog_url or not (blog_url.startswith("http://") or blog_url.startswith("https://")):
-        return _err("blog_url is required and must be a valid http(s) URL.")
+    blog_url, content_text = _source_values(args)
+    source_error = _source_validation_error(blog_url, content_text)
+    if source_error:
+        return _err(source_error)
 
     do_render = bool(args.get("render", False))
     fields = {k: v for k, v in args.items() if k != "render" and v is not None}
 
     # Create the project directly (no gallery gate).
-    project = client.create_project(**fields)
+    project = _create_project_for_source(fields, client)
     pid = project["id"]
 
     # Generate — blocking poll until scenes are ready.
@@ -884,7 +1161,7 @@ def _create_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
         f"| | |\n|---|---|\n"
         f"| **Template** | {template} |\n"
         f"| **Voice** | {voice} |\n"
-        f"| **Source** | {project.get('blog_url')} |\n\n"
+        f"| **Source** | {'pasted text' if content_text else project.get('blog_url')} |\n\n"
     )
 
     if not do_render:
@@ -922,7 +1199,7 @@ def _create_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
 
 
 def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
-    """Zero-config: URL in, finished video out.
+    """Zero-config: URL or pasted text in, finished video out.
 
     Differs from _create_video in what it sends rather than how it runs:
       * template                 — picked HERE from the source site's scraped
@@ -935,15 +1212,16 @@ def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
       * NO colours               — so the template's own palette wins instead of
                                    the generic purple fallback
     """
-    blog_url = (args.get("blog_url") or "").strip()
-    if not blog_url or not (blog_url.startswith("http://") or blog_url.startswith("https://")):
-        return _err("blog_url is required and must be a valid http(s) URL.")
+    blog_url, content_text = _source_values(args)
+    source_error = _source_validation_error(blog_url, content_text)
+    if source_error:
+        return _err(source_error)
 
     # Pick the template up front so the backend receives a concrete id like any
     # other caller — no sentinel, and nothing in the pipeline or the project
     # router needs to know auto-selection exists.
     template = AUTO_TEMPLATE
-    if AUTO_TEMPLATE_PICK:
+    if blog_url and AUTO_TEMPLATE_PICK:
         try:
             import asyncio
 
@@ -954,10 +1232,13 @@ def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
             logger.warning("auto_video: template pick failed, using %s: %s", AUTO_TEMPLATE, e)
 
     fields: dict = {
-        "blog_url": blog_url,
         "template": template,
         "stock_footage_enabled": True,
     }
+    if blog_url:
+        fields["blog_url"] = blog_url
+    else:
+        fields["content_text"] = content_text
     if args.get("name"):
         fields["name"] = args["name"]
 
@@ -968,7 +1249,7 @@ def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     # defaults, so auto_video never sets one — picking a specific voice is what
     # setup_video / create_video are for.
 
-    project = client.create_project(**fields)
+    project = _create_project_for_source(fields, client)
     pid = project["id"]
 
     client.start_generation(pid)
@@ -989,10 +1270,10 @@ def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
             f"| **Template** | {project.get('template', '?')} _(auto-picked)_ |\n"
             f"| **Voice** | {voice} |\n"
             f"| **Stock footage** | {'on' if project.get('stock_footage_enabled') else 'off'} |\n"
-            f"| **Source** | {project.get('blog_url')} |\n\n"
+            f"| **Source** | {'pasted text' if content_text else project.get('blog_url')} |\n\n"
             f"Call `check_generation_status` with project_id **{pid}** every ~15s until it "
             f"reports complete, then show the user the watch link. Do NOT call auto_video "
-            f"or start_video again for this URL — the video is already being made."
+            f"or start_video again for this source — the video is already being made."
         )
 
     # render=true — the caller opted into waiting for the whole pipeline.
@@ -1020,7 +1301,7 @@ def _auto_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
         f"| **Voice** | {voice} |\n"
         f"| **Accent** | `{project.get('accent_color', '?')}` |\n"
         f"| **Stock footage** | {'on' if project.get('stock_footage_enabled') else 'off'} |\n"
-        f"| **Source** | {project.get('blog_url')} |\n\n"
+        f"| **Source** | {'pasted text' if content_text else project.get('blog_url')} |\n\n"
     )
 
     resp = client.start_render(pid)
@@ -1047,7 +1328,7 @@ def _get_preview_url(args: dict, client: Blog2VideoClient) -> list[TextContent]:
     """Mint (or reuse) a public preview link so the user can watch the video."""
     pid = int(args["project_id"])
     resp = client.generate_embed_token(pid)
-    url = resp.get("preview_url")
+    url = _public_watch_url(resp)
     if not url:
         return _err("No preview_url returned for this project.")
     return _md(
@@ -1059,41 +1340,40 @@ def _get_preview_url(args: dict, client: Blog2VideoClient) -> list[TextContent]:
 
 
 def _generate_video(args: dict, client: Blog2VideoClient) -> list[TextContent]:
-    """Blocking: starts generation and polls silently until complete."""
+    """Start generation and return before the MCP host's tool-call timeout.
+
+    The pipeline endpoint is asynchronous. Polling here used to keep the MCP
+    request open for 1–5 minutes, but ChatGPT cuts tool calls off after roughly
+    30 seconds and reported a connection error even though generation continued
+    successfully in the backend.
+    """
     project_id = int(args["project_id"])
-    client.start_generation(project_id)
+    start = client.start_generation(project_id) or {}
+    detail = str(start.get("detail") or "").lower()
+    status = str(start.get("status") or "").lower()
+    if status in ("generated", "done") or "already generated" in detail:
+        watch = _watch_url(project_id, client)
+        if watch:
+            return _md(
+                f"✅ **Project #{project_id} is already generated.**\n\n"
+                f"**Actual playable preview:** [▶ Watch the video]({watch})\n\n"
+                f"`{watch}`\n\n"
+                "Show this exact preview link to the user. Do not replace it with an "
+                "illustrative image or an unrelated source image."
+            )
+        state = "is already generated"
+    elif "already running" in detail:
+        state = "is already running"
+    else:
+        state = "has started"
 
-    poll_until(
-        check_fn=lambda: client.get_generation_status(project_id),
-        is_done=lambda s: s.get("status") in ("generated", "done"),
-        is_error=lambda s: (
-            bool(s.get("status") in ("failed", "error") or s.get("error")),
-            s.get("error") or "unknown error",
-        ),
-        interval=DEFAULT_POLL_INTERVAL,
-        timeout=DEFAULT_POLL_TIMEOUT_GENERATE,
-        label="Video generation",
+    return _md(
+        f"🎬 Generation for **project #{project_id}** {state}.\n\n"
+        f"Call `check_generation_status` with project_id **{project_id}** now and then "
+        "about every 15 seconds until it reports complete or failed. When complete, "
+        "that tool returns the shareable watch link. Do **not** call `generate_video` "
+        "again while this generation is in flight."
     )
-
-    project = client.get_project(project_id)
-    scenes = project.get("scenes", [])
-    # Hand over the SHAREABLE watch link, not the editor link — the latter only
-    # works for a viewer logged in as the owner (see _watch_url's docstring).
-    # _watch_url returns None if the token cannot be minted, so this degrades to
-    # the editor link rather than failing. Mirrors _create_video.
-    watch = _watch_url(project_id, client)
-    link = (
-        f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
-        if watch else
-        f"[▶ Open in editor]({_project_url(project_id)})\n\n"
-    )
-    md = (
-        f"✅ **Video generated!** Project #{project_id} has {len(scenes)} scenes ready.\n\n"
-        + link
-        + "Would you like to **render it as an MP4** for download? "
-          "Say *yes, render it* if you want a downloadable video (takes 3–8 min)."
-    )
-    return _md(md)
 
 
 def _check_generation_status(args: dict, client: Blog2VideoClient) -> list[TextContent]:
@@ -1110,7 +1390,9 @@ def _check_generation_status(args: dict, client: Blog2VideoClient) -> list[TextC
         # ready, so it must carry a way to actually watch it.
         watch = _watch_url(project_id, client)
         link = (
-            f"[▶ Watch the video]({watch})\n\n`{watch}`\n\n"
+            f"**Actual playable preview:** [▶ Watch the video]({watch})\n\n"
+            f"`{watch}`\n\n"
+            f"_Show this exact preview URL to the user; do not substitute an illustrative image._\n\n"
             if watch else
             f"[▶ Open in editor]({_project_url(project_id)})\n\n"
         )
@@ -1125,6 +1407,15 @@ def _check_generation_status(args: dict, client: Blog2VideoClient) -> list[TextC
 
     if terminal == "error":
         return _md(f"{line}\n\nTry again, or check the project to see what went wrong.")
+
+    if terminal == "review":
+        editor = _project_url(project_id)
+        return _md(
+            f"{line} — project #{project_id}.\n\n"
+            f"[Review and approve the script in the editor]({editor})\n\n"
+            "Generation resumes after the script is approved. Do not start a new project "
+            "or call `generate_video` again while this project is awaiting review."
+        )
 
     # Still running
     md = f"{line} — project #{project_id}. I'll check again in ~10s."
@@ -1241,6 +1532,15 @@ def _get_project(args: dict, client: Blog2VideoClient) -> list[TextContent]:
             f"\n**Video:** [▶ Watch MP4]({r2}) · "
             f"[✏️ Open in editor]({_project_url(project_id)})\n"
         )
+    elif str(project.get("status") or "").lower() in ("generated", "done"):
+        watch = _watch_url(project_id, client)
+        if watch:
+            video_line = (
+                f"\n**Actual playable preview:** [▶ Watch the video]({watch})\n\n"
+                f"`{watch}`\n\n"
+                "_Show this exact preview URL to the user; do not substitute an "
+                "illustrative image._\n"
+            )
 
     hints = (
         "\n_Say things like:_\n"
@@ -1358,6 +1658,42 @@ def _usable_custom_templates(client: Blog2VideoClient) -> list[dict]:
     return out
 
 
+def _template_gallery_rank(template: dict) -> int:
+    """Match the web app's newest-first template grouping.
+
+    The frontend ranks New templates first, then templates with New Scenes,
+    then Popular templates, followed by the rest. Python's sort is stable, so
+    templates within the same group retain the curated registry order.
+    """
+    if template.get("new_template"):
+        return 0
+    if template.get("new_scenes"):
+        return 1
+    if template.get("popular_template"):
+        return 2
+    return 3
+
+
+def _built_in_gallery_templates(raw_templates: list[dict]) -> list[dict]:
+    """Shape and sort built-in templates for every MCP gallery."""
+    preview_urls = get_template_preview_urls()
+    templates = [
+        {
+            "id": template.get("id", "?"),
+            "name": template.get("name") or template.get("id", "?"),
+            "genres": template.get("genres") or [],
+            "preview_url": preview_urls.get(template.get("id", ""), ""),
+            "colors": template.get("preview_colors") or _extract_preview_colors(template) or {},
+            "custom": False,
+            "new_template": bool(template.get("new_template")),
+            "new_scenes": bool(template.get("new_scenes")),
+            "popular_template": bool(template.get("popular_template")),
+        }
+        for template in raw_templates
+    ]
+    return sorted(templates, key=_template_gallery_rank)
+
+
 def _list_templates(client: Blog2VideoClient):
     """Open the template gallery widget.
 
@@ -1372,16 +1708,7 @@ def _list_templates(client: Blog2VideoClient):
     template they had made.
     """
     global _TEMPLATE_GALLERY_SHOWN_AT, _TEMPLATE_CACHE
-    templates = [
-        {
-            "id": t.get("id", "?"),
-            "name": t.get("name") or t.get("id", "?"),
-            "genres": t.get("genres") or [],
-            "preview_url": get_template_preview_urls().get(t.get("id", ""), ""),
-            "custom": False,
-        }
-        for t in (client.list_templates() or [])
-    ]
+    templates = _built_in_gallery_templates(client.list_templates() or [])
     custom = _usable_custom_templates(client)
     templates.extend(custom)
 
@@ -1415,10 +1742,63 @@ def _normalize_voice(v: dict) -> dict:
         "preview_url": v.get("preview_url"),
         "description": v.get("description") or "",
         "plan": v.get("plan"),
+        "source": v.get("source") or "",
+        "custom_voice_id": v.get("custom_voice_id"),
         "gender": gender,
         "accent": accent,
         "labels": labels,
     }
+
+
+# Below this many saved voices the picker is topped up with the free premade ones.
+_MIN_VOICE_CHOICES = 4
+
+
+def _free_premade_voices() -> list[dict]:
+    """The free-tier premade voices (Kristen, Hale, Samara X, Connor), normalized.
+
+    Read straight from prebuilt_voices so preview URLs are included; returns []
+    if the table is empty or unreachable (callers fall back to constants).
+    """
+    try:
+        from app.database import SessionLocal
+        from app.models.prebuilt_voice import PrebuiltVoice
+        from app.constants import FREE_PREMADE_VOICE_IDS
+        db = SessionLocal()
+        try:
+            rows = (
+                db.query(PrebuiltVoice)
+                .filter(PrebuiltVoice.voice_id.in_(FREE_PREMADE_VOICE_IDS))
+                .all()
+            )
+            return [
+                _normalize_voice({
+                    "voice_id": r.voice_id,
+                    "name": r.name,
+                    "preview_url": r.preview_url,
+                    "description": r.description or "",
+                    "plan": "free",
+                })
+                for r in rows
+            ]
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("_free_premade_voices: DB read failed: %s", exc)
+        return []
+
+
+def _with_free_voices(saved: list[dict]) -> list[dict]:
+    """Saved voices first, then any free premade voices the user hasn't saved.
+
+    A chat user who never visited the Voices tab may have a single saved voice,
+    which left the picker with nothing to choose between.
+    """
+    voices = [_normalize_voice(v) for v in saved]
+    if len(voices) >= _MIN_VOICE_CHOICES:
+        return voices
+    have = {v["voice_id"] for v in voices}
+    return voices + [v for v in _free_premade_voices() if v["voice_id"] not in have]
 
 
 def _fetch_user_voices(client: Blog2VideoClient) -> list[dict]:
@@ -1442,7 +1822,7 @@ def _fetch_user_voices(client: Blog2VideoClient) -> list[dict]:
 
     if saved:
         logger.info("_fetch_user_voices: tier1 saved=%d", len(saved))
-        return [_normalize_voice(v) for v in saved]
+        return _with_free_voices(saved)
 
     # Tier 2: seed then re-fetch
     user_id = None
@@ -1476,34 +1856,10 @@ def _fetch_user_voices(client: Blog2VideoClient) -> list[dict]:
             return [_normalize_voice(v) for v in saved]
 
     # Tier 3: direct DB read of the 4 default rows from prebuilt_voices
-    try:
-        from app.database import SessionLocal
-        from app.models.prebuilt_voice import PrebuiltVoice
-        from app.constants import FREE_PREMADE_VOICE_IDS
-        db = SessionLocal()
-        try:
-            rows = (
-                db.query(PrebuiltVoice)
-                .filter(PrebuiltVoice.voice_id.in_(FREE_PREMADE_VOICE_IDS))
-                .all()
-            )
-            voices = [
-                {
-                    "voice_id": r.voice_id,
-                    "name": r.name,
-                    "preview_url": r.preview_url,
-                    "description": r.description or "",
-                    "plan": "free",
-                }
-                for r in rows
-            ]
-        finally:
-            db.close()
-        if voices:
-            logger.info("_fetch_user_voices: tier3 prebuilt DB read=%d", len(voices))
-            return [_normalize_voice(v) for v in voices]
-    except Exception as exc:
-        logger.warning("_fetch_user_voices: tier3 DB read failed: %s", exc)
+    voices = _free_premade_voices()
+    if voices:
+        logger.info("_fetch_user_voices: tier3 prebuilt DB read=%d", len(voices))
+        return voices
 
     # Tier 4: hardcoded constants (always succeeds)
     from app.constants import FREE_PREMADE_FALLBACK

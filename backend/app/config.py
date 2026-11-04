@@ -102,12 +102,6 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    # Google ID tokens can be issued a few seconds ahead of this host when the
-    # two clocks are not perfectly synchronized. Keep the allowance small: it
-    # only affects the token's time checks; signature, issuer, and audience are
-    # still verified normally.
-    GOOGLE_TOKEN_CLOCK_SKEW_SECONDS: int = 10
-
     # ─── Social publishing (YouTube / X) ──────────────────────────────────────
     # Deliberately a SEPARATE OAuth client from GOOGLE_CLIENT_ID above. That one
     # verifies sign-in ID tokens and holds no scopes; this one requests the

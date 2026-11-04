@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
 
 // Build a single self-contained HTML file per UI view. Output goes directly to
 // ../ui/views/ (which the Python backend reads at runtime). Each entry produces
@@ -13,10 +14,9 @@ import { resolve } from "node:path";
 // `npm run build:voice_gallery` (or build:template_gallery) to rebuild just one.
 // Adding a view: add it here, add a build:<name> script, and register the
 // filename in mcp_server/ui/resources.py UI_RESOURCES.
-// setup_gallery is the CHATGPT-only panel: it deliberately has NO ui/initialize
-// handshake (Claude never renders it) and submits via window.openai.callTool.
-// It is built here only so its preview images inline as data URIs instead of
-// being fetched from R2 at runtime.
+// setup_gallery uses the same MCP Apps ui/initialize handshake as the smaller
+// views, while retaining ChatGPT's window.openai helpers for tool/file actions.
+// It is built here so the handshake SDK and preview images are both inlined.
 const VIEWS = ["template_gallery", "voice_gallery", "settings_panel", "setup_gallery"] as const;
 
 const view = process.env["B2V_VIEW"] ?? VIEWS[0];
@@ -24,8 +24,21 @@ if (!VIEWS.includes(view as (typeof VIEWS)[number])) {
   throw new Error(`Unknown B2V_VIEW "${view}". Known: ${VIEWS.join(", ")}`);
 }
 
+// MCP app iframes cannot rely on Google Fonts being allowed by the host CSP.
+// Reuse the self-contained Plus Jakarta Sans data URLs from the main setup view
+// in the smaller Claude views as well, so every host renders the same typeface.
+const setupHtml = readFileSync(resolve(__dirname, "setup_gallery.html"), "utf8");
+const plusJakartaFontFaces = (setupHtml.match(/@font-face\s*\{[^}]+\}/g) ?? []).join("\n");
+const embedAppFont = {
+  name: "embed-plus-jakarta-font",
+  transformIndexHtml(html: string) {
+    if (view === "setup_gallery" || !plusJakartaFontFaces) return html;
+    return html.replace("</head>", `<style>${plusJakartaFontFaces}</style></head>`);
+  },
+};
+
 export default defineConfig({
-  plugins: [react(), viteSingleFile()],
+  plugins: [react(), embedAppFont, viteSingleFile()],
   resolve: {
     alias: {
       // Re-use the user's existing Blog2Video template-preview React components.

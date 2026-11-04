@@ -18,7 +18,7 @@ from mcp_server.config import get_config
 from mcp_server.handlers import dispatch
 from mcp_server.tools import get_tool_definitions
 
-server = Server("blog2video")
+server = Server("blog2video", version="1.23.0")
 _client: Blog2VideoClient | None = None
 
 

@@ -295,7 +295,6 @@ def google_login(
             body.credential,
             google_requests.Request(),
             settings.GOOGLE_CLIENT_ID,
-            clock_skew_in_seconds=settings.GOOGLE_TOKEN_CLOCK_SKEW_SECONDS,
         )
     except ValueError as e:
         logger.error("[AUTH ERROR] Google token verification failed: %s", e)
