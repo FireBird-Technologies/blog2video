@@ -1347,6 +1347,207 @@ export const tools: ToolDefinition[] = [
       "/pdf-to-youtube-video",
       "/tools/video-length-calculator",
       "/pptx-to-video",
+      "/tools/pdf-to-epub-converter",
+    ],
+  },
+  {
+    slug: "pdf-to-epub-converter",
+    path: "/tools/pdf-to-epub-converter",
+    title: "PDF to EPUB & EPUB to PDF Converter — Free Online",
+    description:
+      "Convert PDF to EPUB or EPUB to PDF free. Reflowable chapters with a table of contents for your e-reader, or a printable PDF from any DRM-free EPUB. Free account, no credit card.",
+    eyebrow: "Free Converter",
+    heroTitle: "Convert PDF to EPUB and EPUB to PDF, free.",
+    heroDescription:
+      "Switch between both directions in one tool. PDF to EPUB rebuilds your document as reflowable text with chapters and a table of contents; EPUB to PDF lays the book out as a printable, searchable PDF. Free account, no credit card.",
+    category: "generator",
+    icon: "EP",
+    primaryKeyword: "pdf to epub converter",
+    keywordVariant: "epub to pdf converter",
+    badges: ["PDF to EPUB", "EPUB to PDF", "Free account", "No watermark"],
+    proofPoints: [
+      "PDF to EPUB reflows text, detects headings, and builds chapters and a table of contents instead of embedding page images.",
+      "EPUB to PDF produces an A4 PDF with selectable text and embedded images, ready to print or share.",
+      "Both directions in one place, with no watermark and no software to install.",
+    ],
+    sections: [
+      {
+        title: "How to convert PDF to EPUB",
+        body: [
+          "Open the PDF → EPUB tab, drop in your file, and press Convert. If you are not signed in yet, a short sign-in step appears first and the conversion runs as soon as you are through. The finished .epub downloads straight to your device.",
+          "The converter rebuilds the document rather than wrapping page screenshots. Text is re-flowed into paragraphs, wrapped lines and hyphenated line breaks are healed, and page numbers and repeating headers and footers are removed. Larger type is detected as headings, and the book is split into chapters wherever a top-level heading starts.",
+        ],
+        bullets: [
+          "Choose the PDF → EPUB tab and drop in your file (up to 25 MB).",
+          "Sign in with a free account when prompted.",
+          "Download the EPUB and open it in Kindle (via Send to Kindle), Kobo, Apple Books, or any EPUB reader.",
+        ],
+      },
+      {
+        title: "How to convert EPUB to PDF",
+        body: [
+          "Switch to the EPUB → PDF tab and drop in a DRM-free EPUB. Every chapter in the book's reading order is laid out onto A4 pages, with headings, lists, quotes, and images preserved and the text kept selectable and searchable.",
+          "Use it to print a book, read it on a device with no EPUB support, annotate in a PDF markup app, or archive a copy in a format that looks the same everywhere.",
+        ],
+      },
+      {
+        title: "Why reflowable EPUB beats a PDF on an e-reader",
+        body: [
+          "A PDF is a fixed page. On a six-inch e-reader that means pinching, panning, and tiny text. An EPUB reflows: the reader chooses the font, size, and margins, and the text re-wraps to fit the screen. That is the entire reason people convert.",
+          "A converter that just photographs each PDF page into an EPUB defeats the purpose, because the result is still a fixed picture. This one extracts the real text, so the font-size and dictionary features of your e-reader work.",
+        ],
+      },
+      {
+        title: "What converts well, and what does not",
+        body: [
+          "Text-heavy PDFs with a clear structure — novels, reports, whitepapers, papers, manuals, and long articles — convert best. Headings become chapters and the text reflows cleanly.",
+          "Scanned PDFs have no text layer, so there is nothing to reflow; run them through OCR first. Design-heavy files such as comics and brochures depend on their layout, so they often read better as a PDF. EPUB files protected by DRM cannot be converted.",
+        ],
+      },
+      {
+        title: "Turn your document into video too",
+        body: [
+          "Once your book or report is in the right format, you can go further: Blog2Video turns the same document into a narrated video with scenes, voiceover, and designed templates.",
+        ],
+        ctaPath: "/tools/pdf-to-video-converter",
+        ctaLabel: "Convert a PDF to video",
+      },
+    ],
+    faq: [
+      {
+        question: "Is this PDF to EPUB converter really free?",
+        answer:
+          "Yes. Conversion is free on a Blog2Video account with no credit card required, and neither direction adds a watermark. You sign in so the service is not open to automated abuse.",
+      },
+      {
+        question: "Why do I need to sign in to convert?",
+        answer:
+          "Conversion runs on our servers, so we ask for a free account to keep the tool available and fast for real users. You can set up the file and choose a direction before signing in.",
+      },
+      {
+        question: "Does the converter keep my files?",
+        answer:
+          "No. Your file is converted in memory and returned to you as a download. It is not saved to your account or used for anything else.",
+      },
+      {
+        question: "Will my EPUB work on Kindle?",
+        answer:
+          "Amazon accepts EPUB through its Send to Kindle service, which converts it for your device. Kobo, Apple Books, Google Play Books, and most other readers open EPUB directly.",
+      },
+      {
+        question: "Why did my PDF fail with a 'no readable text' error?",
+        answer:
+          "That means the PDF is a scan: each page is an image with no text layer. Run it through an OCR tool to create searchable text first, then convert it.",
+      },
+      {
+        question: "Can I convert a DRM-protected EPUB to PDF?",
+        answer:
+          "No. Books locked with DRM cannot be read by this tool. It works with DRM-free EPUB files, such as your own writing, public-domain books, and files you have purchased without DRM.",
+      },
+      {
+        question: "Will the layout match my original PDF exactly?",
+        answer:
+          "Not for PDF to EPUB, and that is by design. EPUB is reflowable, so the layout adapts to the reader's screen instead of mirroring the PDF page.",
+      },
+      {
+        question: "What is the file size limit?",
+        answer: "Each file can be up to 25 MB in either direction.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/epub-to-pdf-converter",
+      "/blogs/how-to-convert-pdf-to-epub-and-epub-to-pdf-free",
+      "/tools/pdf-to-video-converter",
+      "/tools/book-cover-generator",
+    ],
+  },
+  {
+    slug: "epub-to-pdf-converter",
+    path: "/tools/epub-to-pdf-converter",
+    title: "EPUB to PDF Converter — Free, No Watermark",
+    description:
+      "Convert EPUB to PDF free. Get a clean, paginated PDF with your chapters and images intact, ready to print, share, or annotate. Free account, no watermark.",
+    eyebrow: "Free Converter",
+    heroTitle: "Convert EPUB to PDF, free.",
+    heroDescription:
+      "Drop in a DRM-free EPUB and download a clean, paginated PDF with selectable text and images in place. Print it, share it, or mark it up in any PDF app. Free account, no credit card, no watermark.",
+    category: "generator",
+    icon: "EP",
+    primaryKeyword: "epub to pdf converter",
+    keywordVariant: "convert epub to pdf",
+    badges: ["EPUB to PDF", "Free account", "No watermark", "Selectable text"],
+    proofPoints: [
+      "Every chapter is laid out in reading order on A4 pages, with headings, lists, quotes and images preserved.",
+      "Text stays selectable and searchable, so the PDF works for annotation and copy-paste.",
+      "Need the other direction? The same tool converts PDF to EPUB with chapters and a table of contents.",
+    ],
+    sections: [
+      {
+        title: "How to convert EPUB to PDF",
+        body: [
+          "Drop your EPUB onto the converter, press Convert, and sign in with a free account if prompted. The finished PDF downloads straight to your device.",
+          "The converter reads the book's own reading order, so chapters appear in the sequence the author intended, followed through to the last page.",
+        ],
+        bullets: [
+          "Upload a DRM-free EPUB (up to 25 MB).",
+          "Convert it and sign in with a free account when asked.",
+          "Download a paginated PDF with your chapters and images intact.",
+        ],
+      },
+      {
+        title: "Why convert an EPUB to PDF",
+        body: [
+          "Sometimes you need the fixed-page format: printing a book, sharing it with someone who does not use an e-reader, submitting a document that has to be a PDF, or annotating it in a PDF markup app.",
+          "A PDF also looks the same on every device, which makes it a safe archive copy of your own writing or a public-domain book.",
+        ],
+      },
+      {
+        title: "DRM-protected books",
+        body: [
+          "Ebooks bought from stores such as Kindle or Apple Books are usually DRM protected, and no converter can legally convert them. This tool works with DRM-free EPUB files: your own writing, public-domain books, and files you bought without DRM.",
+        ],
+      },
+      {
+        title: "Going the other way",
+        body: [
+          "If you have a PDF and want an ebook that reflows on a phone or e-reader, the same tool converts PDF to EPUB with detected chapters and a clickable table of contents.",
+        ],
+        ctaPath: "/tools/pdf-to-epub-converter",
+        ctaLabel: "Convert PDF to EPUB",
+      },
+    ],
+    faq: [
+      {
+        question: "Is the EPUB to PDF converter free?",
+        answer:
+          "Yes. It is free on a Blog2Video account with no credit card required, and there is no watermark on the PDF.",
+      },
+      {
+        question: "Will the PDF keep my chapters and images?",
+        answer:
+          "Yes. Chapters are laid out in reading order with headings, lists, quotes and images preserved, and the text stays selectable.",
+      },
+      {
+        question: "Can I convert a Kindle or Apple Books ebook?",
+        answer:
+          "No. Store-bought ebooks are usually DRM protected, and no converter can legally convert them. DRM-free EPUB files work.",
+      },
+      {
+        question: "Are my files stored?",
+        answer:
+          "No. The file is converted and returned to you as a download; it is not saved to your account.",
+      },
+      {
+        question: "Can I convert PDF to EPUB too?",
+        answer:
+          "Yes, with our free PDF to EPUB converter, which builds chapters and a table of contents from your PDF's headings.",
+      },
+    ],
+    relatedPaths: [
+      "/tools/pdf-to-epub-converter",
+      "/blogs/how-to-convert-pdf-to-epub-and-epub-to-pdf-free",
+      "/tools/pdf-to-video-converter",
+      "/tools/book-cover-generator",
     ],
   },
   {

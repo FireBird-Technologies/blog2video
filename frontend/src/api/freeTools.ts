@@ -75,3 +75,17 @@ export function generateBookCover(description: string) {
     { timeout: 120000 }
   );
 }
+
+// ─── PDF <-> EPUB converter ──────────────────────────────────────────────────
+// Auth-gated, unmetered. The response body is the converted file itself.
+
+export type EbookDirection = "pdf-to-epub" | "epub-to-pdf";
+
+export function convertEbook(direction: EbookDirection, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  return api.post<Blob>(`/free-tools/${direction}`, form, {
+    responseType: "blob",
+    timeout: 120000,
+  });
+}

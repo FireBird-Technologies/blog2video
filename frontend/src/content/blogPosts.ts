@@ -17,6 +17,168 @@ function faq(primary: string, variant: string) {
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "how-to-convert-pdf-to-epub-and-epub-to-pdf-free",
+    title: "How to Convert a PDF to EPUB (and EPUB to PDF) for Free: The Complete Guide",
+    description:
+      "Convert PDF to EPUB with real chapters, a working table of contents and clean paragraphs, or EPUB to PDF, free. Why conversions go wrong, what a good EPUB looks like, and how to read it on Kindle, Kobo and Apple Books.",
+    category: "Guides",
+    publishedAt: "2026-11-04",
+    readTime: "6 min read",
+    heroEyebrow: "Ebook Conversion",
+    heroTitle: "How to convert a PDF to EPUB (and EPUB to PDF) for free",
+    heroDescription:
+      "PDFs are built for printing, not reading. Here is why most PDF to EPUB converters make a mess, what a good one looks like, and how to do it in under a minute.",
+    primaryKeyword: "pdf to epub",
+    keywordVariant: "epub to pdf",
+    relatedPaths: [
+      "/tools/pdf-to-epub-converter",
+      "/tools/epub-to-pdf-converter",
+      "/tools/pdf-to-video-converter",
+      "/tools/book-cover-generator",
+    ],
+    sections: [
+      {
+        heading: "Why PDFs are hard to read on a phone or e-reader",
+        paragraphs: [
+          "PDFs are built for printing, not reading. On a phone you pinch, zoom, and scroll sideways. On a Kindle or Kobo the text shrinks until it is unreadable. EPUB fixes that: it is the reflowable ebook format that adapts to any screen, lets you pick your font size, and gives you a real table of contents.",
+          "The catch is that most PDF to EPUB converters do a messy job. Sentences break across random lines, page numbers land in the middle of paragraphs, the book title repeats every few hundred words, and there are no chapters at all.",
+          "We built a free PDF to EPUB converter to solve exactly that, along with a free EPUB to PDF converter for going the other way. This guide explains why conversions usually go wrong, what a good one looks like, and how to do it in under a minute.",
+        ],
+        ctaPath: "/tools/pdf-to-epub-converter",
+        ctaLabel: "Try the PDF to EPUB converter",
+      },
+      {
+        heading: "Why PDF to EPUB conversion usually goes wrong",
+        paragraphs: [
+          "A PDF does not know what a chapter or paragraph is. It only stores where each piece of text sits on a fixed page. A basic converter has to guess at the structure, and it usually guesses badly. The result:",
+        ],
+        bullets: [
+          "No chapters or table of contents. The whole book becomes one endless scroll.",
+          "Repeated headers and footers. Running titles and page numbers get dropped into your text.",
+          "Broken line breaks. Every line of the original page becomes its own line, so the text reflows in a jagged mess.",
+          "Hyphenated words split in half. Words broken at the end of a printed line stay broken.",
+          "Scanned PDFs come out empty. A scan has no text layer, only pictures of pages.",
+        ],
+      },
+      {
+        heading: "What a good EPUB should look like",
+        paragraphs: [
+          "A good converter has to rebuild the structure, not just copy the text out. Whatever tool you use, check your finished ebook for these:",
+        ],
+        bullets: [
+          "Real chapters, detected from the headings in your PDF",
+          "A clickable table of contents that works on your reader",
+          "Clean paragraphs with no stray page numbers or running headers",
+          "Images kept in place",
+          "Text that reflows smoothly when you change the font size",
+        ],
+      },
+      {
+        heading: "How to convert a PDF to EPUB for free",
+        paragraphs: [
+          "Our free PDF to EPUB converter runs in your browser, with no watermark and no charge. You sign in with a free account to download the result.",
+          "Step 1: Upload your PDF. Open the PDF to EPUB converter and drag in your file.",
+          "Step 2: Let it detect the structure. The converter reads your headings to build chapters, strips repeated headers, footers, and page numbers, and joins broken lines back into proper paragraphs.",
+          "Step 3: Download your EPUB. Open the table of contents. Your chapters should all be listed, and you can tap straight into each one.",
+          "Step 4: Send it to your reader. Copy it to your e-reader or send it straight to Kindle (see below).",
+        ],
+      },
+      {
+        heading: "How to convert EPUB to PDF",
+        paragraphs: [
+          "Sometimes you need to go the other way: printing a book, sharing it with someone who does not use an e-reader, submitting a document that has to be a PDF, or annotating it in a PDF app. Our free EPUB to PDF converter does that in the same way:",
+        ],
+        bullets: [
+          "Upload your EPUB file",
+          "Convert it",
+          "Download a clean, paginated PDF with your chapters and images intact",
+        ],
+        ctaPath: "/tools/epub-to-pdf-converter",
+        ctaLabel: "Try the EPUB to PDF converter",
+      },
+      {
+        heading: "A note on DRM",
+        paragraphs: [
+          "DRM protected ebooks bought from stores like Kindle or Apple Books cannot be converted. That is true of every converter, not just ours.",
+        ],
+      },
+      {
+        heading: "How to read your EPUB on Kindle, Kobo, and Apple Books",
+        paragraphs: [
+          "Kindle: Amazon's Send to Kindle service accepts EPUB files directly, by email or through the web uploader, and converts them for your device.",
+          "Kobo: Kobo readers support EPUB natively. Plug in your device over USB and drag the file in.",
+          "Apple Books: Open the EPUB on your iPhone, iPad, or Mac and it goes straight into Apple Books.",
+          "Everything else: EPUB is the open standard, so it works in almost any ebook reader app.",
+        ],
+      },
+      {
+        heading: "Tips for the cleanest result",
+        paragraphs: [],
+        bullets: [
+          "Start from the best source you have. A PDF exported from Word or Google Docs converts far better than a scan of a printout.",
+          "Check the table of contents. If chapters are missing, the PDF probably uses inconsistent heading styles.",
+          "Watch out for scans. If your EPUB comes out empty, your PDF is a scan with no text layer. Run it through OCR first.",
+          "Keep design heavy files as PDF. Comics, magazines, and brochures depend on their layout, so they often read better as a PDF than as reflowed text.",
+        ],
+      },
+      {
+        heading: "Turn your PDF into a video, too",
+        paragraphs: [
+          "An ebook reaches readers. A video reaches everyone else. If you have a PDF report, guide, or ebook, pdf2vid turns it into a narrated video you can post on YouTube, LinkedIn, or social media. If your content lives on a blog or Substack, Blog2Video does the same for your posts. Write once, then publish it as an ebook, a PDF, and a video.",
+        ],
+        ctaPath: "https://pdf2vid.com",
+        ctaLabel: "Turn a PDF into a video with pdf2vid",
+      },
+      {
+        heading: "The bottom line",
+        paragraphs: [
+          "The best way to convert a PDF to EPUB is with a tool that understands structure, not one that just copies text. You want real chapters, a working table of contents, and clean paragraphs. Try our free PDF to EPUB converter, and when you need to go the other way, the EPUB to PDF converter is free too.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: "Is the PDF to EPUB converter really free?",
+        answer: "Yes. It is free with a Blog2Video account, with no watermark and no charge.",
+      },
+      {
+        question: "Will my EPUB have chapters and a table of contents?",
+        answer:
+          "Yes. The converter detects chapters from your PDF's headings and builds a clickable table of contents.",
+      },
+      {
+        question: "Can I convert EPUB back to PDF?",
+        answer: "Yes, with our free EPUB to PDF converter.",
+      },
+      {
+        question: "Can I read the EPUB on a Kindle?",
+        answer: "Yes. Send to Kindle accepts EPUB files directly.",
+      },
+      {
+        question: "Can I convert a scanned PDF?",
+        answer:
+          "Scans have no text layer, so they need OCR before they can become a reflowable ebook.",
+      },
+      {
+        question: "Can I convert ebooks I bought on Kindle or Apple Books?",
+        answer:
+          "No. Store bought ebooks are usually DRM protected, and no converter can legally convert them.",
+      },
+    ],
+    distributionPlan: [
+      {
+        channel: "site",
+        title: "Link the guide from both converter pages",
+        angle: "Each converter page points to this guide for the full explanation and Kindle and Kobo instructions.",
+      },
+      {
+        channel: "twitter",
+        title: "Why most PDF to EPUB converters make a mess",
+        angle: "Thread on the five failure modes: no chapters, repeated headers, jagged lines, split hyphens, empty scans.",
+      },
+    ],
+  },
+  {
     slug: "video-generation-api-for-publishers",
     title: "The Best Video API for Publishers: Turn Articles and Documents Into Narrated Video",
     description:
