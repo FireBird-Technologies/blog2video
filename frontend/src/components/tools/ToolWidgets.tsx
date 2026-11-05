@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import EbookConverter from "./EbookConverter";
 import PdfToVideoConverter from "./PdfToVideoConverter";
 import StockVisualizer from "./StockVisualizer";
 import SubstackValuationTool from "./SubstackValuationTool";
@@ -2490,6 +2491,10 @@ export function ToolWidget({ slug }: ToolWidgetProps) {
       return <BookCoverGeneratorWidget />;
     case "pdf-to-video-converter":
       return <PdfToVideoConverter />;
+    case "pdf-to-epub-converter":
+      return <EbookConverter />;
+    case "epub-to-pdf-converter":
+      return <EbookConverter defaultDirection="epub-to-pdf" />;
     case "wordpress-plugin":
       return <WordPressPluginWidget />;
     case "chrome-extension":
