@@ -29,6 +29,7 @@ from app.dspy_modules.pdf_tool_gen import (
 )
 from app.models.user import LIFETIME_TOOLS, TOOL_QUOTAS, PlanTier, User
 from app.services.doc_extractor import extract_text_from_upload
+from app.services.ebook_convert import ConversionError, epub_to_pdf, pdf_to_epub
 
 logger = logging.getLogger(__name__)
 
@@ -524,5 +525,80 @@ def generate_pdf_narration(
             "Content-Disposition": 'attachment; filename="narration.mp3"',
             "x-tool-used": str(used),
             "x-tool-limit": str(limit),
+        },
+    )
+
+
+# ─── PDF <-> EPUB converter ──────────────────────────────────────────────────
+# Auth-gated but unmetered: conversion is local CPU work (no model or provider
+# call), so there is no per-generation cost to ration. The login requirement is
+# the abuse backstop, and the size ceiling keeps one drop from tying up a worker.
+
+
+async def _read_upload(file: UploadFile, suffix: str, label: str) -> tuple[bytes, str]:
+    filename = file.filename or f"document{suffix}"
+    if not filename.lower().endswith(suffix):
+        raise HTTPException(status_code=400, detail=f"Please upload a {label} file ({suffix}).")
+    data = await file.read(_MAX_UPLOAD_BYTES + 1)
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"'{filename}' is larger than {_MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
+    if not data:
+        raise HTTPException(status_code=400, detail="That file is empty.")
+    return data, filename
+
+
+def _download_name(filename: str, new_suffix: str) -> str:
+    stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+    safe = "".join(c if c.isalnum() or c in " -_" else "_" for c in stem).strip() or "converted"
+    return f"{safe}{new_suffix}"
+
+
+@router.post("/pdf-to-epub")
+async def convert_pdf_to_epub(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    """Convert an uploaded PDF into a reflowable EPUB."""
+    data, filename = await _read_upload(file, ".pdf", "PDF")
+    try:
+        epub = await run_in_threadpool(pdf_to_epub, data, filename)
+    except ConversionError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception:
+        logger.exception("pdf-to-epub conversion failed")
+        raise HTTPException(status_code=500, detail="Conversion failed. Please try a different file.")
+    return StreamingResponse(
+        io.BytesIO(epub),
+        media_type="application/epub+zip",
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": f'attachment; filename="{_download_name(filename, ".epub")}"',
+        },
+    )
+
+
+@router.post("/epub-to-pdf")
+async def convert_epub_to_pdf(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    """Convert an uploaded EPUB into a paginated PDF."""
+    data, filename = await _read_upload(file, ".epub", "EPUB")
+    try:
+        pdf = await run_in_threadpool(epub_to_pdf, data)
+    except ConversionError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception:
+        logger.exception("epub-to-pdf conversion failed")
+        raise HTTPException(status_code=500, detail="Conversion failed. Please try a different file.")
+    return StreamingResponse(
+        io.BytesIO(pdf),
+        media_type="application/pdf",
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": f'attachment; filename="{_download_name(filename, ".pdf")}"',
         },
     )

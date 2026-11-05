@@ -249,7 +249,9 @@ API_KEY_NEVER: frozenset[tuple[str, str]] = frozenset({
     ("POST", "/api/template-studio/template/plan"),
     # Free tools
     ("POST", "/api/free-tools/book-cover"),
+    ("POST", "/api/free-tools/epub-to-pdf"),
     ("POST", "/api/free-tools/extract-document"),
+    ("POST", "/api/free-tools/pdf-to-epub"),
     ("POST", "/api/free-tools/pdf-narration"),
     ("POST", "/api/free-tools/pdf-storyboard"),
     ("POST", "/api/free-tools/pdf-summary"),
