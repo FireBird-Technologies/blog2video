@@ -34,6 +34,7 @@ const N8nLogo = (
 interface Client {
   id: string;
   name: string;
+  href?: string;
   hex: string;
   bg: string;
   border: string;
@@ -62,6 +63,7 @@ const CLIENTS: Client[] = [
   {
     id: "chatgpt",
     name: "ChatGPT",
+    href: "https://chatgpt.com/plugins/plugin_asdk_app_6ace033244288191baa0e48492237994",
     hex: "#10b981",
     bg: "bg-emerald-50",
     border: "border-emerald-200",
@@ -199,12 +201,8 @@ export default function MCPHubDiagram() {
           {/* Client chips */}
           {CLIENTS.map((c, i) => {
             const isActive = i === idx;
-            return (
-              <div
-                key={c.id}
-                className="absolute z-10 flex flex-col items-center gap-1.5 -translate-x-1/2 -translate-y-1/2"
-                style={{ left: pct(c.pos.x, VIEW_W), top: pct(c.pos.y, VIEW_H) }}
-              >
+            const chip = (
+              <>
                 <div
                   className={`flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border bg-white ${c.text} shadow-sm transition-all duration-500 ${
                     isActive ? `${c.bg} ${c.border} ring-2 ring-offset-1 ${c.ring}` : "border-gray-200"
@@ -213,6 +211,29 @@ export default function MCPHubDiagram() {
                   {c.logo}
                 </div>
                 <p className="text-xs sm:text-sm font-semibold text-gray-600">{c.name}</p>
+              </>
+            );
+
+            const className = `absolute z-10 flex flex-col items-center gap-1.5 -translate-x-1/2 -translate-y-1/2 ${
+              c.href ? "cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-4" : ""
+            }`;
+            const style = { left: pct(c.pos.x, VIEW_W), top: pct(c.pos.y, VIEW_H) };
+
+            return c.href ? (
+              <a
+                key={c.id}
+                href={c.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open ${c.name}`}
+                className={className}
+                style={style}
+              >
+                {chip}
+              </a>
+            ) : (
+              <div key={c.id} className={className} style={style}>
+                {chip}
               </div>
             );
           })}
