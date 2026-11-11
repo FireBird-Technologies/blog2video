@@ -3230,5 +3230,9 @@
   "blog:blog2video-august-2026-update@1452eb20c86a48b5@20aaebd1": {
     "keep": true,
     "reason": "Describes Blog2Video features and pricing updates."
+  },
+  "blog:how-to-convert-pdf-to-epub-and-epub-to-pdf-free@798ca556c61c5ffc@20aaebd1": {
+    "keep": false,
+    "reason": "Describes EPUB conversion tool, not Blog2Video features"
   }
 }

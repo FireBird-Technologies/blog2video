@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blog2Video Template Picker</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; min-height: 100%; background: #fff; }
+    body { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111827; }
+    #canvas {
+      width: 1280px;
+      height: 800px;
+      overflow: hidden;
+      position: relative;
+      background: #fff;
+      display: grid;
+      grid-template-columns: 650px 498px;
+      gap: 30px;
+      padding: 40px 30px 40px 42px;
+    }
+
+    .marketing { position: relative; min-width: 0; background: #fff; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 50px; height: 50px; border-radius: 12px;
+      display: grid; place-items: center;
+      background: linear-gradient(145deg, #7c3aed, #9333ea);
+      color: #fff; font-weight: 800; font-size: 19px;
+      box-shadow: 0 6px 18px rgba(124,58,237,.16);
+    }
+    .brand-name { font-size: 28px; font-weight: 750; letter-spacing: -.7px; }
+    h1 { margin: 48px 0 0 20px; font-size: 50px; line-height: 1.04; letter-spacing: -2.4px; font-weight: 800; }
+    h1 span { color: #7c3aed; position: relative; }
+    h1 span::after {
+      content: ""; position: absolute; left: 7%; right: -4%; bottom: -13px; height: 5px;
+      background: #7c3aed; border-radius: 999px; transform: rotate(-2deg);
+    }
+
+    .lead { margin: 27px 20px 0; max-width: 520px; color: #6b7280; font-size: 16px; line-height: 1.55; }
+    .poster-stage {
+      position: absolute; left: 20px; right: 10px; top: 270px;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
+      background: #fff;
+    }
+    .poster-card {
+      position: relative; overflow: hidden; border-radius: 12px; background: #fff;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(17,24,39,.05);
+    }
+    .poster-card,
+    .poster-card.hero,
+    .poster-card.a,
+    .poster-card.b,
+    .poster-card.c,
+    .poster-card.d,
+    .poster-card.e,
+    .poster-card.f { width: auto; height: 156px; left: auto; top: auto; z-index: auto; transform: none; }
+    .poster-card img { display: block; width: 100%; height: 122px; object-fit: cover; }
+    .poster-card strong { height: 34px; display: grid; place-items: center; font-size: 12px; color: #1f2937; background: #fff; }
+
+    .app {
+      height: 720px; border-radius: 18px; overflow: hidden; background: #fff;
+      border: 1px solid #dfe3e8;
+      box-shadow: 0 2px 8px rgba(17,24,39,.04);
+    }
+    .app-head { height: 64px; padding: 0 22px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eceef2; }
+    .app-brand { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 750; }
+    .app-brand .brand-mark { width: 38px; height: 38px; border-radius: 9px; font-size: 14px; box-shadow: none; }
+    .disconnect { font-size: 13px; color: #9ca3af; }
+    .stepper { height: 88px; display: grid; place-items: center; padding-top: 8px; }
+    .steps { display: flex; align-items: center; justify-content: center; }
+    .step { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 750; color: #9ca3af; background: #f3f4f6; }
+    .step.done { color: #7c3aed; background: #f3e8ff; }
+    .step.current { color: #fff; background: #7c3aed; }
+    .line { width: 48px; height: 2px; margin: 0 8px; background: #e5e7eb; }
+    .line.done { background: #c084fc; }
+    .step-caption { margin-top: 7px; text-align: center; color: #9ca3af; font-size: 12px; font-weight: 650; }
+
+    .panel { padding: 2px 20px 16px; }
+    .label { color: #9ca3af; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .selected-preview { margin-top: 7px; border: 2px solid #a855f7; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 4px rgba(124,58,237,.09); }
+    .selected-preview img { width: 100%; height: 96px; display: block; object-fit: cover; }
+    .selected-info { height: 36px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; background: #faf5ff; }
+    .selected-copy strong { display: block; font-size: 13px; color: #1f2937; }
+    .selected-copy span { display: block; margin-top: 2px; font-size: 9px; color: #9ca3af; }
+    .check { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: #7c3aed; color: #fff; font-weight: 800; font-size: 12px; }
+    .filter { margin: 10px 0 6px; display: flex; align-items: center; justify-content: space-between; }
+    .filter button { border: 1px solid #e5e7eb; background: #fff; color: #4b5563; font-size: 10px; padding: 6px 10px; border-radius: 10px; }
+    .grid-shell { margin-top: 8px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
+    .template-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .tile { overflow: hidden; border: 1px solid #e5e7eb; border-radius: 9px; background: #fff; box-shadow: 0 1px 3px rgba(17,24,39,.04); }
+    .tile.selected { border-color: #a855f7; box-shadow: 0 0 0 2px rgba(124,58,237,.11); }
+    .tile .art { position: relative; height: 72px; overflow: hidden; }
+    .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tile .tick { position: absolute; right: 4px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: #7c3aed; color: #fff; display: grid; place-items: center; font-size: 8px; font-weight: 800; }
+    .tile .name { height: 26px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #374151; background: #fff; }
+    .tile.selected .name { background: #faf5ff; }
+    .style-row { margin-top: 18px; }
+    .styles { margin-top: 8px; padding: 5px; border-radius: 12px; background: #f3f4f6; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .style { padding: 9px 3px; border-radius: 8px; color: #9ca3af; text-align: center; font-size: 10.5px; font-weight: 650; }
+    .style.selected { background: #fff; color: #9333ea; box-shadow: 0 1px 4px rgba(17,24,39,.08); }
+    .color-row { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .swatches { display: flex; align-items: center; gap: 10px; }
+    .swatch-item { display: flex; align-items: center; gap: 5px; color: #9ca3af; font-size: 8.5px; font-weight: 650; }
+    .swatch { width: 22px; height: 22px; border-radius: 7px; border: 2px solid #e5e7eb; box-shadow: 0 1px 3px rgba(17,24,39,.06); }
+    .swatch.accent { background: #7c3aed; border-color: #c4b5fd; }
+    .swatch.background { background: #fff; }
+    .swatch.text { background: #111827; }
+    .actions { margin-top: 18px; display: grid; grid-template-columns: .85fr 1.4fr; gap: 10px; }
+    .action { height: 42px; border-radius: 10px; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+    .action.back { border: 1px solid #e5e7eb; color: #4b5563; background: #fff; }
+    .action.continue { border: 1px solid #7c3aed; color: #fff; background: #7c3aed; box-shadow: 0 4px 12px rgba(124,58,237,.18); }
+  </style>
+</head>
+<body>
+  <div id="canvas">
+    <section class="marketing">
+      <div class="brand"><div class="brand-mark">B2V</div><div class="brand-name">Blog2Video</div></div>
+      <h1>Pick your video's <span>look</span></h1>
+      <p class="lead">Choose a professionally designed template that fits your story and brand.</p>
+      <div class="poster-stage" aria-label="Real Blog2Video template previews">
+        <article class="poster-card hero"><img src="../template-posters/nightfall.webp" alt="" /><strong>Nightfall</strong></article>
+        <article class="poster-card c"><img src="../template-posters/gridcraft.webp" alt="" /><strong>Gridcraft</strong></article>
+        <article class="poster-card a"><img src="../template-posters/whiteboard.webp" alt="" /><strong>Stick Man</strong></article>
+        <article class="poster-card d"><img src="../template-posters/newspaper.webp" alt="" /><strong>Newspaper</strong></article>
+        <article class="poster-card e"><img src="../template-posters/mosaic.webp" alt="" /><strong>Mosaic</strong></article>
+        <article class="poster-card f"><img src="../template-posters/sakura.webp" alt="" /><strong>Sakura</strong></article>
+      </div>
+    </section>
+
+    <section class="app" aria-label="Blog2Video template picker">
+      <header class="app-head">
+        <div class="app-brand"><div class="brand-mark">B2V</div><span>Blog2Video</span></div>
+        <span class="disconnect">Disconnect</span>
+      </header>
+      <div class="stepper">
+        <div>
+          <div class="steps"><span class="step done">✓</span><span class="line done"></span><span class="step current">2</span><span class="line"></span><span class="step">3</span></div>
+          <div class="step-caption">Step 2 — Template</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="label">Template</div>
+        <div class="grid-shell">
+          <div class="template-grid">
+            <div class="tile"><div class="art"><img src="../template-posters/nightfall.webp" alt="" /></div><div class="name">Nightfall</div></div>
+            <div class="tile"><div class="art"><img src="../template-posters/gridcraft.webp" alt="" /></div><div class="name">Gridcraft</div></div>
+            <div class="tile"><div class="art"><img src="../template-posters/spotlight.webp" alt="" /></div><div class="name">Spotlight</div></div>
+            <div class="tile"><div class="art"><img src="../template-posters/whiteboard.webp" alt="" /></div><div class="name">Stick Man</div></div>
+            <div class="tile"><div class="art"><img src="../template-posters/newspaper.webp" alt="" /></div><div class="name">Newspaper</div></div>
+            <div class="tile"><div class="art"><img src="../template-posters/matrix.webp" alt="" /></div><div class="name">Matrix</div></div>
+            <div class="tile"><div class="art"><img src="../template-posters/newscast.webp" alt="" /></div><div class="name">Newscast</div></div>
+            <div class="tile"><div class="art"><img src="../template-posters/mosaic.webp" alt="" /></div><div class="name">Mosaic</div></div>
+            <div class="tile"><div class="art"><img src="../template-posters/blackswan.webp" alt="" /></div><div class="name">Black Swan</div></div>
+          </div>
+        </div>
+
+        <div class="style-row"><div class="label">Video style</div><div class="styles"><div class="style">Auto</div><div class="style">Explainer</div><div class="style">Storytelling</div><div class="style selected">Promotional</div></div></div>
+        <div class="actions"><div class="action back">← Back</div><div class="action continue">Continue →</div></div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
