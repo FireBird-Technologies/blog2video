@@ -23,6 +23,8 @@ import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
 import Seo from "../components/seo/Seo";
 import ExploreButton from "../components/ExploreButton";
+import ChromeExtensionButton from "../components/ChromeExtensionButton";
+import { useExtensionBrowser } from "../hooks/useExtensionBrowser";
 import { notestackUrl } from "../config/siblingSites";
 import { homepageSchema } from "../seo/schema";
 import {
@@ -470,6 +472,9 @@ export default function Landing() {
   const [searchParams] = useSearchParams();
   const [demos, setDemos] = useState<DemoVideo[]>(INITIAL_DEMOS);
   const [navOpen, setNavOpen] = useState(false);
+  // Chromium desktop browsers get "Add to {browser}" (next to Explore) in place of Features.
+  const extensionBrowser = useExtensionBrowser();
+  const navItems = extensionBrowser ? NAV_LINKS.filter((l) => l.href !== "#features") : NAV_LINKS;
   const [heroUrl, setHeroUrl] = useState("");
   const [typedPlaceholder, setTypedPlaceholder] = useState("");
   const [designerOpen, setDesignerOpen] = useState(false);
@@ -622,7 +627,8 @@ export default function Landing() {
           {/* Desktop: horizontal links + login */}
           <div className="hidden md:flex items-center gap-6">
             <ExploreButton href={notestackUrl("landing_navbar")} className="text-sm px-4 py-1.5" />
-            {NAV_LINKS.map(({ href, label }) =>
+            <ChromeExtensionButton className="!text-sm !py-1.5 !pl-2.5 !pr-3 -ml-3" />
+            {navItems.map(({ href, label }) =>
               href.startsWith("#") ? (
                 <a
                   key={href}
@@ -679,7 +685,8 @@ export default function Landing() {
                   onClick={() => setNavOpen(false)}
                 />
                 <div className="absolute right-0 top-full mt-1 py-2 w-48 rounded-xl border border-white/60 backdrop-blur-2xl z-50" style={{ background: "rgba(255,255,255,0.80)", boxShadow: "0 8px 32px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
-                  {NAV_LINKS.map(({ href, label }) =>
+                  <ChromeExtensionButton variant="row" onClick={() => setNavOpen(false)} />
+                  {navItems.map(({ href, label }) =>
                     href.startsWith("#") ? (
                       <a
                         key={href}

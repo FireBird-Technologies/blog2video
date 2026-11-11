@@ -1,18 +1,15 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import DiscountBanner from "../DiscountBanner";
 import ExploreButton from "../ExploreButton";
 import { notestackUrl } from "../../config/siblingSites";
-import { CHROME_EXTENSION_URL } from "../../constants/chromeExtension";
-import { supportsChromeExtensions } from "../../lib/browserSupport";
+import ChromeExtensionButton from "../ChromeExtensionButton";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const chromeExtensionUrl = CHROME_EXTENSION_URL;
-  const showChromeExtension = useMemo(supportsChromeExtensions, []);
 
   if (!user) return null;
 
@@ -39,36 +36,6 @@ const Navbar = () => {
           <span className="text-xs text-gray-400 group-hover:text-purple-600 transition-colors">Dashboard</span>
         </Link>
         <div className="flex items-center gap-4">
-
-          {/* Chrome extension CTA — Chromium desktop browsers only */}
-          {showChromeExtension && (
-          <a
-            href={chromeExtensionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Add the Blog2Video extension to Chrome"
-            title="Turn the page you're viewing into a video"
-            className="group hidden sm:inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-purple-500 bg-white py-1 pl-2 pr-2.5 text-xs font-medium text-purple-700 transition-all duration-300 hover:-translate-y-px hover:border-purple-600 hover:bg-purple-50 hover:text-purple-800 hover:shadow-md hover:shadow-purple-500/15 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2"
-          >
-            <img
-              src="/chrome-logo.svg"
-              alt=""
-              className="h-4 w-4 transition-transform duration-700 ease-out group-hover:rotate-[360deg]"
-              aria-hidden="true"
-            />
-            <span>Add to Chrome</span>
-            <svg
-              aria-hidden="true"
-              className="-ml-1 h-3 w-0 -translate-x-1 opacity-0 transition-all duration-300 group-hover:ml-0 group-hover:w-3 group-hover:translate-x-0 group-hover:opacity-100"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
-            </svg>
-          </a>
-          )}
 
           {/* Templates link */}
           <Link
@@ -101,6 +68,9 @@ const Navbar = () => {
             Template Studio
           </Link> */}
 
+          {/* Chrome extension CTA — next to Explore; hidden in Safari/Firefox/mobile */}
+          <ChromeExtensionButton className="hidden sm:inline-flex" />
+
           {/* Explore (notestack.ai) */}
           <ExploreButton href={notestackUrl("app_navbar")} className="text-sm px-3.5 py-1.5" />
 
@@ -126,18 +96,7 @@ const Navbar = () => {
               <>
                 <div className="fixed inset-0 z-40" aria-hidden onClick={() => setMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-2 py-1.5 w-64 bg-white rounded-xl border border-gray-200/80 shadow-lg z-50">
-                  {showChromeExtension && (
-                  <a
-                    href={chromeExtensionUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setMenuOpen(false)}
-                    className="group flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-                  >
-                    <img src="/chrome-logo.svg" alt="" className="h-5 w-5 transition-transform duration-700 group-hover:rotate-[360deg]" aria-hidden="true" />
-                    Add to Chrome
-                  </a>
-                  )}
+                  <ChromeExtensionButton variant="row" onClick={() => setMenuOpen(false)} />
                   <Link to="/template-showcase" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Templates</Link>
                   <Link to="/subscription" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">Billing</Link>
                   <Link to="/api-docs" onClick={() => setMenuOpen(false)} className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">API docs</Link>
