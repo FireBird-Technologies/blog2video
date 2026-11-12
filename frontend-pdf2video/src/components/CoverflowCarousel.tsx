@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, type FC } from "react";
 import InputShowcase from "./InputShowcase";
 import PreviewErrorBoundary from "./PreviewErrorBoundary";
+import AuthFlow from "./auth/AuthFlow";
+import type { UserInfo } from "../api/client";
 
 export type CoverflowOrientation = "landscape" | "portrait";
 
@@ -19,6 +21,22 @@ export interface CoverflowTemplate {
   onSelect?: () => void;
 }
 
+/**
+ * Sign-in prompt with two one-way trigger points:
+ * - going forward, when leaving the card `forwardAfterId`;
+ * - going backward, just before landing on the card `backwardBeforeId`.
+ * It renders the real sign-in flow (Google, email -> password, ...). Close
+ * (X, Escape, backdrop) completes the move; "Sign up" calls `onSignUp`. It
+ * prompts again on every crossing.
+ */
+export interface CoverflowSignInGate {
+  forwardAfterId: string;
+  backwardBeforeId: string;
+  onSignUp: () => void;
+  /** Receives the fresh JWT + user (this deployment hands it to blog2video.app). */
+  onSuccess: (token: string, user: UserInfo) => void;
+}
+
 interface CoverflowCarouselProps {
   templates: CoverflowTemplate[];
   initialIndex?: number;
@@ -26,6 +44,8 @@ interface CoverflowCarouselProps {
   orientation?: CoverflowOrientation;
   /** Show the "any content source" input showcase below the carousel (landing only). */
   showInputShowcase?: boolean;
+  /** Logged-out visitors only: prompt to sign in when moving past `afterId`. */
+  signInGate?: CoverflowSignInGate;
 }
 
 const VISIBLE_RANGE = 3;
@@ -131,7 +151,7 @@ const CARD = {
   portrait: { w: 220, h: (220 * 16) / 9, designWidth: 560, designHeight: 430 },
 } as const;
 
-export default function CoverflowCarousel({ templates, initialIndex = 0, orientation = "landscape", showInputShowcase = false }: CoverflowCarouselProps) {
+export default function CoverflowCarousel({ templates, initialIndex = 0, orientation = "landscape", showInputShowcase = false, signInGate }: CoverflowCarouselProps) {
   const card = CARD[orientation];
   const DESIGN_WIDTH = card.designWidth;
   const DESIGN_HEIGHT = card.designHeight;
@@ -221,13 +241,44 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
     setActiveIndex((current) => getNextIndex(current));
   }, []);
 
+  // ── Sign-in gate ──
+  // Forward moves that leave `forwardAfterId`, and backward moves that land on
+  // (or jump past) `backwardBeforeId`, park the target in `gatePendingIndex`
+  // and open the prompt instead of moving.
+  const [gatePendingIndex, setGatePendingIndex] = useState<number | null>(null);
+  const fwdGateIdx = signInGate ? templates.findIndex((t) => t.id === signInGate.forwardAfterId) : -1;
+  const backGateIdx = signInGate ? templates.findIndex((t) => t.id === signInGate.backwardBeforeId) : -1;
+
+  const navigateTo = useCallback((to: number, dir: "next" | "prev" | "jump") => {
+    const from = activeIndex;
+    if (to === from) return;
+    const forward = dir === "next" || (dir === "jump" && to > from);
+    // Arrow steps are single moves (with wrap-around); dot jumps cross a gate
+    // when it lies between source and target in the jump's direction.
+    const crosses = forward
+      ? fwdGateIdx >= 0 && (dir === "next" ? from === fwdGateIdx : from <= fwdGateIdx && fwdGateIdx < to)
+      : backGateIdx >= 0 && (dir === "prev" ? to === backGateIdx : to <= backGateIdx && backGateIdx < from);
+    if (crosses) {
+      setGatePendingIndex(to);
+      return;
+    }
+    goToIndex(() => to);
+  }, [activeIndex, fwdGateIdx, backGateIdx, goToIndex]);
+
+  const dismissGate = useCallback(() => {
+    if (gatePendingIndex === null) return;
+    const to = gatePendingIndex;
+    setGatePendingIndex(null);
+    goToIndex(() => to);
+  }, [gatePendingIndex, goToIndex]);
+
   const prev = useCallback(() => {
-    goToIndex((i) => (i - 1 + templates.length) % templates.length);
-  }, [goToIndex, templates.length]);
+    navigateTo((activeIndex - 1 + templates.length) % templates.length, "prev");
+  }, [navigateTo, activeIndex, templates.length]);
 
   const next = useCallback(() => {
-    goToIndex((i) => (i + 1) % templates.length);
-  }, [goToIndex, templates.length]);
+    navigateTo((activeIndex + 1) % templates.length, "next");
+  }, [navigateTo, activeIndex, templates.length]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -242,12 +293,16 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (fullscreen) return;
+      if (gatePendingIndex !== null) {
+        if (e.key === "Escape") dismissGate();
+        return;
+      }
       if (e.key === "ArrowLeft") prev();
       if (e.key === "ArrowRight") next();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [fullscreen, prev, next]);
+  }, [fullscreen, prev, next, gatePendingIndex, dismissGate]);
 
   const active = templates[activeIndex];
   const ActivePreview = orientation === "portrait" ? (active.PreviewPortrait ?? active.Preview) : active.Preview;
@@ -429,7 +484,7 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
             <button
               key={i}
               type="button"
-              onClick={() => goToIndex(() => i)}
+              onClick={() => navigateTo(i, "jump")}
               aria-label={`Go to template ${i + 1}`}
               className={`rounded-full transition-all ${
                 i === activeIndex
@@ -454,6 +509,44 @@ export default function CoverflowCarousel({ templates, initialIndex = 0, orienta
 
       {/* ── Content source showcase (landing page only) ── */}
       {showInputShowcase && <InputShowcase />}
+
+      {/* ── Sign-in gate prompt ── */}
+      {signInGate && gatePendingIndex !== null && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4"
+          onClick={dismissGate}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-page-title"
+        >
+          <div
+            className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl px-6 py-8 sm:px-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={dismissGate}
+              aria-label="Close"
+              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            {/* Same flow as /signin (login mode). On success it signs in and
+                runs the normal post-login redirect. */}
+            <AuthFlow
+              variant="page"
+              mode="login"
+              onSuccess={(token, user) => {
+                setGatePendingIndex(null);
+                signInGate.onSuccess(token, user);
+              }}
+              onSignupClick={signInGate.onSignUp}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Fullscreen modal ── */}
       {fullscreen && (
