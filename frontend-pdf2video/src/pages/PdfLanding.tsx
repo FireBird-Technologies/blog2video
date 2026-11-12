@@ -652,6 +652,21 @@ export default function PdfLanding() {
             templates={carouselTemplates}
             initialIndex={carouselInitialIndex}
             orientation={templatesOrientation}
+            // Logged-out visitors get the sign-in popup when moving past "Your
+            // Own Brand" (forward) or onto Spotlight (backward). A successful
+            // sign-in hands the token to blog2video.app, same as /signin.
+            signInGate={
+              user && token
+                ? undefined
+                : {
+                    forwardAfterId: "your-own-brand",
+                    backwardBeforeId: "spotlight",
+                    onSignUp: () => navigate("/signup"),
+                    onSuccess: (freshToken) => {
+                      window.location.href = buildBlog2VideoHandoffUrl(freshToken);
+                    },
+                  }
+            }
           />
         </div>
       </section>

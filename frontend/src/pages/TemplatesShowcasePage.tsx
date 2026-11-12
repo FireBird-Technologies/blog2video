@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { TEMPLATE_PREVIEWS, TEMPLATE_PREVIEWS_PORTRAIT, TEMPLATE_DESCRIPTIONS, SHOWCASE_TEMPLATE_IDS } from "../components/templatePreviewRegistry";
 import CoverflowCarousel, { type CoverflowTemplate, type CoverflowOrientation } from "../components/CoverflowCarousel";
 import OrientationToggle from "../components/OrientationToggle";
-import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
-import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
+import { withCtaCards, BRAND_CARD_ID } from "../components/carouselCtaCards";
 import DesignerTemplateRequestModal from "../components/DesignerTemplateRequestModal";
 import { useAuth } from "../hooks/useAuth";
 import PublicFooter from "../components/public/PublicFooter";
@@ -34,20 +33,14 @@ export default function TemplatesShowcasePage() {
   // Insert the "Your Own Brand" CTA right after Whiteboard (before Newspaper),
   // and recompute the initial index against the augmented list so Whiteboard
   // stays centered with the brand card one step to its right.
-  const carouselTemplates = useMemo<CoverflowTemplate[]>(() => {
-    const list = [...CAROUSEL_TEMPLATES];
-    const wbIdx = list.findIndex((t) => t.id === "whiteboard");
-    const insertAt = wbIdx >= 0 ? wbIdx + 1 : 1;
-    list.splice(insertAt, 0, {
-      id: "your-own-brand",
-      name: "Your Own Brand",
-      subtitle: "Get a custom template tailored to your brand",
-      Preview: YourOwnBrandPreview,
-      PreviewPortrait: YourOwnBrandPreviewPortrait,
-      onSelect: handleBrandClick,
-    });
-    return list;
-  }, [user]);
+  const carouselTemplates = useMemo<CoverflowTemplate[]>(
+    () =>
+      withCtaCards(CAROUSEL_TEMPLATES, {
+        anchorId: "whiteboard",
+        onBrandSelect: handleBrandClick,
+      }),
+    [user]
+  );
   const initialIndex = Math.max(
     0,
     carouselTemplates.findIndex((t) => t.id === "whiteboard")
@@ -77,7 +70,7 @@ export default function TemplatesShowcasePage() {
           <OrientationToggle orientation={orientation} onChange={setOrientation} className="mb-8" />
           {/* key forces a clean remount on orientation change — resets every
               preview at once instead of swapping in place (which flickered). */}
-          <CoverflowCarousel key={orientation} templates={carouselTemplates} initialIndex={initialIndex} orientation={orientation} />
+          <CoverflowCarousel key={orientation} templates={carouselTemplates} initialIndex={initialIndex} orientation={orientation} signInGate={user ? undefined : { forwardAfterId: BRAND_CARD_ID, backwardBeforeId: "spotlight", onSignUp: () => navigate("/signup") }} />
         </div>
       </section>
 
