@@ -124,6 +124,9 @@ export interface AuthFlowProps extends LoginModalCopy {
    * whether the token is handed to blog2video.app or stored in place.
    */
   onSuccess: (token: string, user: UserInfo) => void;
+  /** When set, the login form's "Sign up" link calls this (e.g. to route to
+   *  /signup) instead of switching the form to sign-up in place. */
+  onSignupClick?: () => void;
 }
 
 export default function AuthFlow({
@@ -133,6 +136,7 @@ export default function AuthFlow({
   onSuccess,
   title,
   subtitle,
+  onSignupClick,
 }: AuthFlowProps) {
   const {
     signInWithGoogle,
@@ -481,6 +485,7 @@ export default function AuthFlow({
                     auth={emailAuth}
                     busy={emailAuth.busy}
                     onDismissSocialError={dismissError}
+                    onSignupClick={onSignupClick}
                   />
                 </>
               )}
@@ -529,11 +534,14 @@ function EmailAuthForm({
   auth,
   busy,
   onDismissSocialError,
+  onSignupClick,
 }: {
   auth: ReturnType<typeof useEmailAuth>;
   busy: boolean;
   /** Clears useSocialLogin's error, which auth.setMode cannot reach. */
   onDismissSocialError?: () => void;
+  /** Overrides the in-place switch to sign-up (see AuthFlowProps). */
+  onSignupClick?: () => void;
 }) {
   const { stage } = auth;
   // The address lives on the stage, not in local state: an error can route the
@@ -623,6 +631,10 @@ function EmailAuthForm({
                 // one, and leaving it up would keep the banner, keep the
                 // provider list narrowed, and keep the back chevron hidden on a
                 // screen the user has deliberately moved away from.
+                if (!signup && onSignupClick) {
+                  onSignupClick();
+                  return;
+                }
                 onDismissSocialError?.();
                 auth.setMode(signup ? "login" : "signup");
               }}

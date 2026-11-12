@@ -21,8 +21,7 @@ import {
   TEMPLATE_DESCRIPTIONS,
   SHOWCASE_TEMPLATE_IDS,
 } from "../components/templatePreviewRegistry";
-import YourOwnBrandPreview from "../components/templatePreviews/YourOwnBrandPreview";
-import YourOwnBrandPreviewPortrait from "../components/templatePreviews/portrait/YourOwnBrandPreviewPortrait";
+import { withCtaCards, BRAND_CARD_ID } from "../components/carouselCtaCards";
 import {
   LITE_MONTHLY_PRICE,
   STANDARD_MONTHLY_PRICE,
@@ -245,20 +244,14 @@ export default function PdfLanding() {
     if (ref) localStorage.setItem("b2v_ref_code", ref);
   }, [searchParams]);
 
-  const carouselTemplates = useMemo<CoverflowTemplate[]>(() => {
-    const list = [...CAROUSEL_TEMPLATES];
-    const anchorIdx = list.findIndex((t) => t.id === CAROUSEL_ANCHOR_ID);
-    const insertAt = anchorIdx >= 0 ? anchorIdx + 1 : 1;
-    list.splice(insertAt, 0, {
-      id: "your-own-brand",
-      name: "Your Own Brand",
-      subtitle: "Get a custom template tailored to your brand",
-      Preview: YourOwnBrandPreview,
-      PreviewPortrait: YourOwnBrandPreviewPortrait,
-      onSelect: () => setContactOpen(true),
-    });
-    return list;
-  }, []);
+  const carouselTemplates = useMemo<CoverflowTemplate[]>(
+    () =>
+      withCtaCards(CAROUSEL_TEMPLATES, {
+        anchorId: CAROUSEL_ANCHOR_ID,
+        onBrandSelect: () => setContactOpen(true),
+      }),
+    [user]
+  );
 
   // Centre a document-flavoured template rather than the whiteboard default.
   const carouselInitialIndex = Math.max(
@@ -569,6 +562,7 @@ export default function PdfLanding() {
             templates={carouselTemplates}
             initialIndex={carouselInitialIndex}
             orientation={templatesOrientation}
+            signInGate={user ? undefined : { forwardAfterId: BRAND_CARD_ID, backwardBeforeId: "spotlight", onSignUp: () => navigate("/signup") }}
           />
         </div>
       </section>
