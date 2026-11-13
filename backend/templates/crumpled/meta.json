@@ -1,0 +1,821 @@
+{
+  "id": "crumpled",
+  "name": "Crumpled Paper",
+  "new_template": true,
+  "description": "Hand-pencilled notes on a sheet of crumpled cream paper that gently shifts in the light. Each scene leaves with its own tear, fold or crumple, and one handwritten font runs through every layout.",
+  "genres": [
+    "Education",
+    "Personal",
+    "Blog",
+    "Creative",
+    "Explainer"
+  ],
+  "preview_colors": {
+    "accent": "#8b5a2b",
+    "bg": "#f9f5ec",
+    "text": "#000000"
+  },
+  "composition_id": "CrumpledVideo",
+  "hero_layout": "paper_hero",
+  "fallback_layout": "sketch_narration",
+  "valid_layouts": [
+    "paper_hero",
+    "sketch_narration",
+    "taped_image",
+    "pencil_stat",
+    "sticky_list",
+    "torn_quote",
+    "fold_comparison",
+    "data_visualisation",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "paper_hero": {
+      "label": "Paper Hero",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 133,
+          "landscape": 124
+        },
+        "descriptionFontSize": {
+          "portrait": 86,
+          "landscape": 79
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Subtitle Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "type": "string",
+          "description": "One short line under the underline."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "subtitle": "Sketch, scrap, and refine until the shape of a good idea appears."
+      },
+      "scene_defaults": {
+        "title": "How Ideas Get Made",
+        "narration": "Every good idea starts as a rough sketch on a scrap of paper.",
+        "durationSeconds": 7
+      }
+    },
+    "sketch_narration": {
+      "label": "Sketch Narration",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 117,
+          "landscape": 131
+        },
+        "descriptionFontSize": {
+          "portrait": 70,
+          "landscape": 67
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "string"
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "text"
+        },
+        {
+          "key": "imageUrl",
+          "label": "Image URL",
+          "type": "string",
+          "description": "Photo taped onto the sheet. Use Adjust Image for crop, focus and zoom."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "heading": "Start messy on purpose",
+        "body": "Most good ideas begin as scribbles nobody else would understand. Early drafts are for thinking, not for showing. Giving yourself permission to be rough makes it easier to explore, discard, and try again without fear."
+      },
+      "scene_defaults": {
+        "title": "Start messy on purpose",
+        "narration": "Most good ideas begin as scribbles nobody else would understand.",
+        "durationSeconds": 7
+      }
+    },
+    "taped_image": {
+      "label": "Taped Image",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 121,
+          "landscape": 103
+        },
+        "descriptionFontSize": {
+          "portrait": 78,
+          "landscape": 64
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "imageUrl",
+          "label": "Image URL",
+          "type": "string",
+          "description": "Photo taped onto the sheet. Use Adjust Image for crop, focus and zoom."
+        },
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "string"
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "text"
+        },
+        {
+          "key": "imageCaption",
+          "label": "Image Caption",
+          "type": "string",
+          "description": "Optional handwritten caption under the photo."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "heading": "Look at the real thing",
+        "body": "Reference material keeps sketches honest. A photo taped beside the page reminds you what you are actually drawing.",
+        "imageCaption": "Field reference"
+      },
+      "scene_defaults": {
+        "title": "Look at the real thing",
+        "narration": "Reference material keeps sketches honest.",
+        "durationSeconds": 7
+      }
+    },
+    "pencil_stat": {
+      "label": "Pencil Stat",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 102,
+          "landscape": 85
+        },
+        "descriptionFontSize": {
+          "portrait": 69,
+          "landscape": 66
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Stats (1-3)",
+          "type": "object_array",
+          "maxItems": 3,
+          "description": "1 to 3 numbers stated in the source, each exactly as given with its unit (e.g. \"37%\", \"4.2\", \"2.5M\", \"$40B\"). Never a word or placeholder.",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Number"
+            }
+          ]
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "text",
+          "description": "One or two short sentences explaining the numbers, from the source; shown on the right."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "stats": [
+          {
+            "value": "37%"
+          },
+          {
+            "value": "4"
+          }
+        ],
+        "body": "37% of designers say their final concept came from a discarded early sketch, after about 4 drafts on average."
+      },
+      "scene_defaults": {
+        "title": "Drafts before the keeper",
+        "narration": "Thirty-seven percent of designers say their final concept came from a discarded early sketch.",
+        "durationSeconds": 7
+      }
+    },
+    "sticky_list": {
+      "label": "Sticky List",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 123,
+          "landscape": 97
+        },
+        "descriptionFontSize": {
+          "portrait": 66,
+          "landscape": 53
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "List Item Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "string"
+        },
+        {
+          "key": "body",
+          "label": "Body",
+          "type": "text",
+          "description": "One or two short sentences shown under the heading (defaults to the scene's display text)."
+        },
+        {
+          "key": "items",
+          "label": "Items (3-4)",
+          "type": "string_array",
+          "maxItems": 4,
+          "description": "REQUIRED: 3 to 4 short parallel points (at most 8 words each) taken from the source."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "heading": "Habits that help",
+        "items": [
+          "Keep a notebook within reach",
+          "Date every page",
+          "Never erase — cross out",
+          "Revisit old pages weekly"
+        ]
+      },
+      "scene_defaults": {
+        "title": "Habits that help",
+        "narration": "A few small habits make sketching part of everyday thinking.",
+        "durationSeconds": 7
+      }
+    },
+    "torn_quote": {
+      "label": "Torn Quote",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 96,
+          "landscape": 85
+        },
+        "descriptionFontSize": {
+          "portrait": 58,
+          "landscape": 52
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Quote Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Attribution Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text",
+          "description": "The exact quoted words. Uses the Title size."
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string"
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "quote": "The wastebasket is the writer's best friend.",
+        "attribution": "Isaac Bashevis Singer"
+      },
+      "scene_defaults": {
+        "title": "On throwing ideas away",
+        "narration": "As Isaac Bashevis Singer put it, the wastebasket is the writer's best friend.",
+        "durationSeconds": 7
+      }
+    },
+    "fold_comparison": {
+      "label": "Fold Comparison",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 120,
+          "landscape": 108
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 54
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Panel Text Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "heading",
+          "label": "Heading",
+          "type": "string"
+        },
+        {
+          "key": "leftLabel",
+          "label": "Left / Top Label",
+          "type": "string"
+        },
+        {
+          "key": "leftText",
+          "label": "Left / Top Text",
+          "type": "text"
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right / Bottom Label",
+          "type": "string"
+        },
+        {
+          "key": "rightText",
+          "label": "Right / Bottom Text",
+          "type": "text"
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "heading": "Sketch vs. polish",
+        "leftLabel": "Sketching",
+        "leftText": "Fast, cheap and disposable. The goal is quantity of options and quick feedback.",
+        "rightLabel": "Polishing",
+        "rightText": "Slow and deliberate. The goal is quality, consistency and finishing details."
+      },
+      "scene_defaults": {
+        "title": "Sketch vs. polish",
+        "narration": "Sketching and polishing are two different jobs with two different goals.",
+        "durationSeconds": 7
+      }
+    },
+    "data_visualisation": {
+      "label": "Pencil Chart",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 112,
+          "landscape": 98
+        },
+        "descriptionFontSize": {
+          "portrait": 67,
+          "landscape": 60
+        },
+        "chartType": "auto"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Summary Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — first column labels; next columns numeric series",
+          "type": "chart_table"
+        },
+        {
+          "key": "chartSummary",
+          "label": "Chart Summary",
+          "type": "text"
+        },
+        {
+          "key": "xAxisLabel",
+          "label": "X-axis Label",
+          "type": "string"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis Label",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis Tick Labels",
+          "type": "string_array",
+          "maxItems": 4
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "chartType": "bar",
+        "chartSummary": "Teams that sketch daily generate far more usable ideas each week.",
+        "xAxisLabel": "Week",
+        "yAxisLabel": "Ideas",
+        "chartTable": {
+          "headers": [
+            "Week",
+            "Sketch daily",
+            "Sketch rarely"
+          ],
+          "rows": [
+            [
+              "W1",
+              "12",
+              "5"
+            ],
+            [
+              "W2",
+              "18",
+              "6"
+            ],
+            [
+              "W3",
+              "24",
+              "7"
+            ],
+            [
+              "W4",
+              "31",
+              "8"
+            ]
+          ]
+        },
+        "chartYAxisTicks": []
+      },
+      "scene_defaults": {
+        "title": "Ideas per week",
+        "narration": "Teams that sketch daily generate far more usable ideas each week.",
+        "durationSeconds": 7
+      }
+    },
+    "ending_socials": {
+      "label": "Ending & Socials",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 110,
+          "landscape": 94
+        },
+        "descriptionFontSize": {
+          "portrait": 67,
+          "landscape": 55
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Tagline Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Link Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "brandName",
+          "label": "Brand Name",
+          "type": "string"
+        },
+        {
+          "key": "tagline",
+          "label": "Tagline",
+          "type": "string",
+          "description": "Closing line, written large in pencil."
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "placeholder": "Explore more"
+        },
+        {
+          "key": "ctas",
+          "label": "Call-to-Action Buttons",
+          "type": "object_array",
+          "maxItems": 3,
+          "subFields": [
+            {
+              "key": "ctaButtonText",
+              "label": "CTA Button Text"
+            },
+            {
+              "key": "websiteLink",
+              "label": "Website Link"
+            },
+            {
+              "key": "showWebsiteButton",
+              "label": "Show (true/false)"
+            }
+          ]
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the paper creases and pencil wobble.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "brandName": "NotestackAI",
+        "tagline": "Keep sketching. Keep tearing it up.",
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Explore more",
+        "socials": [
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "true",
+            "label": "LinkedIn"
+          }
+        ],
+        "ctas": [
+          {
+            "ctaButtonText": "Explore more",
+            "websiteLink": "https://yourwebsite.com",
+            "showWebsiteButton": "true"
+          }
+        ]
+      },
+      "scene_defaults": {
+        "title": "Thanks for reading",
+        "narration": "Keep sketching, and follow along for more.",
+        "durationSeconds": 7
+      }
+    }
+  },
+  "layouts_without_image": [
+    "paper_hero",
+    "pencil_stat",
+    "sticky_list",
+    "torn_quote",
+    "fold_comparison",
+    "data_visualisation",
+    "ending_socials"
+  ]
+}

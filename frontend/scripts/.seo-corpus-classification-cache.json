@@ -3234,5 +3234,9 @@
   "blog:how-to-convert-pdf-to-epub-and-epub-to-pdf-free@798ca556c61c5ffc@20aaebd1": {
     "keep": false,
     "reason": "Describes EPUB conversion tool, not Blog2Video features"
+  },
+  "marketing:/templates/crumpled@dea02b3717901781@20aaebd1": {
+    "keep": true,
+    "reason": "Describes a Blog2Video template feature"
   }
 }

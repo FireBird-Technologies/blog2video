@@ -27,6 +27,7 @@ import { StickmanFootballVideoComposition } from "./stickman_football/StickmanFo
 import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
 import { OldDocumentaryReelVideoComposition } from "./old-documentary-reel/OldDocumentaryReelVideoComposition";
 import { StarlitVideoComposition } from "./starlit/StarlitVideoComposition";
+import { CrumpledPreviewComposition } from "./crumpled/CrumpledPreviewComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -441,6 +442,18 @@ const STARLIT_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+const CRUMPLED_LAYOUTS = new Set([
+  "paper_hero",
+  "sketch_narration",
+  "taped_image",
+  "pencil_stat",
+  "sticky_list",
+  "torn_quote",
+  "fold_comparison",
+  "data_visualisation",
+  "ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -685,6 +698,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#217cff",
       bg: "#000000",
       text: "#ffffff",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  crumpled: {
+    component: CrumpledPreviewComposition as React.ComponentType<any>,
+    heroLayout: "paper_hero",
+    fallbackLayout: "sketch_narration",
+    validLayouts: CRUMPLED_LAYOUTS,
+    defaultColors: {
+      accent: "#8b5a2b",
+      bg: "#f9f5ec",
+      text: "#000000",
     },
     baseWidth: 1920,
     baseHeight: 1080,

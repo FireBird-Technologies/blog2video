@@ -79,6 +79,10 @@ import {
   StarlitVideo,
   calculateStarlitMetadata,
 } from "./templates/starlit/StarlitVideo";
+import {
+  CrumpledVideo,
+  calculateCrumpledMetadata,
+} from "./templates/crumpled/CrumpledVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -332,6 +336,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateStarlitMetadata}
+      />
+      <Composition
+        id="CrumpledVideo"
+        component={CrumpledVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateCrumpledMetadata}
       />
     </>
   );

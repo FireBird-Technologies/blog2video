@@ -16,3 +16,4 @@ export { default as StickmanFootballPreviewPortrait } from "./StickmanFootballPr
 export { default as MagazinePreviewPortrait } from "./MagazinePreviewPortrait";
 export { default as StarlitPreviewPortrait } from "./StarlitPreviewPortrait";
 export { default as YourOwnBrandPreviewPortrait } from "./YourOwnBrandPreviewPortrait";
+export { default as CrumpledPreviewPortrait } from "./CrumpledPreviewPortrait";

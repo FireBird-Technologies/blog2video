@@ -48,6 +48,7 @@ CHART_TICKER_TEMPLATE_LAYOUTS: dict[str, tuple[str, str]] = {
     "whiteboard": ("data_visualisation", _NO_TICKER_SENTINEL),
     "newspaper": ("data_visualisation", _NO_TICKER_SENTINEL),
     "blackswan": ("data_visualisation", _NO_TICKER_SENTINEL),
+    "crumpled": ("data_visualisation", _NO_TICKER_SENTINEL),
     "gridcraft": ("data_visualisation", _NO_TICKER_SENTINEL),
     "stickman_2": ("data_visualisation", _NO_TICKER_SENTINEL),
     "stickman_football": ("football_data_viz", "football_ticker"),

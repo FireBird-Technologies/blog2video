@@ -54,6 +54,7 @@ TEMPLATE_IDS = [
     "sakura",
     "old-documentary-reel",
     "starlit",
+    "crumpled",
 ]
 
 MAX_SIZE = (320, 180)  # card thumbnails; anything larger is wasted bytes

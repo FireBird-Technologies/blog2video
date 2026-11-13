@@ -960,6 +960,14 @@ export function getImageBoxAspectRatio(
     if (starlitId === "text_narration") return "1 / 1";
     if (starlitId === "quote_card") return isPortrait ? "9 / 4" : "5 / 7";
   }
+  if (templateId === "crumpled" && layoutId) {
+    // Crumpled Paper tapes the photo down as a bordered print; these are the
+    // print's inner (image) proportions — see crumpled/layouts/TapedImage.tsx and
+    // SketchNarration.tsx.
+    const crumpledId = normalizeLayoutId(layoutId);
+    if (crumpledId === "taped_image") return isPortrait ? "860 / 602" : "866 / 818";
+    if (crumpledId === "sketch_narration") return isPortrait ? "852 / 490" : "606 / 577";
+  }
   const dims = layoutId ? LAYOUT_IMAGE_BOX_DIMS[normalizeLayoutId(layoutId)] : undefined;
   const { w, h } = dims
     ? (isPortrait ? dims.portrait : dims.landscape)

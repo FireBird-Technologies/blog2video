@@ -42,6 +42,7 @@ const BUILTIN_TEMPLATE_IDS = [
   "sakura",
   "old-documentary-reel",
   "starlit",
+  "crumpled",
 ];
 
 const ORIENTATIONS = [
@@ -78,7 +79,11 @@ async function main() {
 
     const page = await browser.newPage();
 
-    for (const id of BUILTIN_TEMPLATE_IDS) {
+    // Optional: `npm run posters:build -- crumpled starlit` captures only those ids.
+    const only = process.argv.slice(2).filter((a) => !a.startsWith("-"));
+    const ids = only.length ? BUILTIN_TEMPLATE_IDS.filter((id) => only.includes(id)) : BUILTIN_TEMPLATE_IDS;
+
+    for (const id of ids) {
       for (const o of ORIENTATIONS) {
         await page.setViewport({ width: o.width, height: o.height, deviceScaleFactor: 1 });
         const url = `${base.replace(/\/$/, "")}/_capture?template=${encodeURIComponent(id)}&orientation=${o.name}`;
@@ -99,7 +104,7 @@ async function main() {
       }
     }
 
-    console.log(`\nDone. ${BUILTIN_TEMPLATE_IDS.length * ORIENTATIONS.length} posters written to ${OUT_DIR}`);
+    console.log(`\nDone. ${ids.length * ORIENTATIONS.length} posters written to ${OUT_DIR}`);
   } finally {
     await browser?.close();
     await server?.close();
