@@ -41,6 +41,10 @@ export const HandheldCamera: React.FC<{ children: React.ReactNode }> = ({ childr
         style={{
           transform: `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${rot.toFixed(3)}deg) scale(${scale.toFixed(4)})`,
           transformOrigin: "50% 50%",
+          // Linux Chrome (the render servers) snaps glyphs to whole pixels under this moving
+          // transform, so text jumped against the lines around it (chart labels flickered).
+          // geometricPrecision turns off that snapping/hinting: text now moves with the camera.
+          textRendering: "geometricPrecision",
         }}
       >
         {children}

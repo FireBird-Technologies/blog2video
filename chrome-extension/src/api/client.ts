@@ -82,6 +82,12 @@ export interface CatalogTemplate {
   id: string;
   name: string;
   preview_url: string;
+  /** Built-in template flagged "new" in its meta.json — shown first with a New badge. */
+  new_template?: boolean;
+  new_scenes?: boolean;
+  popular_template?: boolean;
+  /** "built_in" | "custom" | "crafted" */
+  source?: string;
   [key: string]: unknown;
 }
 

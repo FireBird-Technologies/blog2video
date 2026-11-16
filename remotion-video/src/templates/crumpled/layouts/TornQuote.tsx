@@ -109,7 +109,7 @@ export const TornQuote: React.FC<SceneLayoutProps> = (props) => {
   }));
   const seed = props.seed ?? 61;
   const sheet = scenePaper(props, seed, 2);
-  const quote = (props.quote || props.narration || "").trim();
+  const quote = (props.quote || props.displayText || "").trim();
   const attribution = (props.attribution || "").trim();
   const clip = useMemo(() => tornStripClip(seed), [seed]);
 

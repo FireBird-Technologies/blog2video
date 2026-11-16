@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FRONTEND_BASE_URL } from "../config";
 import {
   ApiError,
@@ -15,15 +15,19 @@ import {
   uploadProjectLogo,
   type Account,
   type Catalog,
+  type CatalogTemplate,
   type ProjectStatus,
   type VideoStylesResponse,
 } from "../api/client";
+import { collectPendingConnection } from "../lib/connection";
 import { extractArticleText } from "../lib/extract";
 import {
   clearActiveProject,
   clearAuth,
+  clearPendingConnection,
   getActiveProject,
   getAuth,
+  getPendingConnection,
   setActiveProject,
   setPendingConnection,
 } from "../lib/storage";
@@ -31,7 +35,7 @@ import {
 type Stage =
   | { kind: "loading" }
   | { kind: "disconnected" }
-  | { kind: "connecting" }
+  | { kind: "connecting"; verificationUrl?: string }
   | { kind: "ready"; catalog: Catalog }
   | { kind: "generating"; projectId: number; label: string }
   | { kind: "review"; projectId: number; reviewType: "script" | "footage" }
@@ -159,12 +163,34 @@ async function sha256Hex(text: string): Promise<string> {
     .join("");
 }
 
+/** New templates first, then new scenes, then popular — as in the MCP template gallery. */
+function templateRank(t: CatalogTemplate): number {
+  if (t.new_template) return 0;
+  if (t.new_scenes) return 1;
+  if (t.popular_template) return 2;
+  return 3;
+}
+
+/**
+ * Preview images to try, in order. Built-ins use the poster the web app ships for every
+ * template (always present, small, deployed with the site) before the catalog's URL, so a
+ * new template — or a catalog still pointing at missing R2 copies — never shows a broken image.
+ */
+function templatePreviewSources(t: CatalogTemplate): string[] {
+  const sources: string[] = [];
+  if (!t.source || t.source === "built_in") sources.push(`${FRONTEND_BASE_URL}/template-posters/${t.id}.webp`);
+  if (t.preview_url) sources.push(t.preview_url);
+  return [...new Set(sources)];
+}
+
 export default function Popup() {
   const [stage, setStage] = useState<Stage>({ kind: "loading" });
   const [tabUrl, setTabUrl] = useState("");
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("");
   const [templateId, setTemplateId] = useState<string>("");
+  // Preview sources that failed to load; a card falls through poster → catalog image → name.
+  const [brokenPreviews, setBrokenPreviews] = useState<Set<string>>(() => new Set());
   const [voiceId, setVoiceId] = useState<string>("");
   const [account, setAccount] = useState<Account | null>(null);
   const [videoStyle, setVideoStyle] = useState<string>("auto");
@@ -211,10 +237,24 @@ export default function Popup() {
   }, []);
 
   async function bootstrap() {
-    const auth = await getAuth();
+    let auth = await getAuth();
     if (!auth) {
-      setStage({ kind: "disconnected" });
-      return;
+      // A connection may be approved (or awaiting approval) in the web app while the
+      // background worker is suspended — finish it here rather than offering "Connect"
+      // again, which would start a new connection and orphan the approval.
+      const pending = await getPendingConnection();
+      const collected = pending ? await collectPendingConnection() : "none";
+      if (collected === "pending") {
+        setStage({ kind: "connecting", verificationUrl: pending?.verificationUrl });
+        chrome.runtime.sendMessage({ type: "b2v-start-polling" });
+        pollForConnection();
+        return;
+      }
+      auth = collected === "connected" ? await getAuth() : null;
+      if (!auth) {
+        setStage({ kind: "disconnected" });
+        return;
+      }
     }
     try {
       // The database is authoritative. Local storage makes the first paint fast,
@@ -330,7 +370,12 @@ export default function Popup() {
     try {
       const label = `Chrome — ${navigator.platform || "extension"}`;
       const begun = await beginConnection(label);
-      await setPendingConnection({ connectionId: begun.connection_id, deviceCode: begun.device_code });
+      await setPendingConnection({
+        connectionId: begun.connection_id,
+        deviceCode: begun.device_code,
+        verificationUrl: begun.verification_url,
+      });
+      setStage({ kind: "connecting", verificationUrl: begun.verification_url });
       chrome.runtime.sendMessage({ type: "b2v-start-polling" });
       chrome.tabs.create({ url: begun.verification_url });
       pollForConnection();
@@ -339,23 +384,29 @@ export default function Popup() {
     }
   }
 
+  const connectPoll = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /** Polls the token exchange directly while the popup is open (the background worker
+   *  does the same while it is alive — see lib/connection.ts). */
   function pollForConnection() {
-    // The popup closes the instant `chrome.tabs.create` steals focus, so this
-    // interval alone never fires — the background service worker's alarm-based
-    // poll (background.ts) is what actually detects approval and writes the
-    // token. This interval only helps if the popup is reopened and left open
-    // before the background worker finishes; the storage listener below is
-    // what catches the common case where the token lands after the popup
-    // (re)opens.
-    const interval = setInterval(async () => {
-      const auth = await getAuth();
-      if (auth) {
-        clearInterval(interval);
-        chrome.runtime.sendMessage({ type: "b2v-stop-polling" });
-        await bootstrap();
-      }
+    if (connectPoll.current) return;
+    connectPoll.current = setInterval(async () => {
+      const result = await collectPendingConnection();
+      if (result === "pending") return;
+      if (connectPoll.current) clearInterval(connectPoll.current);
+      connectPoll.current = null;
+      chrome.runtime.sendMessage({ type: "b2v-stop-polling" });
+      if (result === "connected") await bootstrap();
+      else setStage({ kind: "disconnected" });
     }, 1500);
-    return () => clearInterval(interval);
+  }
+
+  async function handleCancelConnect() {
+    if (connectPoll.current) clearInterval(connectPoll.current);
+    connectPoll.current = null;
+    chrome.runtime.sendMessage({ type: "b2v-stop-polling" });
+    await clearPendingConnection();
+    setStage({ kind: "disconnected" });
   }
 
   async function handleDisconnect() {
@@ -540,6 +591,20 @@ export default function Popup() {
           <p className="text-sm text-gray-400 max-w-xs">
             Approve the connection in the tab that just opened, then come back here — this will finish automatically.
           </p>
+          <div className="flex flex-col items-center gap-1.5 mt-3">
+            {stage.verificationUrl ? (
+              <button
+                type="button"
+                onClick={() => chrome.tabs.create({ url: stage.verificationUrl! })}
+                className="text-sm font-semibold text-purple-600 hover:text-purple-700"
+              >
+                Open approval page again
+              </button>
+            ) : null}
+            <button type="button" onClick={() => void handleCancelConnect()} className="text-xs text-gray-400 hover:text-gray-600">
+              Start over
+            </button>
+          </div>
         </div>
       )}
 
@@ -693,7 +758,11 @@ export default function Popup() {
                 <FieldLabel>Template</FieldLabel>
                 <div className="border border-gray-200/60 rounded-xl p-2.5 max-h-[300px] overflow-y-auto bg-gray-50/40">
                   <div className="grid grid-cols-3 gap-2">
-                    {stage.catalog.templates.map((t) => {
+                    {/* Same order as the MCP gallery: new templates first (stable sort keeps catalog order otherwise). */}
+                    {[...stage.catalog.templates]
+                      .sort((a, b) => templateRank(a) - templateRank(b))
+                      .map((t) => {
+                      const previewSrc = templatePreviewSources(t).find((src) => !brokenPreviews.has(src));
                       const isSelected = t.id === templateId;
                       return (
                         <button
@@ -707,12 +776,23 @@ export default function Popup() {
                           }`}
                         >
                           <div className="relative h-[56px] overflow-hidden bg-gray-100">
-                            {t.preview_url ? (
-                              <img src={t.preview_url} alt="" className="w-full h-full object-cover" />
+                            {previewSrc ? (
+                              <img
+                                key={previewSrc}
+                                src={previewSrc}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={() => setBrokenPreviews((prev) => new Set(prev).add(previewSrc))}
+                              />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-gray-300 text-[9px] px-1 text-center">
                                 {t.name}
                               </div>
+                            )}
+                            {t.new_template && (
+                              <span className="absolute top-1 left-1 rounded-full bg-purple-600 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                                New
+                              </span>
                             )}
                             {isSelected && (
                               <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-sm">

@@ -28,6 +28,12 @@ export type CrumpledScene = {
   order: number;
   title: string;
   narration: string;
+  /**
+   * The scene's own Display text (DB `display_text`), unmixed with the voiceover.
+   * Callers that only carry one text (Template Studio, demo players) omit it, and
+   * `narration` is used instead.
+   */
+  displayText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
   durationSeconds: number;
@@ -139,6 +145,7 @@ export const CrumpledVideoComposition: React.FC<CrumpledCompositionProps> = ({
       ...(raw as unknown as SceneLayoutProps),
       title: scene.title,
       narration: scene.narration,
+      displayText: scene.displayText ?? scene.narration ?? "",
       imageUrl: videoUrl ? undefined : scene.imageUrl || (typeof raw.imageUrl === "string" ? raw.imageUrl : undefined),
       videoUrl,
       videoMuted: scene.videoMuted ?? (typeof raw.videoMuted === "boolean" ? raw.videoMuted : true),

@@ -31,6 +31,8 @@ type SceneData = {
   order: number;
   title: string;
   narration: string;
+  /** The scene's own display_text (unmixed); `narration` falls back to the voiceover. */
+  displayText?: string;
   narrationText?: string;
   layout: string;
   layoutProps: Record<string, unknown>;
@@ -143,6 +145,7 @@ export const CrumpledVideo: React.FC<VideoProps> = ({ dataUrl }) => {
       order: scene.order,
       title: scene.title,
       narration: scene.narration,
+      displayText: scene.displayText ?? "",
       layout: scene.layout,
       layoutProps: raw,
       durationSeconds: scene.durationSeconds,

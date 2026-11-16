@@ -10,10 +10,10 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import type { GridcraftLayoutProps } from "../types";
 import { GRIDCRAFT_DEFAULT_SANS_FONT_FAMILY } from "../constants";
 import { COLORS, glass } from "../utils/styles";
@@ -646,9 +646,9 @@ export const GridcraftDataViz: React.FC<GridcraftLayoutProps> = ({
                     )}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, color: COLORS.MUTED, fontSize: descSize, fontStyle: "italic" }}>

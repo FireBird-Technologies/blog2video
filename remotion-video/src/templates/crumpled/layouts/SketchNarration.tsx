@@ -1,6 +1,6 @@
 /**
- * Main narration layout — a plain crumpled sheet of paper: a pencilled heading with
- * an underline, and the body written in line by line. An optional photo is taped beside (landscape) or below (portrait) the text.
+ * Main narration layout — a plain crumpled sheet of paper: the scene title pencilled
+ * on with an underline, and the scene's display text written in line by line. An optional photo is taped beside (landscape) or below (portrait) the text.
  *
  * Entry (built in, first frames): a slightly-unfolded crumpled sheet opens out to fill the frame.
  * Exit (built in, last frames): the page is torn across the middle by two rolls — the top piece rolls up from the left
@@ -255,8 +255,8 @@ export const SketchNarration: React.FC<SceneLayoutProps> = (props) => {
   }));
   const seed = props.seed ?? 17;
   const sheet = scenePaper(props, seed, 1);
-  const heading = (props.heading || props.title || "").trim();
-  const body = (props.body || props.narration || "").trim();
+  const heading = (props.title || "").trim();
+  const body = (props.displayText || "").trim();
   const hasMedia = Boolean(props.imageUrl || props.videoUrl);
 
   const rule = portrait ? 74 : 62;

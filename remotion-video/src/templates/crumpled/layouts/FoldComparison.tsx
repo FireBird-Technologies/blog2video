@@ -211,8 +211,8 @@ export const FoldComparison: React.FC<SceneLayoutProps> = (props) => {
   }));
   const seed = props.seed ?? 71;
   const sheet = scenePaper(props, seed, 1);
-  const heading = (props.heading || props.title || "").trim();
-  const fallback = sentences(props.narration, 4);
+  const heading = (props.title || "").trim();
+  const fallback = sentences(props.displayText, 4);
   const half = Math.ceil(fallback.length / 2);
   const leftLabel = (props.leftLabel || "").trim();
   const rightLabel = (props.rightLabel || "").trim();

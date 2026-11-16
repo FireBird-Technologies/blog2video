@@ -12,8 +12,18 @@ export type CrumpledLayoutType =
   | "ending_socials";
 
 export interface SceneLayoutProps {
+  /** The scene's Title — every layout's heading. */
   title: string;
+  /**
+   * Legacy mixed on-screen field (display_text, falling back to the VOICEOVER script).
+   * Layouts must not render it — use `displayText`.
+   */
   narration: string;
+  /**
+   * The scene's Display text — the on-screen copy under the title. Kept separate from
+   * the voiceover (`narration_text`); empty means no on-screen copy.
+   */
+  displayText: string;
   imageUrl?: string;
   imageObjectPosition?: string;
   imageFocusX?: number;
@@ -47,11 +57,9 @@ export interface SceneLayoutProps {
   /** Per-scene variant (the scene id) so every scene's sheet is crumpled differently. */
   paperVariant?: number;
 
-  // paper_hero
-  subtitle?: string;
-  // sketch_narration / taped_image
-  heading?: string;
-  body?: string;
+  // Title and on-screen copy are NOT layout props: every layout reads the scene's
+  // own `title` and `narration` (its display text) above.
+  // taped_image / sketch_narration
   imageCaption?: string;
   // pencil_stat — 1 to 3 stats; the single statValue/statSuffix/descriptor form is the legacy fallback.
   stats?: Array<{ value?: string; label?: string }>;
@@ -72,7 +80,6 @@ export interface SceneLayoutProps {
   // data_visualisation — shared real-table data contract
   chartTable?: { headers?: string[]; rows?: Array<Array<string | number>> };
   chartType?: "auto" | "line" | "bar" | "histogram";
-  chartSummary?: string;
   chartYAxisTicks?: string[];
   xAxisLabel?: string;
   yAxisLabel?: string;
@@ -83,6 +90,4 @@ export interface SceneLayoutProps {
   showWebsiteButton?: boolean | string;
   ctaButtonText?: string;
   ctas?: Array<{ ctaButtonText?: string; websiteLink?: string; showWebsiteButton?: boolean | string }>;
-  brandName?: string;
-  tagline?: string;
 }

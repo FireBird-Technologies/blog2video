@@ -7,6 +7,7 @@ import {
   planMagazineBoundaries,
   resolveMagazineLayout,
 } from "../components/remotion/magazine/MagazineVideoComposition";
+import { CRUMPLED_PREVIEW_SCENES } from "../components/templatePreviews/crumpledPreviewScenes";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -2281,6 +2282,10 @@ const SCENE_SETS: Record<string, SceneSet> = {
       },
     ],
   },
+  "preview-crumpled": {
+    template: "crumpled",
+    scenes: CRUMPLED_PREVIEW_SCENES as DemoScene[],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
@@ -2301,6 +2306,7 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   magazine: { accent: "#E63946", bg: "#FDFCFB", text: "#1A1A1A" },
   stickman_football: { accent: "#869358", bg: "#FFFFFF", text: "#111111" },
   stickman_2: { accent: "#FFFFFF", bg: "#000000", text: "#FFFFFF" },
+  crumpled: { accent: "#8b5a2b", bg: "#f9f5ec", text: "#000000" },
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -2321,6 +2327,7 @@ const TEMPLATE_LABELS: Record<string, string> = {
   magazine: "Magazine",
   stickman_football: "Stickman Football",
   stickman_2: "Stickman 2",
+  crumpled: "Crumpled Paper",
 };
 
 interface BlogDemoPlayerProps {

@@ -10,10 +10,10 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import { MatrixBackground } from "../MatrixBackground";
 import { useFitText } from "../components/useFitText";
 import { buildHudStatus, DecodeSweep, GlitchSlice, TerminalHUD } from "../components/MatrixArtifacts";
@@ -691,9 +691,9 @@ export const MatrixDataChart: React.FC<MatrixLayoutProps> = ({
                     {chartInputs.lineSeries[2] && <LegendDot labelColor={ink.primary} color={barColors[2]} label={chartInputs.lineSeries[2].label} />}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, color: ink.secondary, fontSize: descSize, fontStyle: "italic", opacity: ra }}>

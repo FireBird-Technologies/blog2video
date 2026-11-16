@@ -13,10 +13,10 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import type { SceneLayoutProps } from "../types";
 import { useFitText } from "../components/useFitText";
 import {
@@ -657,9 +657,9 @@ export const DefaultDataChart: React.FC<SceneLayoutProps> = ({
                     {chartInputs.lineSeries[2] && <LegendDot color={barColors[2]} label={chartInputs.lineSeries[2].label} />}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: bodyFont, color: "rgba(0,0,0,0.35)", fontSize: descSize, fontStyle: "italic", opacity: ra }}>

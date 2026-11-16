@@ -1,6 +1,6 @@
 /**
- * Closing — a pencilled thank-you note: brand name, the closing line, website
- * links in sketched boxes, and social icons in doodled circles. In the final
+ * Closing — a pencilled thank-you note: the scene title as the closing line, its
+ * display text under it, website links in sketched boxes, and social icons in doodled circles. In the final
  * stretch the page folds into a paper airplane and is thrown off (built in, below).
  */
 import React from "react";
@@ -446,8 +446,9 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
   const rawFrame = useCurrentFrame();
   const seed = props.seed ?? 42;
   const sheet = scenePaper(props, seed, 0);
-  const brand = (props.brandName || "").trim();
-  const tagline = (props.tagline || props.title || props.narration || "").trim();
+  // The scene's own title is the big closing line; its display text is written under it.
+  const tagline = (props.title || "").trim();
+  const closing = (props.displayText || "").trim();
 
   const ctas = (props.ctas?.length
     ? props.ctas
@@ -461,33 +462,56 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
     label: String(item.label || item.text || item.url || key).trim(),
   }));
 
-  const brandIn = ease(frame, 0, 22);
+  const closingIn = ease(frame, 34, 70, Easing.linear);
   const tagIn = ease(frame, 12, 60, Easing.inOut(Easing.quad));
   const ctaIn = ease(frame, 56, 84);
   const socialsIn = ease(frame, 76, 130, Easing.linear);
   const doodles = ease(frame, 60, 100);
 
   const contentW = width - pad.x * 2;
-  // Primary: tagline ← title slider, CTA link ← body slider. Brand + socials are secondary.
-  const brandSize = type.bodyRelative(portrait ? 46 : 40);
+  // Primary: title ← title slider, CTA link ← body slider. Display text + socials are secondary.
+  const closingSize = type.bodyRelative(portrait ? 50 : 44);
   const tagSize = type.title;
   const ctaSize = type.body;
   const ctaLabelSize = ctaSize * 0.7;
   const socialSize = type.bodyRelative(portrait ? 34 : 30);
 
-  const tagTop = portrait ? height * 0.17 : height * 0.13;
-  const tagH = portrait ? height * 0.26 : height * 0.3;
-  const ctaTop = tagTop + tagH + (portrait ? 70 : 50);
-  const ctaBoxW = Math.min(contentW * (portrait ? 0.9 : 0.5), portrait ? 860 : 820);
+  // One centred column, in flow: title → underline → display text → CTAs (up to 3)
+  // → socials, with fixed gaps between them. Spacing follows the real text heights, so
+  // the parts can never collide, and the whole group sits centred above the caption
+  // band. In landscape, 2–3 CTAs sit side by side in one row; in portrait they stack.
+  // The budget below caps the title (then the display text) height so the column
+  // always fits — FitText shrinks the copy into it.
+  const n = ctas.length;
+  const ctaRow = !portrait && n > 1;
+  const ctaGap = 40;
+  const ctaBoxW = ctaRow
+    ? Math.min(600, (contentW - ctaGap * (n - 1)) / n)
+    : Math.min(contentW * (portrait ? 0.9 : 0.5), portrait ? 860 : 820);
   const ctaBoxH = ctaSize * 1.6 + (ctas.some((c) => c.label) ? ctaLabelSize * 1.4 : 0);
-  const ctaGap = 34;
-  const ctaBlockH = ctas.length ? ctas.length * ctaBoxH + (ctas.length - 1) * ctaGap : 0;
+  const ctaBlockH = !n ? 0 : ctaRow ? ctaBoxH : n * ctaBoxH + (n - 1) * ctaGap;
 
   const shell = portrait ? 104 : 92;
   const perRow = portrait ? Math.min(socials.length, 4) : Math.min(socials.length, 7);
   const rowsS = perRow ? Math.ceil(socials.length / perRow) : 0;
   const slotW = portrait ? contentW / Math.max(1, perRow) : Math.min(230, contentW / Math.max(1, perRow));
-  const socialsTop = Math.min(ctaTop + ctaBlockH + (ctas.length ? (portrait ? 90 : 60) : 0), height - pad.bottom - rowsS * (shell + socialSize * 2.2));
+  const socialsH = rowsS ? rowsS * (shell + 14 + socialSize * 1.3) + (rowsS - 1) * socialSize * 0.6 : 0;
+
+  const tagTop = portrait ? height * 0.12 : height * 0.08;
+  const bottom = height - pad.bottom;
+  const underlineW = Math.min(600, contentW * 0.5);
+  const underlineH = tagline ? 34 : 0;
+  const closingGap = closing ? (portrait ? 22 : 16) : 0;
+  const ctaGapTop = n ? (portrait ? 70 : 56) : 0;
+  const socialsGapTop = rowsS ? (portrait ? 80 : 64) : 0;
+  const tagMax = portrait ? height * 0.22 : height * 0.24;
+  const tagMin = portrait ? height * 0.12 : height * 0.15;
+  const closingMax = closing ? (portrait ? height * 0.1 : height * 0.11) : 0;
+  const closingMin = closing ? (portrait ? height * 0.05 : height * 0.065) : 0;
+  const rest = underlineH + closingGap + ctaGapTop + ctaBlockH + socialsGapTop + socialsH;
+  const room = bottom - tagTop - rest; // for the title + display text areas
+  const tagH = Math.max(tagMin, Math.min(tagMax, room - closingMax));
+  const closingH = Math.max(closingMin, Math.min(closingMax, room - tagH));
 
   // In the final stretch the page folds into a paper airplane, zooms out and is
   // thrown (raw frame, so it tracks the real scene end).
@@ -501,94 +525,94 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
     <AbsoluteFill style={{ fontFamily: font, color: pal.ink, overflow: "hidden" }}>
       <PaperBackdrop paper={pal.paper} ink={pal.ink} seed={sheet.seed} orientation={sheet.orientation} density={9} depth={sheet.depth} />
 
-      {brand ? (
-        <div style={{ position: "absolute", left: pad.x, top: pad.top, width: contentW, textAlign: "center", opacity: brandIn }}>
-          <FitText
-            targetPx={brandSize}
-            minPx={portrait ? 28 : 24}
-            maxHeightPx={brandSize * 1.4}
-            maxWidthPx={contentW}
-            fitKey={`es-brand:${brand}:${portrait}`}
-            exact={false}
-            style={{ fontWeight: 700, letterSpacing: "0.06em", color: pal.accent, whiteSpace: "nowrap" }}
-          >
-            {brand}
-          </FitText>
-        </div>
-      ) : null}
+      <div style={{ position: "absolute", left: pad.x, top: tagTop, width: contentW, height: bottom - tagTop, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+        {tagline ? (
+          <>
+            <Written progress={tagIn} style={{ width: "100%" }}>
+              <FitText
+                targetPx={tagSize}
+                minPx={portrait ? 48 : 40}
+                maxHeightPx={tagH}
+                maxWidthPx={contentW * (portrait ? 1 : 0.82)}
+                fitKey={`es-tag:${tagline}:${portrait}`}
+                exact={type.titleIsUserSet}
+                style={{ fontWeight: 700, lineHeight: 1.02, margin: "0 auto" }}
+              >
+                {tagline}
+              </FitText>
+            </Written>
+            <PencilLayer width={underlineW} height={underlineH}>
+              <PencilStroke d={underlinePath(2, 14, underlineW - 24, seed)} progress={ease(frame, 54, 76)} color={pal.accent} width={6} />
+            </PencilLayer>
+          </>
+        ) : null}
 
-      {tagline ? (
-        <div style={{ position: "absolute", left: pad.x, top: tagTop, width: contentW, height: tagH, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-          <Written progress={tagIn} style={{ width: "100%" }}>
+        {closing ? (
+          <Written progress={closingIn} mode="block" style={{ width: "100%", marginTop: closingGap }}>
             <FitText
-              targetPx={tagSize}
-              minPx={portrait ? 48 : 40}
-              maxHeightPx={tagH}
-              maxWidthPx={contentW * (portrait ? 1 : 0.82)}
-              fitKey={`es-tag:${tagline}:${portrait}`}
-              exact={type.titleIsUserSet}
-              style={{ fontWeight: 700, lineHeight: 1.02, margin: "0 auto" }}
+              targetPx={closingSize}
+              minPx={portrait ? 30 : 26}
+              maxHeightPx={closingH}
+              maxWidthPx={contentW * (portrait ? 1 : 0.78)}
+              fitKey={`es-closing:${closing}:${portrait}`}
+              exact={false}
+              style={{ fontWeight: 500, lineHeight: 1.22, color: pal.inkSoft, margin: "0 auto" }}
             >
-              {tagline}
+              {closing}
             </FitText>
           </Written>
-        </div>
-      ) : null}
+        ) : null}
 
-      {ctas.map((c, i) => {
-        const x = (width - ctaBoxW) / 2;
-        const y = ctaTop + i * (ctaBoxH + ctaGap);
-        const on = interpolate(ctaIn, [i * 0.15, Math.min(1, i * 0.15 + 0.6)], [0, 1], clamp);
-        return (
-          <div key={i} style={{ position: "absolute", left: x, top: y, width: ctaBoxW, height: ctaBoxH, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: on, background: withOpacity(mix(pal.paper, "#ffffff", 0.6), 0.85) }}>
-            <FitText targetPx={ctaSize} minPx={portrait ? 30 : 26} maxHeightPx={ctaSize * 1.3} maxWidthPx={ctaBoxW - 60} fitKey={`es-cta:${c.dest}:${portrait}`} exact={type.bodyIsUserSet} style={{ fontWeight: 700, whiteSpace: "nowrap", textAlign: "center" }}>
-              → {c.dest}
-            </FitText>
-            {c.label ? (
-              <FitText targetPx={ctaLabelSize} minPx={22} maxHeightPx={ctaLabelSize * 1.3} maxWidthPx={ctaBoxW - 60} fitKey={`es-ctal:${c.label}:${portrait}`} exact={false} style={{ fontWeight: 500, color: pal.inkSoft, whiteSpace: "nowrap", textAlign: "center" }}>
-                {c.label}
-              </FitText>
-            ) : null}
+        {n ? (
+          <div style={{ marginTop: ctaGapTop, display: "flex", flexDirection: ctaRow ? "row" : "column", gap: ctaGap, flexShrink: 0 }}>
+            {ctas.map((c, i) => {
+              const on = interpolate(ctaIn, [i * 0.15, Math.min(1, i * 0.15 + 0.6)], [0, 1], clamp);
+              return (
+                <div key={i} style={{ position: "relative", width: ctaBoxW, height: ctaBoxH, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ position: "absolute", inset: 0, opacity: on, background: withOpacity(mix(pal.paper, "#ffffff", 0.6), 0.85) }} />
+                  <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", opacity: on }}>
+                    <FitText targetPx={ctaSize} minPx={portrait ? 30 : 26} maxHeightPx={ctaSize * 1.3} maxWidthPx={ctaBoxW - 60} fitKey={`es-cta:${c.dest}:${portrait}:${n}`} exact={type.bodyIsUserSet} style={{ fontWeight: 700, whiteSpace: "nowrap", textAlign: "center" }}>
+                      → {c.dest}
+                    </FitText>
+                    {c.label ? (
+                      <FitText targetPx={ctaLabelSize} minPx={22} maxHeightPx={ctaLabelSize * 1.3} maxWidthPx={ctaBoxW - 60} fitKey={`es-ctal:${c.label}:${portrait}:${n}`} exact={false} style={{ fontWeight: 500, color: pal.inkSoft, whiteSpace: "nowrap", textAlign: "center" }}>
+                        {c.label}
+                      </FitText>
+                    ) : null}
+                  </div>
+                  <PencilLayer width={ctaBoxW} height={ctaBoxH} style={{ position: "absolute", left: 0, top: 0 }}>
+                    <PencilStroke d={sketchBoxPath(0, 0, ctaBoxW, ctaBoxH, seed + i * 5)} progress={on} color={pal.ink} width={3.5} />
+                  </PencilLayer>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        ) : null}
 
-      {socials.map(({ key, Icon, label }, i) => {
-        const row = Math.floor(i / perRow);
-        const col = i % perRow;
-        const inRow = Math.min(perRow, socials.length - row * perRow);
-        const x = width / 2 - (inRow * slotW) / 2 + (col + 0.5) * slotW;
-        const y = socialsTop + row * (shell + socialSize * 2.4);
-        const on = interpolate(socialsIn, [i * 0.08, Math.min(1, i * 0.08 + 0.4)], [0, 1], clamp);
-        return (
-          <div key={key} style={{ position: "absolute", left: x - slotW / 2, top: y, width: slotW, display: "flex", flexDirection: "column", alignItems: "center", gap: 14, opacity: on, transform: `translateY(${(1 - on) * 14}px)` }}>
-            <div style={{ width: shell, height: shell, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {Icon ? <Icon size={shell * 0.56} /> : null}
-            </div>
-            <FitText targetPx={socialSize} minPx={20} maxHeightPx={socialSize * 1.3} maxWidthPx={slotW - 12} fitKey={`es-soc:${label}:${portrait}:${perRow}`} exact={false} style={{ fontWeight: 600, whiteSpace: "nowrap", textAlign: "center", color: pal.inkSoft }}>
-              {label}
-            </FitText>
+        {socials.length ? (
+          <div style={{ marginTop: socialsGapTop, width: perRow * slotW, display: "flex", flexWrap: "wrap", justifyContent: "center", rowGap: socialSize * 0.6, flexShrink: 0 }}>
+            {socials.map(({ key, Icon, label }, i) => {
+              const on = interpolate(socialsIn, [i * 0.08, Math.min(1, i * 0.08 + 0.4)], [0, 1], clamp);
+              const ring = interpolate(socialsIn, [i * 0.08 + 0.05, Math.min(1, i * 0.08 + 0.45)], [0, 1], clamp);
+              return (
+                <div key={key} style={{ width: slotW, display: "flex", flexDirection: "column", alignItems: "center", gap: 14, opacity: on, transform: `translateY(${(1 - on) * 14}px)` }}>
+                  <div style={{ position: "relative", width: shell, height: shell, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {Icon ? <Icon size={shell * 0.56} /> : null}
+                    <PencilLayer width={shell} height={shell} style={{ position: "absolute", left: 0, top: 0 }}>
+                      <PencilStroke d={scribbleCirclePath(shell / 2, shell / 2, shell * 0.52, shell * 0.5, seed + i * 3)} progress={ring} color={pal.ink} width={3} opacity={0.7} />
+                    </PencilLayer>
+                  </div>
+                  <FitText targetPx={socialSize} minPx={20} maxHeightPx={socialSize * 1.3} maxWidthPx={slotW - 12} fitKey={`es-soc:${label}:${portrait}:${perRow}`} exact={false} style={{ fontWeight: 600, whiteSpace: "nowrap", textAlign: "center", color: pal.inkSoft }}>
+                    {label}
+                  </FitText>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        ) : null}
+      </div>
 
       <PencilLayer>
-        {tagline ? (
-          <PencilStroke d={underlinePath(width / 2 - Math.min(300, contentW * 0.25), tagTop + tagH * 0.5 + Math.min(tagH, tagSize * 2.1) * 0.5 + 18, Math.min(600, contentW * 0.5), seed)} progress={ease(frame, 54, 76)} color={pal.accent} width={6} />
-        ) : null}
-        {ctas.map((_, i) => {
-          const x = (width - ctaBoxW) / 2;
-          const y = ctaTop + i * (ctaBoxH + ctaGap);
-          return <PencilStroke key={i} d={sketchBoxPath(x, y, ctaBoxW, ctaBoxH, seed + i * 5)} progress={interpolate(ctaIn, [i * 0.15, Math.min(1, i * 0.15 + 0.6)], [0, 1], clamp)} color={pal.ink} width={3.5} />;
-        })}
-        {socials.map((s, i) => {
-          const row = Math.floor(i / perRow);
-          const col = i % perRow;
-          const inRow = Math.min(perRow, socials.length - row * perRow);
-          const x = width / 2 - (inRow * slotW) / 2 + (col + 0.5) * slotW;
-          const y = socialsTop + row * (shell + socialSize * 2.4) + shell / 2;
-          return <PencilStroke key={s.key} d={scribbleCirclePath(x, y, shell * 0.52, shell * 0.5, seed + i * 3)} progress={interpolate(socialsIn, [i * 0.08 + 0.05, Math.min(1, i * 0.08 + 0.45)], [0, 1], clamp)} color={pal.ink} width={3} opacity={0.7} />;
-        })}
         <PencilStroke d={doodleStarPath(pad.x + 40, tagTop + 30, portrait ? 30 : 28, seed)} progress={doodles} color={pal.accent} width={3.5} opacity={0.8} />
         <PencilStroke d={doodleStarPath(width - pad.x - 40, tagTop + tagH - 30, portrait ? 24 : 22, seed + 3)} progress={doodles} color={pal.ink} width={3} opacity={0.6} />
       </PencilLayer>

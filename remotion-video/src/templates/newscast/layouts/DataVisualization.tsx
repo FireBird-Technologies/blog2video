@@ -10,11 +10,11 @@ import {
   Line,
   ReferenceLine,
   ReferenceDot,
-  ResponsiveContainer,
   XAxis,
   YAxis,
   Customized,
 } from "recharts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import type { NewscastChartRow, NewscastChartType, NewscastLayoutProps } from "./types";
 import { NewsCastLayoutImageBackground } from "../NewsCastLayoutImageBackground";
 import {
@@ -784,7 +784,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
             /* Lottie-style trim-path reveal: clip from the right */
             clipPath: chartType === "line" ? `inset(0 ${lineClipRight}% 0 0)` : undefined,
           }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <MeasuredChart>
               {chartType === "line" ? (
                 <ComposedChart data={animatedLineData} margin={{ top: 8, right: 12, left: chartLeftMargin, bottom: lineChartBottomMargin }}>
                   <defs>
@@ -1024,7 +1024,7 @@ export const DataVisualization: React.FC<NewscastLayoutProps> = (props) => {
                   )}
                 </BarChart>
               )}
-            </ResponsiveContainer>
+            </MeasuredChart>
           </div>
         </div>
 

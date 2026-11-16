@@ -176,7 +176,7 @@ export const DataVisualisation: React.FC<SceneLayoutProps> = (props) => {
   const data = useMemo(() => orientChartInputsForType(inputs, kind), [inputs, kind]);
 
   const title = (props.title || "").trim();
-  const summary = (props.chartSummary || props.narration || "").trim();
+  const summary = (props.displayText || "").trim();
   const xAxisLabel = props.xAxisLabel || props.chartTable?.headers?.[0] || "";
   const yAxisLabel = props.yAxisLabel || props.chartTable?.headers?.[1] || "";
 
@@ -395,7 +395,7 @@ export const DataVisualisation: React.FC<SceneLayoutProps> = (props) => {
           <g opacity={axesIn}>
             {labels.map((label, i) => {
               const last = labels.length - 1;
-              const tooClose = i !== last && last - i < Math.max(2, labelStride);
+              const tooClose = labelStride > 1 && i !== last && last - i < labelStride;
               if (i !== last && (i % labelStride !== 0 || tooClose)) return null;
               const x = kind === "line" ? pointX(i) : plot.x + i * groupW + groupW / 2;
               return (

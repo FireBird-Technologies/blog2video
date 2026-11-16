@@ -14,7 +14,7 @@ import { PaperBackdrop } from "../components/PaperBackdrop";
 import { FitText } from "../components/FitText";
 import { PencilLayer, PencilStroke, tickPath, underlinePath } from "../components/Pencil";
 import { Written, ease } from "../components/Handwriting";
-import { sentences, useCrumpledScene, scenePaper } from "../components/sceneKit";
+import { useCrumpledScene, scenePaper } from "../components/sceneKit";
 import { getCrumpledTypography } from "../typography";
 import { mix, rand, withOpacity, clamp, paperPalette, CRUMPLED_DESK, PAPER_SHADE } from "../crumpledStyle";
 import { PaperBall, paperBallOutline } from "../components/PaperBall";
@@ -205,19 +205,13 @@ export const StickyList: React.FC<SceneLayoutProps> = (props) => {
   }));
   const seed = props.seed ?? 53;
   const sheet = scenePaper(props, seed, 0);
-  const heading = (props.heading || props.title || "").trim();
-  // 3 to 4 scraps: the given items, topped up from the narration's sentences if short.
-  const raw = (props.items || []).map((s) => String(s).trim()).filter(Boolean);
-  const items = [...raw];
-  const norm = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-  for (const extra of sentences(props.narration, 6)) {
-    if (items.length >= 3) break;
-    if (!items.some((it) => norm(it) === norm(extra))) items.push(extra);
-  }
-  items.splice(4);
+  const heading = (props.title || "").trim();
+  // Up to 4 scraps, exactly as given. (Not topped up from the display text: it is
+  // already written under the heading, so the scraps would repeat it.)
+  const items = (props.items || []).map((s) => String(s).trim()).filter(Boolean).slice(0, 4);
   const n = Math.max(1, items.length);
   // The scene's display text, written under the heading (as in the other scenes).
-  const body = (props.body || props.narration || "").trim();
+  const body = (props.displayText || "").trim();
 
   const headIn = ease(frame, 0, 28, Easing.inOut(Easing.quad));
   const bodyIn = ease(frame, 14, 44, Easing.linear);

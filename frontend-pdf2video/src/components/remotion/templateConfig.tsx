@@ -44,6 +44,7 @@ import {
   RemotionSakuraVideoComposition,
   RemotionStickmanFootballVideoComposition,
 } from "./remotionAdapters";
+import { CrumpledPreviewComposition } from "./crumpled/CrumpledPreviewComposition";
 
 export interface TemplateColors {
   accent: string;
@@ -347,6 +348,18 @@ const SAKURA_LAYOUTS = new Set([
   "sakura_ticker",
 ]);
 
+const CRUMPLED_LAYOUTS = new Set([
+  "paper_hero",
+  "sketch_narration",
+  "taped_image",
+  "pencil_stat",
+  "sticky_list",
+  "torn_quote",
+  "fold_comparison",
+  "data_visualisation",
+  "ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -565,6 +578,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#C0143C",
       bg: "#FDF6F0",
       text: "#2A0A12",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  crumpled: {
+    component: CrumpledPreviewComposition as React.ComponentType<any>,
+    heroLayout: "paper_hero",
+    fallbackLayout: "sketch_narration",
+    validLayouts: CRUMPLED_LAYOUTS,
+    defaultColors: {
+      accent: "#8b5a2b",
+      bg: "#f9f5ec",
+      text: "#000000",
     },
     baseWidth: 1920,
     baseHeight: 1080,

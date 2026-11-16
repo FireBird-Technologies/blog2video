@@ -244,7 +244,8 @@ export const PaperHero: React.FC<SceneLayoutProps> = (props) => {
   }));
   const seed = props.seed ?? 42;
   const title = props.title || "";
-  const subtitle = (props.subtitle || "").trim();
+  // The scene's display text, written under the title.
+  const subtitle = (props.displayText || "").trim();
   const desk = CRUMPLED_DESK;
   const hw = width / 2;
 

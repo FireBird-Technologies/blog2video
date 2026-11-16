@@ -239,15 +239,24 @@ export const TapedImage: React.FC<SceneLayoutProps> = (props) => {
   }));
   const seed = props.seed ?? 23;
   const sheet = scenePaper(props, seed, 2);
-  const heading = (props.heading || props.title || "").trim();
-  const body = (props.body || props.narration || "").trim();
+  const heading = (props.title || "").trim();
+  const body = (props.displayText || "").trim();
   const caption = (props.imageCaption || "").trim();
   const hasMedia = Boolean(props.imageUrl || props.videoUrl);
 
   // Geometry: landscape = print left, copy right; portrait = print top, copy below.
   const gap = portrait ? 90 : 110;
-  const photoW = portrait ? width - pad.x * 2 - 20 : width * 0.47;
   const photoH = portrait ? height * 0.33 : height - pad.top - pad.bottom - (caption ? 70 : 10);
+  // A caption shortens the landscape print, so narrow it by the same proportion: the
+  // photo inside the border then keeps the exact ratio imageBoxConfig.ts crops to
+  // (866 / 818), with or without a caption. The print border here is 18px.
+  const fullW = width * 0.47;
+  const fullH = height - pad.top - pad.bottom - 10;
+  const photoW = portrait
+    ? width - pad.x * 2 - 20
+    : caption
+      ? 36 + ((fullW - 36) * (photoH - 36)) / (fullH - 36)
+      : fullW;
   const photoX = portrait ? pad.x + 10 : pad.x;
   const photoY = portrait ? pad.top + 20 : pad.top;
   const textX = portrait ? pad.x : photoX + photoW + gap;

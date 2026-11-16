@@ -52,7 +52,7 @@ const resolveStats = (props: SceneLayoutProps): StatItem[] => {
     : [];
   if (list.length) return list;
   const value = `${String(props.statValue ?? "").trim() || "—"}${(props.statSuffix || "").trim()}`;
-  return [{ value, label: (props.descriptor || props.narration || "").trim() }];
+  return [{ value, label: (props.descriptor || props.displayText || "").trim() }];
 };
 
 // ─── Transitions: corner fold + drag ────────────────────────────
@@ -288,9 +288,8 @@ export const PencilStat: React.FC<SceneLayoutProps> = (props) => {
   const stats = resolveStats(props);
   const n = stats.length;
   const heading = (props.title || "").trim();
-  // One body text for all the stats, shown on the right (falls back to the stat labels, then the narration).
-  const labels = stats.map((s) => s.label).filter(Boolean);
-  const body = (props.body || (Array.isArray(props.stats) && labels.length ? labels.join(" · ") : "") || props.descriptor || props.narration || "").trim();
+  // One body text for all the stats, shown on the right: the scene's display text.
+  const body = (props.displayText || "").trim();
 
   const total = props.sceneDurationInFrames ?? 300;
   const entryLen = Math.min(ENTRY_FRAMES, Math.floor(total * 0.3));

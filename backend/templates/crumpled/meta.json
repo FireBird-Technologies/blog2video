@@ -62,12 +62,6 @@
           "step": 1
         },
         {
-          "key": "subtitle",
-          "label": "Subtitle",
-          "type": "string",
-          "description": "One short line under the underline."
-        },
-        {
           "key": "seed",
           "label": "Seed",
           "type": "number",
@@ -77,12 +71,10 @@
           "step": 1
         }
       ],
-      "sample_props": {
-        "subtitle": "Sketch, scrap, and refine until the shape of a good idea appears."
-      },
+      "sample_props": {},
       "scene_defaults": {
         "title": "How Ideas Get Made",
-        "narration": "Every good idea starts as a rough sketch on a scrap of paper.",
+        "narration": "Sketch, scrap, and refine until the shape of a good idea appears.",
         "durationSeconds": 7
       }
     },
@@ -118,16 +110,6 @@
           "step": 1
         },
         {
-          "key": "heading",
-          "label": "Heading",
-          "type": "string"
-        },
-        {
-          "key": "body",
-          "label": "Body",
-          "type": "text"
-        },
-        {
           "key": "imageUrl",
           "label": "Image URL",
           "type": "string",
@@ -143,13 +125,10 @@
           "step": 1
         }
       ],
-      "sample_props": {
-        "heading": "Start messy on purpose",
-        "body": "Most good ideas begin as scribbles nobody else would understand. Early drafts are for thinking, not for showing. Giving yourself permission to be rough makes it easier to explore, discard, and try again without fear."
-      },
+      "sample_props": {},
       "scene_defaults": {
         "title": "Start messy on purpose",
-        "narration": "Most good ideas begin as scribbles nobody else would understand.",
+        "narration": "Most good ideas begin as scribbles nobody else would understand. Early drafts are for thinking, not for showing. Giving yourself permission to be rough makes it easier to explore, discard, and try again without fear.",
         "durationSeconds": 7
       }
     },
@@ -191,16 +170,6 @@
           "description": "Photo taped onto the sheet. Use Adjust Image for crop, focus and zoom."
         },
         {
-          "key": "heading",
-          "label": "Heading",
-          "type": "string"
-        },
-        {
-          "key": "body",
-          "label": "Body",
-          "type": "text"
-        },
-        {
           "key": "imageCaption",
           "label": "Image Caption",
           "type": "string",
@@ -217,13 +186,11 @@
         }
       ],
       "sample_props": {
-        "heading": "Look at the real thing",
-        "body": "Reference material keeps sketches honest. A photo taped beside the page reminds you what you are actually drawing.",
         "imageCaption": "Field reference"
       },
       "scene_defaults": {
         "title": "Look at the real thing",
-        "narration": "Reference material keeps sketches honest.",
+        "narration": "Reference material keeps sketches honest. A photo taped beside the page reminds you what you are actually drawing.",
         "durationSeconds": 7
       }
     },
@@ -272,12 +239,6 @@
           ]
         },
         {
-          "key": "body",
-          "label": "Body",
-          "type": "text",
-          "description": "One or two short sentences explaining the numbers, from the source; shown on the right."
-        },
-        {
           "key": "seed",
           "label": "Seed",
           "type": "number",
@@ -295,12 +256,11 @@
           {
             "value": "4"
           }
-        ],
-        "body": "37% of designers say their final concept came from a discarded early sketch, after about 4 drafts on average."
+        ]
       },
       "scene_defaults": {
         "title": "Drafts before the keeper",
-        "narration": "Thirty-seven percent of designers say their final concept came from a discarded early sketch.",
+        "narration": "37% of designers say their final concept came from a discarded early sketch, after about 4 drafts on average.",
         "durationSeconds": 7
       }
     },
@@ -336,17 +296,6 @@
           "step": 1
         },
         {
-          "key": "heading",
-          "label": "Heading",
-          "type": "string"
-        },
-        {
-          "key": "body",
-          "label": "Body",
-          "type": "text",
-          "description": "One or two short sentences shown under the heading (defaults to the scene's display text)."
-        },
-        {
           "key": "items",
           "label": "Items (3-4)",
           "type": "string_array",
@@ -364,7 +313,6 @@
         }
       ],
       "sample_props": {
-        "heading": "Habits that help",
         "items": [
           "Keep a notebook within reach",
           "Date every page",
@@ -472,11 +420,6 @@
           "step": 1
         },
         {
-          "key": "heading",
-          "label": "Heading",
-          "type": "string"
-        },
-        {
           "key": "leftLabel",
           "label": "Left / Top Label",
           "type": "string"
@@ -507,7 +450,6 @@
         }
       ],
       "sample_props": {
-        "heading": "Sketch vs. polish",
         "leftLabel": "Sketching",
         "leftText": "Fast, cheap and disposable. The goal is quantity of options and quick feedback.",
         "rightLabel": "Polishing",
@@ -580,11 +522,6 @@
           "type": "chart_table"
         },
         {
-          "key": "chartSummary",
-          "label": "Chart Summary",
-          "type": "text"
-        },
-        {
           "key": "xAxisLabel",
           "label": "X-axis Label",
           "type": "string"
@@ -612,7 +549,6 @@
       ],
       "sample_props": {
         "chartType": "bar",
-        "chartSummary": "Teams that sketch daily generate far more usable ideas each week.",
         "xAxisLabel": "Week",
         "yAxisLabel": "Ideas",
         "chartTable": {
@@ -682,17 +618,6 @@
           "min": 10,
           "max": 140,
           "step": 1
-        },
-        {
-          "key": "brandName",
-          "label": "Brand Name",
-          "type": "string"
-        },
-        {
-          "key": "tagline",
-          "label": "Tagline",
-          "type": "string",
-          "description": "Closing line, written large in pencil."
         },
         {
           "key": "showWebsiteButton",
@@ -772,8 +697,6 @@
         }
       ],
       "sample_props": {
-        "brandName": "NotestackAI",
-        "tagline": "Keep sketching. Keep tearing it up.",
         "showWebsiteButton": true,
         "websiteLink": "https://yourwebsite.com",
         "ctaButtonText": "Explore more",
