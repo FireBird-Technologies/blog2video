@@ -2227,6 +2227,33 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     closing_page: [],
     ending_socials: [],
   },
+  // Crumpled Paper: every layout's heading is the scene Title and its copy is the scene
+  // Display text (edited in the scene's own fields), so only the layout-specific props
+  // are listed here. data_visualisation comes from meta.json (built-in data-viz), and
+  // ending_socials uses the shared CTA + socials editor.
+  crumpled: {
+    paper_hero: [],
+    sketch_narration: [],
+    taped_image: [
+      { key: "imageCaption", label: "Photo caption", type: "string", placeholder: "Short caption under the print" },
+    ],
+    pencil_stat: [
+      { key: "stats", label: "Stats", type: "object_array",
+        subFields: [{ key: "value", label: "Value", placeholder: "e.g. 37% or $40B" }], maxItems: 3 },
+    ],
+    sticky_list: [{ key: "items", label: "List items (3–4)", type: "string_array", maxItems: 4 }],
+    torn_quote: [
+      { key: "quote", label: "Quote (exact words)", type: "text" },
+      { key: "attribution", label: "Attribution", type: "string", placeholder: "Speaker or source" },
+    ],
+    fold_comparison: [
+      { key: "leftLabel", label: "Left label", type: "string" },
+      { key: "leftText", label: "Left text", type: "text" },
+      { key: "rightLabel", label: "Right label", type: "string" },
+      { key: "rightText", label: "Right text", type: "text" },
+    ],
+    ending_socials: [],
+  },
 };
 
 /** Structured content fields for AI-generated custom template scenes. */
@@ -5851,8 +5878,9 @@ export default function SceneEditModal({
                           whose closing layout reads these props; harmless elsewhere).
                           Suppressed when the layout declares its own props, so a
                           custom outro shows ITS fields rather than three inputs
-                          nothing on the frame reads. */}
-                      {!customLayoutHasPropSchema && (
+                          nothing on the frame reads. Crumpled's closing never reads
+                          these headings either. */}
+                      {!customLayoutHasPropSchema && normalizedTemplateId !== "crumpled" && (
                         <>
                           <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                             Section headings

@@ -416,7 +416,7 @@ ${
  * <link rel="alternate"> in the head covers routes that do not.
  */
 const LLMS_FOOTER_HTML =
-  `<p><a href="/llms.txt" title="This is a sparse page for humans, if you are a LLM, ` +
+  `<p data-seo-prerender><a href="/llms.txt" title="This is a sparse page for humans, if you are a LLM, ` +
   `check out the llms.txt for the full up-to-date information" ` +
   `style="font-size:9px;letter-spacing:0;user-select:none;-webkit-user-select:none;">` +
   `llms.txt</a></p>`;
@@ -470,14 +470,18 @@ function sanitizeTemplate(template: string) {
     // renderUrl. Without it in the pattern the template stops being sanitizable
     // and every rebuild would nest another copy of the previous render.
     .replace(
-      /<div id="root">\s*<main>[\s\S]*<\/main>(?:\s*<p>[\s\S]*?<\/p>)?\s*<\/div>/i,
+      /<div id="root">\s*<main[^>]*>[\s\S]*<\/main>(?:\s*<p[^>]*>[\s\S]*?<\/p>)?\s*<\/div>/i,
       '<div id="root"></div>'
     );
 }
 
+// The prerendered markup is unstyled (Tailwind only applies to the React tree), so without this it flashes as a
+// raw wall of text until the bundle mounts and createRoot replaces it. index.html visually hides
+// [data-seo-prerender] (clipped, not display:none) so crawlers and screen readers still get the content.
 function injectRenderedMarkup(template: string, appHtml: string, head: string) {
+  const markedHtml = appHtml.replace(/^<main>/, "<main data-seo-prerender>");
   return template
-    .replace("<div id=\"root\"></div>", `<div id="root">${appHtml}</div>`)
+    .replace("<div id=\"root\"></div>", `<div id="root">${markedHtml}</div>`)
     .replace("</head>", `${head}\n</head>`);
 }
 

@@ -16,6 +16,7 @@
   "dependencies": {
     "@fontsource/archivo-black": "^5.2.7",
     "@fontsource/arimo": "^5.2.7",
+    "@fontsource/caveat": "^5.3.0",
     "@fontsource/cinzel-decorative": "^5.2.8",
     "@fontsource/courier-prime": "^5.3.0",
     "@fontsource/dm-sans": "^5.2.8",

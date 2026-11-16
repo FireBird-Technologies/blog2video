@@ -123,7 +123,12 @@ const TikTokIcon: React.FC<{ size: number }> = ({ size }) => (
   </svg>
 );
 
-const SOCIAL_ICONS: Record<SocialKey, React.FC<{ size: number }>> = {
+/**
+ * Exported so layouts that place icons INDIVIDUALLY (e.g. around a circle)
+ * can reuse the same artwork instead of re-implementing it. The default
+ * <SocialIcons> flex row is unchanged and remains the normal way to use these.
+ */
+export const SOCIAL_ICONS: Record<SocialKey, React.FC<{ size: number }>> = {
   instagram: InstagramIcon,
   youtube: YoutubeIcon,
   medium: MediumIcon,
@@ -138,6 +143,41 @@ const SOCIAL_ICONS: Record<SocialKey, React.FC<{ size: number }>> = {
 const DEFAULT_ICON_SIZE_LANDSCAPE = 46;
 const DEFAULT_ICON_SIZE_PORTRAIT = 64;
 
+/**
+ * Resolve a socials prop (map OR row-array) to the ENABLED entries in icon order.
+ * Extracted from <SocialIcons> so layouts that position icons individually get
+ * exactly the same normalization — the `enabled` string/boolean coercion and the
+ * unknown-platform filtering are easy to get subtly wrong when re-implemented.
+ */
+export const resolveEnabledSocials = (
+  input?: SocialsMap | SocialsRow[],
+): Array<{ key: SocialKey; item: SocialItem }> => {
+  let map: SocialsMap = {};
+  if (!input) return [];
+  if (Array.isArray(input)) {
+    for (const row of input) {
+      const key = String(row?.platform ?? "").trim().toLowerCase() as SocialKey;
+      if (!key || !(key in SOCIAL_ICONS)) continue;
+      const enabledRaw = row?.enabled;
+      const enabled =
+        typeof enabledRaw === "string"
+          ? enabledRaw.trim().toLowerCase() !== "false"
+          : Boolean(enabledRaw ?? true);
+      map[key] = { enabled, label: row?.label, text: row?.text, url: row?.url };
+    }
+  } else {
+    map = input;
+  }
+  const out: Array<{ key: SocialKey; item: SocialItem }> = [];
+  (Object.keys(SOCIAL_ICONS) as SocialKey[]).forEach((k) => {
+    const it = map[k];
+    if (!it) return;
+    if (!(it.enabled ?? true)) return;
+    out.push({ key: k, item: it });
+  });
+  return out;
+};
+
 export interface SocialIconsProps {
   socials?: SocialsMap | SocialsRow[];
   accentColor: string;
@@ -150,6 +190,8 @@ export interface SocialIconsProps {
   aspectRatio?: string;
   /** Pixel size for every brand icon SVG. If omitted, uses 52 (portrait) or 40 (landscape). */
   iconSize?: number;
+  /** Pixel size for the label text under each icon. If omitted, uses 18. */
+  labelFontSize?: number;
 }
 
 export const SocialIcons: React.FC<SocialIconsProps> = ({
@@ -160,6 +202,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
   fontFamily,
   aspectRatio,
   iconSize,
+  labelFontSize,
 }) => {
   const frame = useCurrentFrame();
   const defaultSize =
@@ -258,7 +301,7 @@ export const SocialIcons: React.FC<SocialIconsProps> = ({
             {label ? (
               <div
                 style={{
-                  fontSize: 18,
+                  fontSize: labelFontSize ?? 18,
                   fontWeight: 600,
                   color: textColor,
                   lineHeight: 1.2,

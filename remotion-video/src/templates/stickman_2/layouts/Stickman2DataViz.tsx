@@ -11,10 +11,10 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import type { SceneLayoutProps } from "../types";
 import {
   toNumber,
@@ -668,9 +668,9 @@ export const Stickman2DataViz: React.FC<SceneLayoutProps> = ({
                     )}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font, color: `${textColor}aa`, fontSize: descSize, fontStyle: "italic" }}>

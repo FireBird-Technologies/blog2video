@@ -36,10 +36,12 @@ import MagazinePreview from "./templatePreviews/MagazinePreview";
 import SakuraPreview from "./templatePreviews/SakuraPreview";
 import OldDocumentaryReelPreview from "./templatePreviews/OldDocumentaryReelPreview";
 import StarlitPreview from "./templatePreviews/StarlitPreview";
+import CrumpledPreview from "./templatePreviews/CrumpledPreview";
 import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
 import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
 import OldDocumentaryReelPreviewPortrait from "./templatePreviews/portrait/OldDocumentaryReelPreviewPortrait";
 import StarlitPreviewPortrait from "./templatePreviews/portrait/StarlitPreviewPortrait";
+import CrumpledPreviewPortrait from "./templatePreviews/portrait/CrumpledPreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
 
 // Raw preview components. Not exported directly — every built-in preview is
@@ -65,6 +67,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   sakura: SakuraPreview,
   "old-documentary-reel": OldDocumentaryReelPreview,
   starlit: StarlitPreview,
+  crumpled: CrumpledPreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -87,6 +90,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
   sakura: SakuraPreviewPortrait,
   "old-documentary-reel": OldDocumentaryReelPreviewPortrait,
   starlit: StarlitPreviewPortrait,
+  crumpled: CrumpledPreviewPortrait,
 };
 
 function wrapPreviews(
@@ -182,6 +186,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   starlit: {
     title: "Starlit",
     subtitle: "Cinematic cosmic storytelling with stars, planets, and constellation data",
+  },
+  crumpled: {
+    title: "Crumpled Paper",
+    subtitle: "Hand-pencilled notes on crumpled paper, with tear, fold and unfold transitions",
   },
 };
 

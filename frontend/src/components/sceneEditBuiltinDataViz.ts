@@ -445,6 +445,7 @@ const CHART_TICKER_SINGLE_DATAVIZ_TEMPLATES = new Set([
   "blackswan",
   "gridcraft",
   "stickman_2",
+  "crumpled",
 ]);
 
 /** Shared ticker layout id for single-chart templates (not matrix/chronicle-style split ids). */

@@ -1605,7 +1605,10 @@ export default function TemplateStudio() {
         // (scene_defaults), not the editor's single shared title/narration.
         // Fall back to the editor values for layouts without scene_defaults.
         const sd = getSchema(selectedTemplate, layoutId)?.scene_defaults ?? {};
-        const lp = buildResolvedLayoutPropsForPreview(
+        // The layout being edited shows the LIVE edits (props modal, typography, title /
+        // narration inputs) — otherwise "All Scenes" would ignore every change to it.
+        const isEdited = layoutId === selectedLayout;
+        const lp = isEdited ? resolvedLayoutProps : buildResolvedLayoutPropsForPreview(
           selectedTemplate,
           layoutId,
           isPortrait,
@@ -1627,11 +1630,11 @@ export default function TemplateStudio() {
         return {
           id: index + 1,
           order: index + 1,
-          title: sd.title ?? title,
-          narration: sd.narration ?? narration,
+          title: isEdited ? title : sd.title ?? title,
+          narration: isEdited ? narration : sd.narration ?? narration,
           layout: layoutId,
           layoutProps: lp,
-          durationSeconds: sd.durationSeconds ?? durationSeconds,
+          durationSeconds: isEdited ? durationSeconds : sd.durationSeconds ?? durationSeconds,
           imageUrl: sceneImageUrl,
           voiceoverUrl: undefined,
         };
