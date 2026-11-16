@@ -6,6 +6,7 @@
  * The title, underline and doodles are already written on the paper and open with it.
  *
  * Exit (built in, last frames of the scene): the page tears into three: the side pieces peel away, the middle strip zooms out.
+ * Landscape tears vertically (left / middle / right); portrait tears horizontally (top / middle / bottom).
  */
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
@@ -48,6 +49,8 @@ interface Ctx {
   paper: string;
   ink: string;
   children: React.ReactNode;
+  /** Portrait tears horizontally: the same tear, worked in a transposed frame. */
+  portrait: boolean;
 }
 
 const easeIn = Easing.in(Easing.cubic);
@@ -121,7 +124,20 @@ const partialLine = (line: Array<[number, number]>, f: number, fromEnd = false):
  * The middle strip (between the two tear lines) is one copy and fades; the side
  * parts not yet torn away stay fully opaque, one copy each.
  */
-const tearThree = ({ t, w, h, seed, paper, ink, children }: Ctx): Spec => {
+const tearThree = ({ t, w: rw, h: rh, seed, paper, ink, children, portrait }: Ctx): Spec => {
+  // Worked in a canonical frame where the tears run top → bottom. In portrait that
+  // frame is the screen transposed (x ↔ y), so the tears run left → right instead;
+  // every coordinate leaving this function goes through T.
+  const [w, h] = portrait ? [rh, rw] : [rw, rh];
+  const T = (p: [number, number]): [number, number] => (portrait ? [p[1], p[0]] : p);
+  const TL = (list: Array<[number, number]>) => list.map(T);
+  const lineAttrs = (a: [number, number], b: [number, number]) => {
+    const [x1, y1] = T(a);
+    const [x2, y2] = T(b);
+    return { x1, y1, x2, y2 };
+  };
+  /** A gradient running along the canonical y axis from a to b. */
+  const gradAttrs = (a: number, b: number) => (portrait ? { x1: a, y1: 0, x2: b, y2: 0 } : { x1: 0, y1: a, x2: 0, y2: b });
   const amp = Math.min(w, h) * 0.016;
   const lineL = jaggedLine(w * (0.32 + rand(seed + 21) * 0.04), 0, w * (0.35 - rand(seed + 22) * 0.04), h, 40, amp, seed + 23);
   const lineR = jaggedLine(w * (0.65 + rand(seed + 24) * 0.04), 0, w * (0.68 - rand(seed + 25) * 0.04), h, 40, amp, seed + 26);
@@ -160,19 +176,19 @@ const tearThree = ({ t, w, h, seed, paper, ink, children }: Ctx): Spec => {
   const flapR: Array<[number, number]> = [[w, h], ...tornR, [w, hR]].map(([x, y]) => [x, hR - (y - hR) * kR]);
   const edgeL = tornL.map(([x, y]) => [x, hL + (hL - y) * kL] as [number, number]);
   const edgeR = tornR.map(([x, y]) => [x, hR - (y - hR) * kR] as [number, number]);
-  const svgPts = (list: Array<[number, number]>) => list.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const svgPts = (list: Array<[number, number]>) => TL(list).map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const back = mix(paper, ink, 0.06);
   const backFar = mix(paper, ink, 0.16);
   const gid = `t3-${seed}`;
   const flaps =
     frontL > 0 || frontR > 0 ? (
-      <svg width={w} height={h} style={{ position: "absolute", inset: 0, overflow: "visible", filter: "drop-shadow(0 10px 14px rgba(0,0,0,0.22))" }}>
+      <svg width={rw} height={rh} style={{ position: "absolute", inset: 0, overflow: "visible", filter: "drop-shadow(0 10px 14px rgba(0,0,0,0.22))" }}>
         <defs>
-          <linearGradient id={`${gid}-l`} gradientUnits="userSpaceOnUse" x1="0" y1={hL} x2="0" y2={hL + hL * kL}>
+          <linearGradient id={`${gid}-l`} gradientUnits="userSpaceOnUse" {...gradAttrs(hL, hL + hL * kL)}>
             <stop offset="0%" stopColor={mix(back, "#ffffff", 0.35)} />
             <stop offset="100%" stopColor={backFar} />
           </linearGradient>
-          <linearGradient id={`${gid}-r`} gradientUnits="userSpaceOnUse" x1="0" y1={hR} x2="0" y2={hR - (h - hR) * kR}>
+          <linearGradient id={`${gid}-r`} gradientUnits="userSpaceOnUse" {...gradAttrs(hR, hR - (h - hR) * kR)}>
             <stop offset="0%" stopColor={mix(back, "#ffffff", 0.35)} />
             <stop offset="100%" stopColor={backFar} />
           </linearGradient>
@@ -182,14 +198,14 @@ const tearThree = ({ t, w, h, seed, paper, ink, children }: Ctx): Spec => {
             <polygon points={svgPts(flapL)} fill={`url(#${gid}-l)`} />
             <polyline points={svgPts(edgeL)} fill="none" stroke={mix(paper, "#ffffff", 0.75)} strokeWidth={7} strokeLinejoin="round" />
             {/* the fold: a soft highlight where the paper turns over */}
-            <line x1={0} y1={hL} x2={tornL[tornL.length - 1][0]} y2={hL} stroke="#ffffff" strokeWidth={3} opacity={0.8} />
+            <line {...lineAttrs([0, hL], [tornL[tornL.length - 1][0], hL])} stroke="#ffffff" strokeWidth={3} opacity={0.8} />
           </g>
         ) : null}
         {frontR > 0 ? (
           <g>
             <polygon points={svgPts(flapR)} fill={`url(#${gid}-r)`} />
             <polyline points={svgPts(edgeR)} fill="none" stroke={mix(paper, "#ffffff", 0.75)} strokeWidth={7} strokeLinejoin="round" />
-            <line x1={tornR[tornR.length - 1][0]} y1={hR} x2={w} y2={hR} stroke="#ffffff" strokeWidth={3} opacity={0.8} />
+            <line {...lineAttrs([tornR[tornR.length - 1][0], hR], [w, hR])} stroke="#ffffff" strokeWidth={3} opacity={0.8} />
           </g>
         ) : null}
       </svg>
@@ -197,18 +213,18 @@ const tearThree = ({ t, w, h, seed, paper, ink, children }: Ctx): Spec => {
 
   return {
     outer: { zIndex: 2 },
-    mid: move > 0 ? { transform: `scale(${1 + move * 0.08})`, transformOrigin: `${midX.toFixed(1)}px ${h / 2}px`, opacity: 1 - move } : undefined,
-    inner: { clipPath: `polygon(${pts(middle)})` },
+    mid: move > 0 ? { transform: `scale(${1 + move * 0.08})`, transformOrigin: portrait ? `${h / 2}px ${midX.toFixed(1)}px` : `${midX.toFixed(1)}px ${h / 2}px`, opacity: 1 - move } : undefined,
+    inner: { clipPath: `polygon(${pts(TL(middle))})` },
     midOverlay: (
       <>
-        {frontL > 0 ? <TornFringe line={tornL} paper={paper} width={w} height={h} /> : null}
-        {frontR > 0 ? <TornFringe line={tornR} paper={paper} width={w} height={h} /> : null}
+        {frontL > 0 ? <TornFringe line={TL(tornL)} paper={paper} width={rw} height={rh} /> : null}
+        {frontR > 0 ? <TornFringe line={TL(tornR)} paper={paper} width={rw} height={rh} /> : null}
       </>
     ),
     extras: (
       <>
-        {frontL < 1 ? <AbsoluteFill style={{ clipPath: `polygon(${pts(sideL)})` }}>{children}</AbsoluteFill> : null}
-        {frontR < 1 ? <AbsoluteFill style={{ clipPath: `polygon(${pts(sideR)})` }}>{children}</AbsoluteFill> : null}
+        {frontL < 1 ? <AbsoluteFill style={{ clipPath: `polygon(${pts(TL(sideL))})` }}>{children}</AbsoluteFill> : null}
+        {frontR < 1 ? <AbsoluteFill style={{ clipPath: `polygon(${pts(TL(sideR))})` }}>{children}</AbsoluteFill> : null}
         {flaps}
       </>
     ),
@@ -397,7 +413,7 @@ export const PaperHero: React.FC<SceneLayoutProps> = (props) => {
   const total = props.sceneDurationInFrames ?? 300;
   const exitLen = Math.min(Math.round(EXIT_SECONDS * fps), Math.floor(total * 0.35));
   const exitT = interpolate(rawFrame, [total - exitLen, total], [0, 1], clamp);
-  const ctx: Ctx = { t: exitT, seconds: rawFrame / fps, w: width, h: height, seed, paper: pal.paper, ink: pal.ink, children: content };
+  const ctx: Ctx = { t: exitT, seconds: rawFrame / fps, w: width, h: height, seed, paper: pal.paper, ink: pal.ink, children: content, portrait };
   const spec: Spec = exitT > 0 ? tearThree(ctx) : {};
 
   return (

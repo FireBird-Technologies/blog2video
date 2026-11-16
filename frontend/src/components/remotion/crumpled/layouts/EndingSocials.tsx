@@ -36,7 +36,9 @@ const isEnabled = (value: boolean | string | undefined) =>
  *      fold back out along creases running from the nose to the tail, and the plane
  *      rolls to a three-quarter view: two long wings meeting at the keel;
  *   3. the plane zooms out WHILE it folds;
- *   4. a small wind-up, then it is thrown nose-first off screen.
+ *   4. a small wind-up, then it is thrown nose-first off screen. Landscape: straight
+ *      out to the right. Portrait: it zooms out further, climbs, banks into a left
+ *      turn and flies off the left edge.
  *
  * Every fold is a 2D fold: a piece of paper is scaled by cos(angle) along the normal
  * of its crease (a reflection once complete), so it foreshortens toward the crease,
@@ -342,14 +344,36 @@ const AirplaneFold: React.FC<{
   const nose: Pt = landscape ? [1, 0] : [0, -1];
   const lift: Pt = landscape ? [0, -1] : [1, 0];
   const windup = Math.sin(Math.PI * seg(throwT, 0, 0.25)) * L * 0.05;
-  const fly = Math.pow(seg(throwT, 0.12, 0.95), 1.35);
-  const along = -windup + fly * Math.max(w, h) * 1.5;
-  const up = Math.sin((Math.PI / 2) * fly) * S * 0.22;
-  // The slim plane sits low and back in the frame; re-centre it as it forms (landscape).
-  const dx = nose[0] * along + lift[0] * up + (landscape ? L * 0.04 * f3d : 0);
-  const dy = nose[1] * along + lift[1] * up - (landscape ? S * 0.12 * f3d : 0);
-  const tilt = (landscape ? -1 : 1) * (f3d * 3 + fly * 8 - windup / L * 40); // nearly level, like a resting plane
-  const scale = (1 - 0.32 * zoom) * (1 - 0.35 * fly);
+  let dx: number;
+  let dy: number;
+  let tilt: number;
+  let scale: number;
+  let fly: number;
+  if (landscape) {
+    fly = Math.pow(seg(throwT, 0.12, 0.95), 1.35);
+    const along = -windup + fly * Math.max(w, h) * 1.5;
+    const up = Math.sin((Math.PI / 2) * fly) * S * 0.22;
+    // The slim plane sits low and back in the frame; re-centre it as it forms.
+    dx = nose[0] * along + lift[0] * up + L * 0.04 * f3d;
+    dy = nose[1] * along + lift[1] * up - S * 0.12 * f3d;
+    tilt = -(f3d * 3 + fly * 8 - (windup / L) * 40); // nearly level, like a resting plane
+    scale = (1 - 0.32 * zoom) * (1 - 0.35 * fly);
+  } else {
+    // Portrait: climb, bank into a quarter-circle turn to the left, then out the left edge.
+    fly = seg(throwT, 0.12, 1);
+    const climbT = Math.pow(seg(throwT, 0.12, 0.45), 1.3);
+    const turnT = seg(throwT, 0.35, 0.75);
+    const turnE = turnT * turnT * (3 - 2 * turnT);
+    const exitT = Math.pow(seg(throwT, 0.7, 1), 1.4);
+    const climb = h * 0.08; // short climb: the turn happens well below the top edge
+    const R = w * 0.3;
+    const theta = (Math.PI / 2) * turnE;
+    dx = -R * (1 - Math.cos(theta)) - exitT * w * 1.4;
+    dy = windup - climb * climbT - R * Math.sin(theta);
+    // Heading turns from nose-up to nose-left, leaning into the turn.
+    tilt = f3d * 3 - (windup / L) * 40 - 90 * turnE - 8 * Math.sin(Math.PI * turnT);
+    scale = (1 - 0.5 * zoom) * (1 - 0.25 * fly);
+  }
   const desk = CRUMPLED_DESK;
 
   return (
@@ -468,7 +492,8 @@ export const EndingSocials: React.FC<SceneLayoutProps> = (props) => {
   // In the final stretch the page folds into a paper airplane, zooms out and is
   // thrown (raw frame, so it tracks the real scene end).
   const total = props.sceneDurationInFrames ?? 300;
-  const planeLen = Math.round(Math.min(fps * 2, total * 0.55)); // the last 2 seconds
+  // The last 2 seconds (portrait: 2.8 — its banked exit needs room for climb, turn and exit).
+  const planeLen = Math.round(Math.min(fps * (portrait ? 2.8 : 2), total * 0.55));
   const plane = interpolate(rawFrame, [total - planeLen, total - 2], [0, 1], clamp);
 
   return (
