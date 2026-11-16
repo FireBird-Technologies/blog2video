@@ -240,7 +240,7 @@ export const PaperHero: React.FC<SceneLayoutProps> = (props) => {
   // Default sizes — must match backend/templates/crumpled/meta.json; Template Studio rewrites these literals.
   const type = getCrumpledTypography(props, (titleFontSize, descriptionFontSize) => ({
     title: titleFontSize ?? (p ? 133 : 124),
-    body: descriptionFontSize ?? (p ? 86 : 79),
+    body: descriptionFontSize ?? (p ? 80 : 79),
   }));
   const seed = props.seed ?? 42;
   const title = props.title || "";
