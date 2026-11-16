@@ -527,6 +527,42 @@ export const templateProfiles: TemplateProfile[] = [
     ],
   },
   {
+    slug: "crumpled",
+    name: "Crumpled Paper",
+    description:
+      "A hand-made template drawn in pencil on crumpled white paper, with scenes that tear, fold, unfold and crumple into each other.",
+    bestFor: "Personal essays, creative process stories, education, brainstorming write-ups, and friendly explainers.",
+    differentiator:
+      "Every scene is pencilled onto a creased sheet of paper that gently shifts in the light — notes are taped down, numbers are circled in red pencil, and charts are sketched on graph paper — so your video feels hand-made rather than generated.",
+    styleFit: "Best for warm, human content where a sketchbook feel makes ideas approachable.",
+    previewSceneKey: "preview-crumpled",
+    layouts: [
+      "paper_hero",
+      "sketch_narration",
+      "taped_image",
+      "pencil_stat",
+      "sticky_list",
+      "torn_quote",
+      "fold_comparison",
+      "data_visualisation",
+      "ending_socials",
+    ],
+    longDescription:
+      "Crumpled Paper renders your writing as handwritten pencil notes on a sheet of crumpled white paper. The opening ball of paper unfolds into the title page; the sheet then tears, rolls, folds and crumples between scenes. Layouts like Sketch Narration, Taped Image, Pencil Stat, Sticky List, Torn Quote and Fold Comparison cover explanation, photos, single numbers, lists, quotations and side-by-side ideas, while a graph-paper data scene sketches your real tables as pencil charts. One handwritten font runs through every scene, so the whole video reads like one notebook.",
+    idealFor: [
+      "Personal essays and creator stories",
+      "Creative process and design write-ups",
+      "Classroom and course explainers",
+      "Brainstorms, retrospectives and lessons learned",
+      "Friendly product or how-to walkthroughs",
+    ],
+    exampleTopics: [
+      "How I sketch fifty ideas to find one good one",
+      "Five study habits that actually stick",
+      "What we learned from our first year of building",
+    ],
+  },
+  {
     slug: "custom",
     name: "Custom Templates",
     description:

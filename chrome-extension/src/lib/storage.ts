@@ -8,6 +8,8 @@ const PENDING_KEY = "b2v_pending_connection";
 export interface PendingConnection {
   connectionId: number;
   deviceCode: string;
+  /** The approval page, so the popup can reopen it while waiting. */
+  verificationUrl?: string;
 }
 
 export async function getAuth(): Promise<StoredAuth | null> {

@@ -8,6 +8,7 @@ import {
   resolveMagazineLayout,
 } from "../components/remotion/magazine/MagazineVideoComposition";
 import { STARLIT_PREVIEW_SCENES } from "../components/templatePreviews/starlitPreviewScenes";
+import { CRUMPLED_PREVIEW_SCENES } from "../components/templatePreviews/crumpledPreviewScenes";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -2371,6 +2372,10 @@ const SCENE_SETS: Record<string, SceneSet> = {
     template: "starlit",
     scenes: STARLIT_PREVIEW_SCENES as DemoScene[],
   },
+  "preview-crumpled": {
+    template: "crumpled",
+    scenes: CRUMPLED_PREVIEW_SCENES as DemoScene[],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
@@ -2393,6 +2398,7 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   stickman_2: { accent: "#FFFFFF", bg: "#000000", text: "#FFFFFF" },
   "old-documentary-reel": { accent: "#f4f0e2", bg: "#171512", text: "#b6b0a1" },
   starlit: { accent: "#217cff", bg: "#000000", text: "#ffffff" },
+  crumpled: { accent: "#8b5a2b", bg: "#f9f5ec", text: "#000000" },
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -2415,6 +2421,7 @@ const TEMPLATE_LABELS: Record<string, string> = {
   stickman_2: "Stickman 2",
   "old-documentary-reel": "Old Documentary Reel",
   starlit: "Starlit",
+  crumpled: "Crumpled Paper",
 };
 
 interface BlogDemoPlayerProps {

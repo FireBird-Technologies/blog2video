@@ -11,10 +11,10 @@ import {
   Line,
   ReferenceDot,
   ReferenceLine,
-  ResponsiveContainer,
   XAxis,
   YAxis,
 } from "recharts";
+import { MeasuredChart } from "../../_shared/MeasuredChart";
 import type { NightfallLayoutProps } from "../types";
 import {
   toNumber,
@@ -624,9 +624,9 @@ export const NightfallDataChart: React.FC<NightfallLayoutProps> = ({
                     {chartInputs.lineSeries[2] && <LegendDot color={barColors[2]} label={chartInputs.lineSeries[2].label} />}
                   </div>
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <MeasuredChart>
                   {renderChart()}
-                </ResponsiveContainer>
+                </MeasuredChart>
               </div>
             ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: bodyFont, color: "rgba(232,232,240,0.35)", fontSize: descSize, fontStyle: "italic", opacity: ra }}>

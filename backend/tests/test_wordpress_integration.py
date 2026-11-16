@@ -83,7 +83,13 @@ def test_connection_token_is_site_scoped_and_returned_once(client, db_session, p
     assert catalog.status_code == 200
     assert catalog.json()["templates"]
     nightfall = next(item for item in catalog.json()["templates"] if item["id"] == "nightfall")
-    assert nightfall["preview_url"].endswith("/mcp-ui/template-previews/nightfall.png")
+    assert nightfall["preview_url"].endswith("/template-posters/nightfall.webp")
+    templates = catalog.json()["templates"]
+    built_in = [item for item in templates if item.get("source") == "built_in"]
+    # Every built-in has a picture (including newly added ones), and new templates come first.
+    assert all(item["preview_url"].endswith(f"/template-posters/{item['id']}.webp") for item in built_in)
+    flags = [bool(item.get("new_template")) for item in built_in]
+    assert flags == sorted(flags, reverse=True)
     assert "voices" in catalog.json()
     assert catalog.json()["video_styles"]["selected_ids"] == [
         "explainer",

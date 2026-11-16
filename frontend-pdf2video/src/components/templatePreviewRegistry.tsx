@@ -37,6 +37,8 @@ import SakuraPreview from "./templatePreviews/SakuraPreview";
 import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
 import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
+import CrumpledPreview from "./templatePreviews/CrumpledPreview";
+import CrumpledPreviewPortrait from "./templatePreviews/portrait/CrumpledPreviewPortrait";
 
 // Raw preview components. Not exported directly — every built-in preview is
 // wrapped with `withPoster` below so it shows a static poster in thumbnailMode
@@ -59,6 +61,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   stickman_football: StickmanFootballPreview,
  magazine: MagazinePreview,
   sakura: SakuraPreview,
+  crumpled: CrumpledPreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -79,6 +82,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
   stickman_football: StickmanFootballPreviewPortrait,
    magazine: MagazinePreviewPortrait,
   sakura: SakuraPreviewPortrait,
+  crumpled: CrumpledPreviewPortrait,
 };
 
 function wrapPreviews(
@@ -167,6 +171,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   magazine: { title: "Magazine", subtitle: "Glossy editorial storytelling" },
   stickman_football: { title: "Stickman Football Match", subtitle: "Hand-drawn football action for match recaps & highlights" },
   sakura: { title: "Sakura", subtitle: "Japanese-aesthetic blog-to-video theme" },
+  crumpled: {
+    title: "Crumpled Paper",
+    subtitle: "Hand-pencilled notes on crumpled paper, with tear, fold and unfold transitions",
+  },
 };
 
 /** Purple primary "New" chip when template meta.json has new_template: true */
