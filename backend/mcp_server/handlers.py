@@ -56,7 +56,10 @@ _BGM_CACHE: list[dict] = []
 # changed bundle requires bumping the version suffix here AND in tools.py.
 # _v26: Multi Link Step 3 now mirrors BlogUrlForm's language, no-voiceover,
 # Voice/Advanced tabs, richer voice cards, and apply-settings-to-all controls.
-SETUP_RESOURCE_URI = "ui://blog2video/setup_gallery_v26"
+# _v27: bundle now carries the Crumpled Paper + Snowy Christmas template thumbnails
+# (rebuilt after they were added, but the URI was never bumped, so hosts kept the
+# cached bundle without them).
+SETUP_RESOURCE_URI = "ui://blog2video/setup_gallery_v27"
 
 # Fallback template for auto_video when the LLM picker can't run (scrape or LLM
 # failure). Set AUTO_TEMPLATE_PICK = False to skip the picker entirely and always

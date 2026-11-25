@@ -194,7 +194,8 @@ async def _call_tool(name: str, arguments: dict):
 # per-result _meta and this resource read can never drift apart.
 from mcp_server.handlers import SETUP_RESOURCE_URI as _SETUP_URI
 
-_GALLERY_URI = "ui://blog2video/template_gallery_v5"
+# _v6: bundle carries the Crumpled Paper + Snowy Christmas thumbnails.
+_GALLERY_URI = "ui://blog2video/template_gallery_v6"
 # _v2: the original bundle predated MCP Apps — it never called app.connect(), so
 # claude.ai kept its iframe hidden. Rebuilt from ui_src/src/voice_gallery_app.ts;
 # the URI must change or existing connectors keep serving the cached broken HTML.

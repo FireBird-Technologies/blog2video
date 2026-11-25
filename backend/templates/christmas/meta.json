@@ -1,0 +1,875 @@
+{
+  "id": "christmas",
+  "name": "Snowy Christmas",
+  "new_template": true,
+  "description": "A bright snowy winter day with falling snow, an animated Santa and his reindeer, a Christmas tree that decorates itself, gift boxes, snowy ribbon banners and rolling snowballs. Every scene ends in a gust of snow.",
+  "genres": [
+    "Holiday",
+    "Seasonal",
+    "Marketing",
+    "Personal",
+    "Blog"
+  ],
+  "preview_colors": {
+    "accent": "#D62839",
+    "bg": "#EAF4FB",
+    "text": "#12324A"
+  },
+  "composition_id": "ChristmasVideo",
+  "hero_layout": "santa_hero",
+  "fallback_layout": "snowy_narration",
+  "valid_layouts": [
+    "santa_hero",
+    "snowy_narration",
+    "frosted_window",
+    "gift_stat",
+    "tree_list",
+    "letter_quote",
+    "snow_compare",
+    "snowball_steps",
+    "data_visualisation",
+    "ending_socials"
+  ],
+  "layout_prop_schema": {
+    "santa_hero": {
+      "label": "Santa's Sleigh",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 80,
+          "landscape": 88
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {},
+      "scene_defaults": {
+        "title": "A Very Merry Season",
+        "narration": "Everything you need to make this Christmas the brightest yet.",
+        "durationSeconds": 7
+      }
+    },
+    "snowy_narration": {
+      "label": "Snowman Story",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 88,
+          "landscape": 80
+        },
+        "descriptionFontSize": {
+          "portrait": 44,
+          "landscape": 38
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "imageUrl",
+          "label": "Image URL",
+          "type": "string",
+          "description": "Optional photo the snowman holds up in a wooden picture frame (he waves instead when no photo is given)."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {},
+      "scene_defaults": {
+        "title": "Why traditions matter",
+        "narration": "Small rituals repeated every December give families a shared story. They slow the season down and turn ordinary evenings into memories that last for years.",
+        "durationSeconds": 8
+      }
+    },
+    "frosted_window": {
+      "label": "Frosted Window",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 96,
+          "landscape": 84
+        },
+        "descriptionFontSize": {
+          "portrait": 46,
+          "landscape": 40
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "imageUrl",
+          "label": "Image URL",
+          "type": "string",
+          "description": "Optional photo seen through the frosted cottage window; a snowy view is drawn when there is none."
+        },
+        {
+          "key": "imageCaption",
+          "label": "Image Caption",
+          "type": "string",
+          "description": "Optional short caption (at most 6 words) on the gift tag under the window."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "imageCaption": "The village square"
+      },
+      "scene_defaults": {
+        "title": "Look out the window",
+        "narration": "The first real snowfall changes how a whole town feels overnight.",
+        "durationSeconds": 7
+      }
+    },
+    "gift_stat": {
+      "label": "Gift Stat",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 78
+        },
+        "descriptionFontSize": {
+          "portrait": 46,
+          "landscape": 45
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "stats",
+          "label": "Stats (2-4)",
+          "type": "object_array",
+          "maxItems": 4,
+          "description": "2 to 4 numbers stated in the source (never fewer than 2, never more than 4), each exactly as given with its unit (e.g. \"37%\", \"4.2\", \"2.5M\", \"$40B\"), with an optional 1-3 word label. Never a word or placeholder.",
+          "subFields": [
+            {
+              "key": "value",
+              "label": "Number"
+            },
+            {
+              "key": "label",
+              "label": "Label"
+            }
+          ],
+          "minItems": 2
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "stats": [
+          {
+            "value": "73%",
+            "label": "shop online"
+          },
+          {
+            "value": "$1,000",
+            "label": "avg. spend"
+          }
+        ]
+      },
+      "scene_defaults": {
+        "title": "Holiday shopping by the numbers",
+        "narration": "73% of shoppers now buy most gifts online, spending about $1,000 each season.",
+        "durationSeconds": 7
+      }
+    },
+    "tree_list": {
+      "label": "Tree List",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 84,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 36
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "items",
+          "label": "Items (2-4)",
+          "type": "string_array",
+          "maxItems": 4,
+          "description": "REQUIRED: 2 to 4 short parallel points (at most 9 words each) taken from the source. Never more than 4.",
+          "minItems": 2
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "items": [
+          "Set a realistic gift budget",
+          "Shop early for the best prices",
+          "Wrap as you go",
+          "Keep receipts together"
+        ]
+      },
+      "scene_defaults": {
+        "title": "A calmer Christmas plan",
+        "narration": "Four simple habits take most of the stress out of the season, so you get to enjoy December instead of rushing through it.",
+        "durationSeconds": 8
+      }
+    },
+    "letter_quote": {
+      "label": "Letter to Santa",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 84,
+          "landscape": 72
+        },
+        "descriptionFontSize": {
+          "portrait": 60,
+          "landscape": 52
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Heading Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Quote Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text",
+          "description": "REQUIRED: the exact quoted words from the source. Uses the Quote size."
+        },
+        {
+          "key": "attribution",
+          "label": "Attribution",
+          "type": "string",
+          "description": "Who said it, exactly as named in the source."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "quote": "Christmas is not a time nor a season, but a state of mind.",
+        "attribution": "Calvin Coolidge"
+      },
+      "scene_defaults": {
+        "title": "A thought for the season",
+        "narration": "Christmas is not a time nor a season, but a state of mind.",
+        "durationSeconds": 7
+      }
+    },
+    "snow_compare": {
+      "label": "Snow Compare",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 91
+        },
+        "descriptionFontSize": {
+          "portrait": 51,
+          "landscape": 42
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "leftLabel",
+          "label": "Left Column Title",
+          "type": "string",
+          "description": "REQUIRED: 1-3 word title of the first side, shown on the left column's banner."
+        },
+        {
+          "key": "leftPoints",
+          "label": "Left Points (3-4)",
+          "type": "string_array",
+          "minItems": 3,
+          "maxItems": 4,
+          "description": "REQUIRED: 3 to 4 short points (at most 8 words each) about the first side, from the source. Point N must contrast with right point N."
+        },
+        {
+          "key": "rightLabel",
+          "label": "Right Column Title",
+          "type": "string",
+          "description": "REQUIRED: 1-3 word title of the second side, shown on the right column's banner."
+        },
+        {
+          "key": "rightPoints",
+          "label": "Right Points (3-4)",
+          "type": "string_array",
+          "minItems": 3,
+          "maxItems": 4,
+          "description": "REQUIRED: 3 to 4 short points (at most 8 words each) about the second side, from the source, in the same order: each one opposes the left point on the same row."
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "leftLabel": "Real tree",
+        "leftPoints": [
+          "Fresh pine scent",
+          "A yearly trip to the farm",
+          "Needles to sweep up"
+        ],
+        "rightLabel": "Artificial",
+        "rightPoints": [
+          "No natural scent",
+          "Set up in minutes",
+          "No needles to clean"
+        ]
+      },
+      "scene_defaults": {
+        "title": "Real or artificial?",
+        "narration": "Both trees have their fans, for very different reasons.",
+        "durationSeconds": 8
+      }
+    },
+    "snowball_steps": {
+      "label": "Snowball Steps",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 92,
+          "landscape": 80
+        },
+        "descriptionFontSize": {
+          "portrait": 36,
+          "landscape": 32
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Step Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "steps",
+          "label": "Steps (2-3)",
+          "type": "object_array",
+          "maxItems": 3,
+          "description": "REQUIRED: 2 or 3 ordered steps or timeline points from the source (never more than 3). `label` is 1-3 words (or a date), `text` is 6-16 words.",
+          "subFields": [
+            {
+              "key": "label",
+              "label": "Label"
+            },
+            {
+              "key": "text",
+              "label": "Text"
+            }
+          ],
+          "minItems": 2
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "steps": [
+          {
+            "label": "Dec 1",
+            "text": "Plan the guest list and menu"
+          },
+          {
+            "label": "Dec 10",
+            "text": "Order gifts and decorations"
+          },
+          {
+            "label": "Dec 20",
+            "text": "Wrap, bake and prepare the house"
+          }
+        ]
+      },
+      "scene_defaults": {
+        "title": "Countdown to the big day",
+        "narration": "Spread the work across December and nothing piles up.",
+        "durationSeconds": 8
+      }
+    },
+    "data_visualisation": {
+      "label": "Snowy Chart",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 88,
+          "landscape": 76
+        },
+        "descriptionFontSize": {
+          "portrait": 40,
+          "landscape": 36
+        },
+        "chartType": "auto"
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "chartType",
+          "label": "Chart Type",
+          "type": "select",
+          "options": [
+            {
+              "label": "Auto (infer from data)",
+              "value": "auto"
+            },
+            {
+              "label": "Line",
+              "value": "line"
+            },
+            {
+              "label": "Bar",
+              "value": "bar"
+            },
+            {
+              "label": "Histogram",
+              "value": "histogram"
+            }
+          ]
+        },
+        {
+          "key": "chartTable",
+          "label": "Chart data — first column labels; next columns numeric series",
+          "type": "chart_table"
+        },
+        {
+          "key": "xAxisLabel",
+          "label": "X-axis Label",
+          "type": "string"
+        },
+        {
+          "key": "yAxisLabel",
+          "label": "Y-axis Label",
+          "type": "string"
+        },
+        {
+          "key": "chartYAxisTicks",
+          "label": "Y-axis Tick Labels",
+          "type": "string_array",
+          "maxItems": 4
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "chartType": "bar",
+        "xAxisLabel": "Week",
+        "yAxisLabel": "Orders",
+        "chartTable": {
+          "headers": [
+            "Week",
+            "Orders"
+          ],
+          "rows": [
+            [
+              "Nov 25",
+              "120"
+            ],
+            [
+              "Dec 2",
+              "180"
+            ],
+            [
+              "Dec 9",
+              "260"
+            ],
+            [
+              "Dec 16",
+              "310"
+            ]
+          ]
+        },
+        "chartYAxisTicks": []
+      },
+      "scene_defaults": {
+        "title": "Orders climb toward Christmas",
+        "narration": "Weekly orders nearly tripled in the four weeks before Christmas.",
+        "durationSeconds": 8
+      }
+    },
+    "ending_socials": {
+      "label": "Santa's Farewell",
+      "defaults": {
+        "titleFontSize": {
+          "portrait": 120,
+          "landscape": 81
+        },
+        "descriptionFontSize": {
+          "portrait": 50,
+          "landscape": 42
+        }
+      },
+      "fields": [
+        {
+          "key": "titleFontSize",
+          "label": "Title Size",
+          "type": "number",
+          "responsive": true,
+          "min": 18,
+          "max": 220,
+          "step": 1
+        },
+        {
+          "key": "descriptionFontSize",
+          "label": "Body Size",
+          "type": "number",
+          "responsive": true,
+          "min": 10,
+          "max": 140,
+          "step": 1
+        },
+        {
+          "key": "showWebsiteButton",
+          "label": "Show Website CTA Button",
+          "type": "select",
+          "options": [
+            {
+              "label": "Enabled",
+              "value": "true"
+            },
+            {
+              "label": "Disabled",
+              "value": "false"
+            }
+          ]
+        },
+        {
+          "key": "websiteLink",
+          "label": "Website Link",
+          "type": "string",
+          "placeholder": "https://yourwebsite.com"
+        },
+        {
+          "key": "ctaButtonText",
+          "label": "CTA Button Text",
+          "type": "string",
+          "placeholder": "Explore more"
+        },
+        {
+          "key": "ctas",
+          "label": "Call-to-Action Buttons",
+          "type": "object_array",
+          "maxItems": 3,
+          "subFields": [
+            {
+              "key": "ctaButtonText",
+              "label": "CTA Button Text"
+            },
+            {
+              "key": "websiteLink",
+              "label": "Website Link"
+            },
+            {
+              "key": "showWebsiteButton",
+              "label": "Show (true/false)"
+            }
+          ]
+        },
+        {
+          "key": "socials",
+          "label": "Social Platforms",
+          "type": "object_array",
+          "maxItems": 7,
+          "subFields": [
+            {
+              "key": "platform",
+              "label": "Platform (facebook, instagram, youtube, medium, substack, linkedin, tiktok)"
+            },
+            {
+              "key": "enabled",
+              "label": "Enabled (true/false)"
+            },
+            {
+              "key": "label",
+              "label": "Label / handle / URL text"
+            }
+          ]
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "type": "number",
+          "description": "Integer seed for the snowfall and decorations.",
+          "min": 0,
+          "max": 500,
+          "step": 1
+        }
+      ],
+      "sample_props": {
+        "showWebsiteButton": true,
+        "websiteLink": "https://yourwebsite.com",
+        "ctaButtonText": "Explore more",
+        "socials": [
+          {
+            "platform": "instagram",
+            "enabled": "true",
+            "label": "Instagram"
+          },
+          {
+            "platform": "youtube",
+            "enabled": "true",
+            "label": "YouTube"
+          },
+          {
+            "platform": "linkedin",
+            "enabled": "true",
+            "label": "LinkedIn"
+          }
+        ],
+        "ctas": [
+          {
+            "ctaButtonText": "Explore more",
+            "websiteLink": "https://yourwebsite.com",
+            "showWebsiteButton": "true"
+          }
+        ]
+      },
+      "scene_defaults": {
+        "title": "Merry Christmas!",
+        "narration": "Thanks for watching, and see you in the new year.",
+        "durationSeconds": 8
+      }
+    }
+  },
+  "layouts_without_image": [
+    "santa_hero",
+    "gift_stat",
+    "tree_list",
+    "letter_quote",
+    "snow_compare",
+    "snowball_steps",
+    "data_visualisation",
+    "ending_socials"
+  ],
+  "layout_policy": {
+    "required": {
+      "gift_stat": ["stats"],
+      "tree_list": ["items"],
+      "letter_quote": ["quote"],
+      "snow_compare": ["leftLabel", "leftPoints", "rightLabel", "rightPoints"],
+      "snowball_steps": ["steps"]
+    },
+    "item_required": {
+      "gift_stat": { "stats": ["value"] },
+      "snowball_steps": { "steps": ["text"] }
+    },
+    "paired_lists": {
+      "snow_compare": ["leftPoints", "rightPoints"]
+    },
+    "repairable": ["gift_stat", "tree_list", "snow_compare", "snowball_steps"],
+    "always_fill": ["snow_compare"],
+    "auto_pick": ["tree_list", "frosted_window", "snowball_steps", "snowy_narration"],
+    "text_layouts": ["snowy_narration", "frosted_window"],
+    "needs": {
+      "gift_stat": "numbers",
+      "letter_quote": "quote",
+      "data_visualisation": "table"
+    },
+    "limits": {
+      "snowy_narration": { "share": 0.15, "min_gap": 3 }
+    }
+  }
+}

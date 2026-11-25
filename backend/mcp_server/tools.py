@@ -164,8 +164,8 @@ def _raw_tool_definitions() -> list[Tool]:
             # panel. The manual branch attaches the widget per-result instead
             # (see handlers._setup_video).
             **{"_meta": {
-                "ui": {"resourceUri": "ui://blog2video/setup_gallery_v26"},
-                "openai/outputTemplate": "ui://blog2video/setup_gallery_v26",
+                "ui": {"resourceUri": "ui://blog2video/setup_gallery_v27"},
+                "openai/outputTemplate": "ui://blog2video/setup_gallery_v27",
                 "openai/widgetAccessible": True,
             }},
         ),
@@ -240,8 +240,8 @@ def _raw_tool_definitions() -> list[Tool]:
             },
             annotations=ToolAnnotations(readOnlyHint=True),
             **{"_meta": {
-                "ui": {"resourceUri": "ui://blog2video/setup_gallery_v26"},
-                "openai/outputTemplate": "ui://blog2video/setup_gallery_v26",
+                "ui": {"resourceUri": "ui://blog2video/setup_gallery_v27"},
+                "openai/outputTemplate": "ui://blog2video/setup_gallery_v27",
                 "openai/widgetAccessible": True,
             }},
         ),
@@ -262,8 +262,8 @@ def _raw_tool_definitions() -> list[Tool]:
             inputSchema={"type": "object", "properties": {}},
             annotations=ToolAnnotations(readOnlyHint=True),
             **{"_meta": {
-                "ui": {"resourceUri": "ui://blog2video/template_gallery_v5"},
-                "openai/outputTemplate": "ui://blog2video/template_gallery_v5",
+                "ui": {"resourceUri": "ui://blog2video/template_gallery_v6"},
+                "openai/outputTemplate": "ui://blog2video/template_gallery_v6",
                 "openai/widgetAccessible": True,
             }},
         ),

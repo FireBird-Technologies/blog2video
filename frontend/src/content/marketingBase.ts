@@ -563,6 +563,43 @@ export const templateProfiles: TemplateProfile[] = [
     ],
   },
   {
+    slug: "christmas",
+    name: "Snowy Christmas",
+    description:
+      "A bright, snowy Christmas template with Santa's sleigh, a tree that decorates itself, gift boxes, ribbon banners and falling snow in every scene.",
+    bestFor: "Holiday campaigns, seasonal gift guides, year-end recaps, festive newsletters and Christmas greetings.",
+    differentiator:
+      "Santa flies his sleigh across a snowy sky in the opening, list points hang from a growing Christmas tree, numbers rise out of popping gift boxes, comparisons line up point against point under snowy ribbon banners and steps roll in as snowballs a snowman points at — every scene ends in a gust of snow.",
+    styleFit: "Best for warm, cheerful seasonal content that should feel unmistakably festive.",
+    previewSceneKey: "preview-christmas",
+    layouts: [
+      "santa_hero",
+      "snowy_narration",
+      "frosted_window",
+      "gift_stat",
+      "tree_list",
+      "letter_quote",
+      "snow_compare",
+      "snowball_steps",
+      "data_visualisation",
+      "ending_socials",
+    ],
+    longDescription:
+      "Snowy Christmas turns your writing into a bright winter day: an icy-blue sky, snowy hills and pines, and snow falling in every scene. Santa's sleigh and reindeer open the video while your title drops in on a snow-capped wooden sign. Snowy Narration and Frosted Window carry explanation and photos, Gift Stat pops numbers out of wrapped presents, Tree List hangs your points from a self-decorating tree, Letter to Santa seals a real quote, Snow Compare sets two ideas against each other, point by point and Snowball Steps rolls ordered steps in as snowballs while a snowman points the way. Real tables become candy-cane bar charts or fairy-light line charts, and Santa waves goodbye beside the lit tree at the end.",
+    idealFor: [
+      "Holiday marketing and gift guides",
+      "Year-end recaps and season's greetings",
+      "Festive newsletters and community updates",
+      "Christmas recipes, crafts and how-tos",
+      "Seasonal product launches and offers",
+    ],
+    exampleTopics: [
+      "Our 2026 holiday gift guide",
+      "Five ways to make Christmas less stressful",
+      "A look back at our year, with thanks",
+    ],
+  },
+  {
     slug: "custom",
     name: "Custom Templates",
     description:

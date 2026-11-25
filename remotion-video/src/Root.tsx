@@ -83,6 +83,10 @@ import {
   CrumpledVideo,
   calculateCrumpledMetadata,
 } from "./templates/crumpled/CrumpledVideo";
+import {
+  ChristmasVideo,
+  calculateChristmasMetadata,
+} from "./templates/christmas/ChristmasVideo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -348,6 +352,18 @@ export const RemotionRoot: React.FC = () => {
           dataUrl: "/data.json",
         }}
         calculateMetadata={calculateCrumpledMetadata}
+      />
+      <Composition
+        id="ChristmasVideo"
+        component={ChristmasVideo}
+        durationInFrames={30 * 300}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          dataUrl: "/data.json",
+        }}
+        calculateMetadata={calculateChristmasMetadata}
       />
     </>
   );

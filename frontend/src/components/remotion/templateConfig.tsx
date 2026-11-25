@@ -28,6 +28,7 @@ import { SakuraVideoComposition } from "./sakura/SakuraVideoComposition";
 import { OldDocumentaryReelVideoComposition } from "./old-documentary-reel/OldDocumentaryReelVideoComposition";
 import { StarlitVideoComposition } from "./starlit/StarlitVideoComposition";
 import { CrumpledPreviewComposition } from "./crumpled/CrumpledPreviewComposition";
+import { ChristmasPreviewComposition } from "./christmas/ChristmasPreviewComposition";
 import {
   RemotionDefaultVideoComposition,
   RemotionGridcraftVideoComposition,
@@ -454,6 +455,19 @@ const CRUMPLED_LAYOUTS = new Set([
   "ending_socials",
 ]);
 
+const CHRISTMAS_LAYOUTS = new Set([
+  "santa_hero",
+  "snowy_narration",
+  "frosted_window",
+  "gift_stat",
+  "tree_list",
+  "letter_quote",
+  "snow_compare",
+  "snowball_steps",
+  "data_visualisation",
+  "ending_socials",
+]);
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
   default: {
     component: DefaultVideoComposition as React.ComponentType<any>,
@@ -711,6 +725,19 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateConfig> = {
       accent: "#8b5a2b",
       bg: "#f9f5ec",
       text: "#000000",
+    },
+    baseWidth: 1920,
+    baseHeight: 1080,
+  },
+  christmas: {
+    component: ChristmasPreviewComposition as React.ComponentType<any>,
+    heroLayout: "santa_hero",
+    fallbackLayout: "snowy_narration",
+    validLayouts: CHRISTMAS_LAYOUTS,
+    defaultColors: {
+      accent: "#D62839",
+      bg: "#EAF4FB",
+      text: "#12324A",
     },
     baseWidth: 1920,
     baseHeight: 1080,

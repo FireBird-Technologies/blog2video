@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1000" width="1200" height="1000">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7a2a2f"/>
+      <stop offset="1" stop-color="#5a1d22"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9a6a45"/>
+      <stop offset="1" stop-color="#6e4a30"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd98a" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffd98a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- cosy room -->
+  <rect width="1200" height="1000" fill="url(#wall)"/>
+  <g stroke="#6b2429" stroke-width="18">
+    <line x1="150" y1="0" x2="150" y2="760"/><line x1="450" y1="0" x2="450" y2="760"/>
+    <line x1="750" y1="0" x2="750" y2="760"/><line x1="1050" y1="0" x2="1050" y2="760"/>
+  </g>
+  <rect y="760" width="1200" height="240" fill="url(#floor)"/>
+  <rect y="752" width="1200" height="16" fill="#4a2a18"/>
+
+  <!-- warm glow behind the tree -->
+  <circle cx="600" cy="480" r="420" fill="url(#glow)"/>
+
+  <!-- garland across the top -->
+  <path d="M0 70 Q150 150 300 70 T600 70 T900 70 T1200 70" fill="none" stroke="#1f7a4d" stroke-width="28" stroke-linecap="round"/>
+  <g>
+    <circle cx="150" cy="112" r="11" fill="#e8b746"/><circle cx="450" cy="112" r="11" fill="#d62839"/>
+    <circle cx="750" cy="112" r="11" fill="#e8b746"/><circle cx="1050" cy="112" r="11" fill="#d62839"/>
+  </g>
+
+  <!-- the tree -->
+  <rect x="575" y="700" width="50" height="70" fill="#4a2a18"/>
+  <path d="M600 150 L720 340 L670 340 L770 500 L705 500 L840 700 L360 700 L495 500 L430 500 L530 340 L480 340 Z" fill="#1f7a4d"/>
+  <path d="M600 150 L720 340 L670 340 L770 500 L705 500 L840 700 L600 700 Z" fill="#17603c" opacity="0.6"/>
+  <path d="M520 300 Q600 340 690 290 M470 440 Q600 500 740 430 M420 620 Q600 690 800 610" fill="none" stroke="#e8b746" stroke-width="10" stroke-linecap="round"/>
+  <!-- lights -->
+  <g>
+    <circle cx="560" cy="260" r="13" fill="#ffd27a"/><circle cx="650" cy="300" r="13" fill="#d62839"/>
+    <circle cx="520" cy="380" r="13" fill="#3fa7e0"/><circle cx="700" cy="400" r="13" fill="#ffd27a"/>
+    <circle cx="600" cy="420" r="13" fill="#d62839"/><circle cx="470" cy="520" r="13" fill="#ffd27a"/>
+    <circle cx="740" cy="540" r="13" fill="#3fa7e0"/><circle cx="560" cy="560" r="13" fill="#e8b746"/>
+    <circle cx="660" cy="580" r="13" fill="#d62839"/><circle cx="430" cy="650" r="13" fill="#3fa7e0"/>
+    <circle cx="790" cy="660" r="13" fill="#ffd27a"/><circle cx="600" cy="660" r="13" fill="#3fa7e0"/>
+  </g>
+  <!-- star -->
+  <circle cx="600" cy="140" r="70" fill="url(#glow)"/>
+  <path d="M600 88 l14 40 h42 l-34 25 l13 40 l-35 -25 l-35 25 l13 -40 l-34 -25 h42 z" fill="#e8b746"/>
+
+  <!-- presents -->
+  <g>
+    <rect x="300" y="740" width="170" height="140" rx="8" fill="#d62839"/>
+    <rect x="372" y="740" width="26" height="140" fill="#e8b746"/>
+    <rect x="290" y="718" width="190" height="34" rx="6" fill="#e0404f"/>
+    <path d="M385 718 q-55 -60 -75 -12 q20 26 75 12z M385 718 q55 -60 75 -12 q-20 26 -75 12z" fill="#e8b746"/>
+
+    <rect x="500" y="790" width="140" height="100" rx="8" fill="#2e7d4f"/>
+    <rect x="560" y="790" width="22" height="100" fill="#ffffff"/>
+    <rect x="492" y="772" width="156" height="28" rx="6" fill="#36905c"/>
+
+    <rect x="680" y="750" width="150" height="130" rx="8" fill="#e8b746"/>
+    <rect x="744" y="750" width="22" height="130" fill="#d62839"/>
+    <rect x="672" y="730" width="166" height="30" rx="6" fill="#f0c45a"/>
+    <path d="M755 730 q-45 -50 -62 -10 q16 22 62 10z M755 730 q45 -50 62 -10 q-16 22 -62 10z" fill="#d62839"/>
+
+    <rect x="850" y="810" width="110" height="80" rx="6" fill="#3fa7e0"/>
+    <rect x="896" y="810" width="18" height="80" fill="#ffffff"/>
+  </g>
+
+  <!-- hanging stocking -->
+  <g>
+    <path d="M150 300 L150 420 Q150 450 175 466 Q205 486 186 512 Q168 532 128 518 L92 500 Q66 488 70 456 L70 300 Z" fill="#d62839"/>
+    <rect x="60" y="280" width="100" height="40" rx="10" fill="#ffffff"/>
+  </g>
+  <g>
+    <path d="M1130 300 L1130 420 Q1130 450 1105 466 Q1075 486 1094 512 Q1112 532 1152 518 L1188 500 Q1214 488 1210 456 L1210 300 Z" fill="#2e7d4f"/>
+    <rect x="1120" y="280" width="100" height="40" rx="10" fill="#ffffff"/>
+  </g>
+</svg>

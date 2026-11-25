@@ -968,6 +968,14 @@ export function getImageBoxAspectRatio(
     if (crumpledId === "taped_image") return isPortrait ? "860 / 602" : "866 / 818";
     if (crumpledId === "sketch_narration") return isPortrait ? "852 / 490" : "606 / 577";
   }
+  if (templateId === "christmas" && layoutId) {
+    // Snowy Christmas: the photo fills the frosted window's glass (frame minus its
+    // wooden border — christmas/layouts/FrostedWindow.tsx) or the 4:3 picture the
+    // snowman holds up (PHOTO in christmas/layouts/SnowyNarration.tsx).
+    const christmasId = normalizeLayoutId(layoutId);
+    if (christmasId === "frosted_window") return isPortrait ? "860 / 746" : "892 / 746";
+    if (christmasId === "snowy_narration") return isPortrait ? "380 / 285" : "420 / 315";
+  }
   const dims = layoutId ? LAYOUT_IMAGE_BOX_DIMS[normalizeLayoutId(layoutId)] : undefined;
   const { w, h } = dims
     ? (isPortrait ? dims.portrait : dims.landscape)

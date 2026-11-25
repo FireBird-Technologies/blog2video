@@ -68,6 +68,7 @@ from app.services.project_cleanup import (
     remove_failed_generation_project,
     PUBLIC_MSG_PIPELINE_FAILED,
 )
+from app.services.layout_policy import get_layout_policy
 from app.services.template_service import (
     validate_template_id,
     apply_blueprint_to_theme,
@@ -977,7 +978,9 @@ def _run_project_template_change_job(job_id: int) -> None:
 
         target_template = job.target_template
         layout_planner = TemplateLayoutPlanner(target_template)
-        template_gen = TemplateSceneGenerator(target_template)
+        template_gen = TemplateSceneGenerator(
+            target_template, source_text=project.blog_content or ""
+        )
         target_valid_layouts = get_valid_layouts(target_template)
         supports_ending_socials = "ending_socials" in target_valid_layouts
         # Pre-compute the normalized hero layout for the new template so the
@@ -1012,6 +1015,7 @@ def _run_project_template_change_job(job_id: int) -> None:
             target_template,
             [
                 {
+                    **scenes_data[i],
                     "preferred_layout": (
                         preferred_layouts[i].strip()
                         if i < len(preferred_layouts) and isinstance(preferred_layouts[i], str)
@@ -1026,6 +1030,7 @@ def _run_project_template_change_job(job_id: int) -> None:
             (entry.get("preferred_layout") or "") if isinstance(entry, dict) else ""
             for entry in sanitized_pairs
         ]
+        template_gen.set_planned_layouts(preferred_layouts)
 
         if is_custom_template(target_template):
             # Keep custom-template regeneration consistent with normal generation:
@@ -2836,6 +2841,7 @@ def _run_regenerate_script_stage_a(job_id: int) -> None:
             replan_template_id,
             [
                 {
+                    **planner_scenes_data[i],
                     "preferred_layout": (
                         planned_layouts[i].strip()
                         if i < len(planned_layouts) and isinstance(planned_layouts[i], str)
@@ -8535,7 +8541,9 @@ async def regenerate_scene(
 
     if needs_layout_regen:
         # Regenerate scene layout using AI
-        template_gen = TemplateSceneGenerator(project.template)
+        template_gen = TemplateSceneGenerator(
+            project.template, source_text=project.blog_content or ""
+        )
         all_scenes = (
             db.query(Scene)
             .filter(Scene.project_id == project_id)
@@ -9238,6 +9246,12 @@ async def _generate_and_insert_scene(
     def _fallback_content_layout(template_id: str, avoid: set[str]) -> str | None:
         """A safe content layout, preferring one not in ``avoid`` (the neighbours)."""
         candidates = _content_layout_candidates(template_id)
+        # A layout policy names the layouts that fit any scene; without one the
+        # alphabetical pick could land on a layout this scene cannot fill.
+        policy = get_layout_policy(template_id)
+        if policy and policy.get("auto_pick"):
+            used = [p.split(": ")[-1] for p in other_layout_parts]
+            candidates = sorted(policy["auto_pick"], key=used.count)
         if not candidates:
             return None
         for c in candidates:
@@ -9275,7 +9289,9 @@ async def _generate_and_insert_scene(
 
     # 4. Build the layout descriptor (custom templates re-extract structured content;
     #    built-in templates let the AI pick a varied, content-appropriate layout).
-    template_gen = TemplateSceneGenerator(project.template)
+    template_gen = TemplateSceneGenerator(
+        project.template, source_text=project.blog_content or ""
+    )
     try:
         if is_custom_template(project.template):
             # Custom templates: let the AI pick an ARRANGEMENT that fits the content and

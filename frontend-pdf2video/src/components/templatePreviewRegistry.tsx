@@ -38,7 +38,9 @@ import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreview
 import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
 import CrumpledPreview from "./templatePreviews/CrumpledPreview";
+import ChristmasPreview from "./templatePreviews/ChristmasPreview";
 import CrumpledPreviewPortrait from "./templatePreviews/portrait/CrumpledPreviewPortrait";
+import ChristmasPreviewPortrait from "./templatePreviews/portrait/ChristmasPreviewPortrait";
 
 // Raw preview components. Not exported directly — every built-in preview is
 // wrapped with `withPoster` below so it shows a static poster in thumbnailMode
@@ -62,6 +64,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
  magazine: MagazinePreview,
   sakura: SakuraPreview,
   crumpled: CrumpledPreview,
+  christmas: ChristmasPreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -83,6 +86,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
    magazine: MagazinePreviewPortrait,
   sakura: SakuraPreviewPortrait,
   crumpled: CrumpledPreviewPortrait,
+  christmas: ChristmasPreviewPortrait,
 };
 
 function wrapPreviews(
@@ -174,6 +178,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   crumpled: {
     title: "Crumpled Paper",
     subtitle: "Hand-pencilled notes on crumpled paper, with tear, fold and unfold transitions",
+  },
+  christmas: {
+    title: "Snowy Christmas",
+    subtitle: "A bright snowy day with Santa's sleigh, a self-decorating tree, gifts and falling snow",
   },
 };
 
