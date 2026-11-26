@@ -3250,5 +3250,9 @@
   "marketing:/templates/christmas@1d80c560330ed685@20aaebd1": {
     "keep": true,
     "reason": "unparseable classifier response — kept by default"
+  },
+  "marketing:/templates/christmas@15d15ffd40781367@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video Christmas template features and use cases."
   }
 }

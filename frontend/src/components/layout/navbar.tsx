@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import DiscountBanner from "../DiscountBanner";
+import ChristmasBanner from "../ChristmasBanner";
 import ExploreButton from "../ExploreButton";
 import { notestackUrl } from "../../config/siblingSites";
 import ChromeExtensionButton from "../ChromeExtensionButton";
@@ -9,6 +10,7 @@ import ChromeExtensionButton from "../ChromeExtensionButton";
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
   if (!user) return null;
@@ -22,6 +24,7 @@ const Navbar = () => {
     <nav className="border-b border-white/20 bg-white/60 backdrop-blur-xl sticky top-0 z-50">
       {/* Discount banner — only for free tier users, aligned with navbar width */}
       {/* <DiscountBanner containerClassName="max-w-7xl" visible={user.plan === "free"} /> */}
+      {pathname === "/dashboard" && <ChristmasBanner containerClassName="max-w-7xl" />}
 
       <div className="max-w-7xl mx-auto px-6 pt-5 pb-3 flex items-center justify-between gap-4">
         <Link

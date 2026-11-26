@@ -20,6 +20,7 @@ import PlatformShowcaseSection from "../components/PlatformShowcaseSection";
 import UserReviewsSection from "../components/UserReviewsSection";
 import PublicFooter from "../components/public/PublicFooter";
 import DiscountBanner from "../components/DiscountBanner";
+import ChristmasBanner from "../components/ChristmasBanner";
 import Seo from "../components/seo/Seo";
 import ExploreButton from "../components/ExploreButton";
 import ChromeExtensionButton from "../components/ChromeExtensionButton";
@@ -606,6 +607,7 @@ export default function Landing() {
       {/* ─── Nav ─── */}
       <nav className="sticky top-0 z-50 border-b border-white/50 backdrop-blur-2xl" style={{ background: "rgba(255,255,255,0.60)", boxShadow: "0 1px 0 rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.03)" }}>
         {/* Banner above navbar so it appears first on scroll */}
+        <ChristmasBanner containerClassName="max-w-6xl" />
         {/* <DiscountBanner containerClassName="max-w-6xl" /> */}
 
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
