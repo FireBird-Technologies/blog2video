@@ -10,7 +10,7 @@
  * The quote is written on the letter, signed with the attribution; the Title is a
  * small heading (above the letter in portrait, above the snowman in landscape).
  * Left (bottom-left in portrait): a plain snowman — snowballs, face and a red
- * muffler, no hat or arms — builds himself and blinks. In portrait a mirrored twin
+ * muffler and mittened stick arms (one raised in a wave), no hat — builds himself and blinks. In portrait a mirrored twin
  * with a green muffler stands bottom-right, so the two face each other.
  * Exit: the snow gust.
  *
@@ -328,13 +328,13 @@ export const LetterQuote: React.FC<SceneLayoutProps> = (props) => {
       </div>
       {inFront ? letter : null}
 
-      {/* plain snowman: snowballs, face and a red muffler */}
+      {/* snowman: snowballs, face, a red muffler and waving, mittened stick arms */}
       <Snowman
         frame={frame}
         accent={pal.accent}
         build={snowBuild}
         hat={false}
-        arms={false}
+        mittenColor={pal.accent}
         buttons={false}
         shade={pal.snowShade}
         height={snowH}
@@ -349,9 +349,9 @@ export const LetterQuote: React.FC<SceneLayoutProps> = (props) => {
             accent={pal.accent}
             build={interpolate(frame, [18, 64], [0, 1], clamp)}
             hat={false}
-            arms={false}
             buttons={false}
             scarfColor={FESTIVE.pine}
+            mittenColor={FESTIVE.pine}
             shade={pal.snowShade}
             height={snowH}
           />

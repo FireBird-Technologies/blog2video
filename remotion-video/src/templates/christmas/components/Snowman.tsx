@@ -20,6 +20,7 @@
  * `outfit`: "classic" (black top hat, red scarf) or "cozy" — a green knitted beanie
  * with a white ribbed band and red pom-pom, a green-and-white scarf, red mittens on
  * the stick hands and rosy cheeks.
+ * `mittenColor` puts mittens on any outfit.
  *
  * Mirror byte-identical in all three trees.
  */
@@ -103,11 +104,13 @@ export const SnowmanFigure: React.FC<{
   outfit?: "classic" | "cozy";
   /** Override the scarf colour (defaults: accent for classic, pine for cozy). */
   scarfColor?: string;
-}> = ({ frame, accent, build = 1, pose = "wave", pointAngle = -12, holdHalfW = 130, holdY = 260, shade = FESTIVE.snowShade, hat = true, arms: showArms = true, buttons = true, outfit = "classic", scarfColor: scarfOverride }) => {
+  /** Mittens on the stick hands in this colour (default: accent for cozy, none for classic). */
+  mittenColor?: string;
+}> = ({ frame, accent, build = 1, pose = "wave", pointAngle = -12, holdHalfW = 130, holdY = 260, shade = FESTIVE.snowShade, hat = true, arms: showArms = true, buttons = true, outfit = "classic", scarfColor: scarfOverride, mittenColor }) => {
   const cozy = outfit === "cozy";
   const scarfColor = scarfOverride ?? (cozy ? FESTIVE.pine : accent);
   const scarfStripe = cozy ? FESTIVE.snow : FESTIVE.gold;
-  const mitten = cozy ? accent : undefined;
+  const mitten = mittenColor ?? (cozy ? accent : undefined);
   const id = React.useId().replace(/:/g, "");
   const bottom = popIn(build, 0, 0.28);
   const middle = popIn(build, 0.18, 0.44);
