@@ -585,7 +585,7 @@ export const templateProfiles: TemplateProfile[] = [
       "ending_socials",
     ],
     longDescription:
-      "Snowy Christmas turns your writing into a bright winter day: an icy-blue sky, snowy hills and pines, and snow falling in every scene. Santa's sleigh and reindeer open the video while your title drops in on a snow-capped wooden sign. Snowy Narration and Frosted Window carry explanation and photos, Gift Stat pops numbers out of wrapped presents, Tree List hangs your points from a self-decorating tree, Letter to Santa seals a real quote, Snow Compare sets two ideas against each other, point by point and Snowball Steps rolls ordered steps in as snowballs while a snowman points the way. Real tables become candy-cane bar charts or fairy-light line charts, and Santa waves goodbye beside the lit tree at the end.",
+      "Snowy Christmas turns your writing into a bright winter day: an icy-blue sky, snowy hills and pines, and snow falling in every scene. Santa's sleigh and reindeer open the video while your title drops in on a snow-capped wooden sign. Snowy Narration and Frosted Window carry explanation and photos, Gift Stat pops numbers out of wrapped presents, Tree List hangs your points from a self-decorating tree, Letter to Santa seals a real quote while snowmen in matching scarves and mittens wave beside it, Snow Compare sets two ideas against each other, point by point and Snowball Steps rolls ordered steps in as snowballs while a snowman points the way. Real tables become candy-cane bar charts or fairy-light line charts, and Santa waves goodbye beside the lit tree at the end.",
     idealFor: [
       "Holiday marketing and gift guides",
       "Year-end recaps and season's greetings",
