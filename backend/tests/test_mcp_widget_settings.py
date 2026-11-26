@@ -31,7 +31,7 @@ def test_widget_resource_versions_are_bumped_for_cached_hosts():
     tools = (BACKEND / "mcp_server/tools.py").read_text(encoding="utf-8")
     transport = (BACKEND / "app/routers/mcp_transport.py").read_text(encoding="utf-8")
 
-    assert "ui://blog2video/setup_gallery_v26" in tools
+    assert "ui://blog2video/setup_gallery_v27" in tools
     assert "ui://blog2video/settings_panel_v5" in tools
     assert '_SETTINGS_URI = "ui://blog2video/settings_panel_v5"' in transport
 

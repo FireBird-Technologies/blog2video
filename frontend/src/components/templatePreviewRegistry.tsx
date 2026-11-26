@@ -37,11 +37,13 @@ import SakuraPreview from "./templatePreviews/SakuraPreview";
 import OldDocumentaryReelPreview from "./templatePreviews/OldDocumentaryReelPreview";
 import StarlitPreview from "./templatePreviews/StarlitPreview";
 import CrumpledPreview from "./templatePreviews/CrumpledPreview";
+import ChristmasPreview from "./templatePreviews/ChristmasPreview";
 import MagazinePreviewPortrait from "./templatePreviews/portrait/MagazinePreviewPortrait";
 import SakuraPreviewPortrait from "./templatePreviews/portrait/SakuraPreviewPortrait";
 import OldDocumentaryReelPreviewPortrait from "./templatePreviews/portrait/OldDocumentaryReelPreviewPortrait";
 import StarlitPreviewPortrait from "./templatePreviews/portrait/StarlitPreviewPortrait";
 import CrumpledPreviewPortrait from "./templatePreviews/portrait/CrumpledPreviewPortrait";
+import ChristmasPreviewPortrait from "./templatePreviews/portrait/ChristmasPreviewPortrait";
 import { withPoster } from "./templatePreviews/PosterOrPlayer";
 
 // Raw preview components. Not exported directly — every built-in preview is
@@ -68,6 +70,7 @@ const RAW_TEMPLATE_PREVIEWS: Record<string, FC<{ thumbnailMode?: boolean }>> = {
   "old-documentary-reel": OldDocumentaryReelPreview,
   starlit: StarlitPreview,
   crumpled: CrumpledPreview,
+  christmas: ChristmasPreview,
 };
 
 const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolean }>> = {
@@ -91,6 +94,7 @@ const RAW_TEMPLATE_PREVIEWS_PORTRAIT: Record<string, FC<{ thumbnailMode?: boolea
   "old-documentary-reel": OldDocumentaryReelPreviewPortrait,
   starlit: StarlitPreviewPortrait,
   crumpled: CrumpledPreviewPortrait,
+  christmas: ChristmasPreviewPortrait,
 };
 
 function wrapPreviews(
@@ -190,6 +194,10 @@ export const TEMPLATE_DESCRIPTIONS: Record<string, { title: string; subtitle: st
   crumpled: {
     title: "Crumpled Paper",
     subtitle: "Hand-pencilled notes on crumpled paper, with tear, fold and unfold transitions",
+  },
+  christmas: {
+    title: "Snowy Christmas",
+    subtitle: "A bright snowy day with Santa's sleigh, a self-decorating tree, gifts and falling snow",
   },
 };
 

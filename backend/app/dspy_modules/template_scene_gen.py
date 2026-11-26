@@ -28,6 +28,14 @@ from app.services.template_service import (
     is_builtin_chart_layout,
     is_builtin_ticker_layout,
 )
+from app.services.layout_policy import (
+    fillable_fields,
+    get_layout_policy,
+    normalize_and_check,
+    numbers_grounded,
+    pick_text_layout,
+    relevant_passages,
+)
 from app.observability.logging import get_logger
 
 logger = get_logger(__name__)
@@ -195,6 +203,37 @@ class BuiltInRegenerateSceneToDescriptor(dspy.Signature):
 
 
 # ─── LaDuc chart caption: prose beside `market_annotation` charts ──────────────
+
+
+class FillLayoutProps(dspy.Signature):
+    """
+    Fill the props of ONE scene layout that has already been chosen for the scene.
+
+    Rules:
+    - The layout is final. Do not suggest another one, and never return an empty object.
+    - Fill EVERY required field, respecting each field's minItems / maxItems.
+    - Take the content from the narration and the article passages. Paraphrase into
+      short on-screen phrases. Never invent facts, names, dates or figures.
+    - Use facts and ideas only. Never describe a picture: no lighting, colours, rooms,
+      clothing, camera views or mood.
+    - Comparison layouts: first decide the two sides the scene contrasts, then give both
+      sides the SAME number of points (3 or 4), in matching order, so point N on one side
+      contrasts with point N on the other (same aspect: who, when, where, why, meaning).
+      Each point is at most 8 words and must say something different from the others.
+    - Write in content_language only.
+    """
+
+    scene_title: str = dspy.InputField(desc="Title of the scene")
+    narration: str = dspy.InputField(desc="What is said in this scene")
+    article_passages: str = dspy.InputField(desc="The parts of the source article about this scene")
+    layout: str = dspy.InputField(desc="The chosen layout id")
+    fields_json: str = dspy.InputField(desc="JSON list of the layout's fields: key, type, limits, description")
+    problems: str = dspy.InputField(desc="What is missing or wrong with the previous attempt. May be empty.")
+    content_language: str = dspy.InputField(desc="Language for every value")
+
+    layout_props_json: str = dspy.OutputField(
+        desc="Valid JSON object using the exact field keys. Do NOT wrap in markdown code blocks."
+    )
 
 
 class LaDucChartSummary(dspy.Signature):
@@ -401,10 +440,18 @@ def _extract_scraped_ticker_rows(visual_description: str) -> list[str]:
 class TemplateSceneGenerator:
     """Generates scene layout configs with focus on variety and accurate content extraction."""
 
-    def __init__(self, template_id: str, debug: bool = False):
+    def __init__(self, template_id: str, debug: bool = False, source_text: str = ""):
+        """``source_text`` is the project's article. Only templates with a
+        ``layout_policy`` use it, to refill a layout's missing props."""
         ensure_dspy_configured()
         self.template_id = template_id
         self.debug = debug
+        self.source_text = source_text or ""
+        # Opt-in (meta.json `layout_policy`); None leaves every path below unchanged.
+        self._policy = get_layout_policy(template_id)
+        # Layout per scene index, kept current as scenes are rerouted, so a fallback
+        # can avoid its neighbours. Set through set_planned_layouts.
+        self._planned_layouts: list[str] = []
 
         self._prompt = get_prompt(template_id)
         self._meta = get_meta(template_id)
@@ -451,6 +498,9 @@ class TemplateSceneGenerator:
             self._descriptor = self.descriptor = None
             self._regenerate_descriptor = self.regenerate_descriptor = None
 
+        self._fill_props = dspy.Predict(FillLayoutProps)
+        self.fill_props = dspy.asyncify(self._fill_props)
+
         # LaDuc chart caption predictor — used by _merge_laduc_chart_props to fill chartSummary.
         self._chart_summary = dspy.Predict(LaDucChartSummary)
         self.chart_summary = dspy.asyncify(self._chart_summary)
@@ -467,6 +517,106 @@ class TemplateSceneGenerator:
         # multiple scenes for data visualization and rotate table sources.
         self._newscast_forced_data_viz_scenes: set[int] = set()
         self._newscast_data_viz_table_by_scene: dict[int, int] = {}
+
+    def set_planned_layouts(self, layouts: list[str | None]) -> None:
+        """Tell the generator the whole video's planned layouts (policy templates)."""
+        self._planned_layouts = [str(l or "") for l in layouts]
+
+    def _safe_text_layout(self, scene_index: int, exclude: str = "") -> str:
+        """Fallback layout: the template's own, or (policy templates) a varied one."""
+        if not self._policy:
+            return self._fallback_layout
+        return pick_text_layout(
+            self._policy, self._planned_layouts, scene_index, self._fallback_layout, exclude
+        )
+
+    @staticmethod
+    def _existing_props(current_descriptor: dict | None, layout: str | None) -> dict | None:
+        """The scene's current props, when they belong to this layout."""
+        if not isinstance(current_descriptor, dict) or current_descriptor.get("layout") != layout:
+            return None
+        props = current_descriptor.get("layoutProps")
+        return props if isinstance(props, dict) else None
+
+    def _commit_layout(self, scene_index: int, layout: str) -> None:
+        if 0 <= scene_index < len(self._planned_layouts):
+            self._planned_layouts[scene_index] = layout
+
+    async def _ensure_layout_props(
+        self,
+        layout: str,
+        props: dict,
+        scene_title: str,
+        narration: str,
+        scene_index: int,
+        content_language: str,
+        first_generation: bool,
+        existing: dict | None = None,
+    ) -> tuple[str, dict]:
+        """Never let a policy template's layout through without its required props.
+
+        Order: the model's props if complete -> refilled from the article -> the scene's
+        own previous props (edits) -> a text layout that needs none.
+        """
+        if not self._policy or layout not in self._policy.get("required", {}):
+            return layout, props
+
+        clean, problems = normalize_and_check(self.template_id, layout, props)
+        refill = bool(problems) or (
+            first_generation and layout in self._policy.get("always_fill", [])
+        )
+        if refill and layout in self._policy.get("repairable", []):
+            passages = relevant_passages(self.source_text, scene_title, narration)
+            fields_json = json.dumps(
+                fillable_fields(self.template_id, layout), ensure_ascii=False
+            )
+            notes = "; ".join(problems)
+            for _ in range(2):
+                try:
+                    result = await self.fill_props(
+                        scene_title=scene_title,
+                        narration=narration or "",
+                        article_passages=passages,
+                        layout=layout,
+                        fields_json=fields_json,
+                        problems=notes,
+                        content_language=(content_language or "English").strip(),
+                    )
+                except Exception as e:  # noqa: BLE001 — falls through to the next option
+                    logger.warning("[SCENE_GEN] Scene %s: filling '%s' failed: %s", scene_index, layout, e)
+                    continue
+                filled, left = normalize_and_check(
+                    self.template_id,
+                    layout,
+                    {**(props or {}), **self._parse_props_json(result.layout_props_json)},
+                )
+                if (
+                    not left
+                    and layout == "gift_stat"
+                    and not numbers_grounded(filled.get("stats"), narration, self.source_text)
+                ):
+                    left = ["stats: every value must appear in the narration or the article"]
+                if not left:
+                    return layout, filled
+                notes = "; ".join(left)
+
+        if not problems:
+            return layout, clean
+
+        if existing:
+            kept, left = normalize_and_check(self.template_id, layout, existing)
+            if not left:
+                return layout, kept
+
+        fallback = self._safe_text_layout(scene_index)
+        logger.info(
+            "[SCENE_GEN] Scene %s: '%s' could not be filled (%s), using '%s'",
+            scene_index,
+            layout,
+            "; ".join(problems),
+            fallback,
+        )
+        return fallback, {}
 
     def _parse_props_json(self, props_str: str) -> dict:
         """Parse layout_props_json for built-in templates."""
@@ -1820,6 +1970,9 @@ class TemplateSceneGenerator:
                 ):
                     self._newscast_data_viz_table_by_scene[i] = scene["data_table_index"]
 
+        if self._policy:
+            self.set_planned_layouts([s.get("preferred_layout") for s in scenes_data])
+
         results: list[dict] = [{}] * total
 
         for batch_start in range(0, total, BATCH_SIZE):
@@ -2051,8 +2204,10 @@ class TemplateSceneGenerator:
                     llm_layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
                     layout = (
                         llm_layout
-                        if llm_layout in self._valid_layouts and llm_layout != chart_layout
-                        else self._fallback_layout
+                        if llm_layout in self._valid_layouts
+                        and llm_layout != chart_layout
+                        and not self._policy
+                        else self._safe_text_layout(scene_index)
                     )
                     validated_props = {}
                     logger.info(
@@ -2062,6 +2217,16 @@ class TemplateSceneGenerator:
                         layout,
                     )
 
+                layout, validated_props = await self._ensure_layout_props(
+                    layout,
+                    validated_props,
+                    scene_title=scene_title,
+                    narration=narration,
+                    scene_index=scene_index,
+                    content_language=content_language,
+                    first_generation=True,
+                )
+                self._commit_layout(scene_index, layout)
                 self.variety_tracker.record(layout)
                 return {"layout": layout, "layoutProps": validated_props}
             except Exception as e:
@@ -2069,8 +2234,21 @@ class TemplateSceneGenerator:
                     logger.warning("[SCENE_GEN] Error in built-in descriptor: %s", e)
                 continue
 
-        self.variety_tracker.record(self._fallback_layout)
-        return {"layout": self._fallback_layout, "layoutProps": {}}
+        layout, props = self._safe_text_layout(scene_index), {}
+        if self._policy and normalized_preferred in self._policy.get("repairable", []):
+            # The descriptor call failed, but the planned layout can still be filled.
+            layout, props = await self._ensure_layout_props(
+                normalized_preferred,
+                {},
+                scene_title=scene_title,
+                narration=narration,
+                scene_index=scene_index,
+                content_language=content_language,
+                first_generation=True,
+            )
+        self._commit_layout(scene_index, layout)
+        self.variety_tracker.record(layout)
+        return {"layout": layout, "layoutProps": props}
 
     async def _regenerate_old_descriptor(self, scene_title, narration, visual_description, scene_index, total_scenes, other_scenes_layouts, preferred_layout, current_descriptor, content_language):
         """Old-style regeneration for built-in templates (layout + layoutProps from catalog)."""
@@ -2101,7 +2279,17 @@ class TemplateSceneGenerator:
         except Exception as e:
             if self.debug:
                 logger.warning("[SCENE_GEN] [Regenerate old] DSPy error: %s", e)
-            return {"layout": normalized or self._fallback_layout, "layoutProps": {}}
+            layout, props = await self._ensure_layout_props(
+                normalized or self._fallback_layout,
+                {},
+                scene_title=scene_title,
+                narration=narration,
+                scene_index=scene_index,
+                content_language=content_language,
+                first_generation=False,
+                existing=self._existing_props(current_descriptor, normalized),
+            )
+            return {"layout": layout, "layoutProps": props}
 
         layout = result.layout.strip().lower().replace(" ", "_").replace("-", "_")
         if normalized:
@@ -2200,4 +2388,14 @@ class TemplateSceneGenerator:
                 layout,
             )
 
+        layout, validated_props = await self._ensure_layout_props(
+            layout,
+            validated_props,
+            scene_title=scene_title,
+            narration=narration,
+            scene_index=scene_index,
+            content_language=content_language,
+            first_generation=False,
+            existing=self._existing_props(current_descriptor, layout),
+        )
         return {"layout": layout, "layoutProps": validated_props}

@@ -2254,6 +2254,41 @@ const LAYOUT_TEXT_FIELDS_OVERRIDE: Record<string, Record<string, FieldDef[]>> = 
     ],
     ending_socials: [],
   },
+  // Snowy Christmas: same contract as Crumpled — the heading and copy are the scene's
+  // own Title / Display text, so only layout-specific props are listed.
+  christmas: {
+    santa_hero: [],
+    snowy_narration: [],
+    frosted_window: [
+      { key: "imageCaption", label: "Photo caption", type: "string", placeholder: "Short caption on the gift tag" },
+    ],
+    gift_stat: [
+      { key: "stats", label: "Stats (2–4)", type: "object_array",
+        subFields: [
+          { key: "value", label: "Value", placeholder: "e.g. 73% or $1,000" },
+          { key: "label", label: "Label", placeholder: "e.g. shop online" },
+        ], minItems: 2, maxItems: 4 },
+    ],
+    tree_list: [{ key: "items", label: "List items (2–4)", type: "string_array", minItems: 2, maxItems: 4 }],
+    letter_quote: [
+      { key: "quote", label: "Quote (exact words)", type: "text" },
+      { key: "attribution", label: "Attribution", type: "string", placeholder: "Speaker or source" },
+    ],
+    snow_compare: [
+      { key: "leftLabel", label: "Left column title", type: "string" },
+      { key: "leftPoints", label: "Left points (3–4)", type: "string_array", minItems: 3, maxItems: 4 },
+      { key: "rightLabel", label: "Right column title", type: "string" },
+      { key: "rightPoints", label: "Right points (3–4)", type: "string_array", minItems: 3, maxItems: 4 },
+    ],
+    snowball_steps: [
+      { key: "steps", label: "Steps (2–3)", type: "object_array",
+        subFields: [
+          { key: "label", label: "Label", placeholder: "e.g. Dec 1" },
+          { key: "text", label: "Text" },
+        ], minItems: 2, maxItems: 3 },
+    ],
+    ending_socials: [],
+  },
 };
 
 /** Structured content fields for AI-generated custom template scenes. */
@@ -5701,18 +5736,34 @@ export default function SceneEditModal({
                         );
                       }
                       if (field.type === "string_array") {
-                        const items = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
+                        const savedItems = (Array.isArray(editableLayoutProps[field.key]) ? editableLayoutProps[field.key] : []) as string[];
                         const minItems = field.minItems ?? 0;
+                        // Always show at least `minItems` rows (empty ones to fill in), so
+                        // a layout's minimum is visible and fillable in the editor.
+                        const items =
+                          savedItems.length < minItems
+                            ? [...savedItems, ...Array.from({ length: minItems - savedItems.length }, () => "")]
+                            : savedItems;
+                        const overMax = !!field.maxItems && items.length > field.maxItems;
                         return (
                           <div key={field.key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                              {field.label}
+                              {field.maxItems ? <span className="ml-1.5 normal-case tracking-normal tabular-nums text-gray-400/80">({items.length}/{field.maxItems})</span> : null}
+                            </label>
+                            {overMax ? (
+                              <p className="text-[11px] text-amber-600 mb-1.5">
+                                Only the first {field.maxItems} appear in the video — remove the extra {items.length - (field.maxItems ?? 0) === 1 ? "one" : "ones"}.
+                              </p>
+                            ) : null}
                             <div className="space-y-2">
                               {items.map((item, i) => (
-                                <div key={i} className="flex items-center gap-2">
+                                <div key={i} className={`flex items-center gap-2 ${field.maxItems && i >= field.maxItems ? "opacity-50" : ""}`}>
                                   <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 tabular-nums">{i + 1}.</span>
                                   <input
                                     type="text"
                                     value={item}
+                                    placeholder={i < minItems ? "Required" : undefined}
                                     onChange={(e) => {
                                       const updated = [...items];
                                       updated[i] = e.target.value;
@@ -5753,19 +5804,38 @@ export default function SceneEditModal({
                         );
                       }
                       if (field.type === "object_array") {
-                        const items = normalizeObjectArrayItems(editableLayoutProps[field.key]);
+                        const savedItems = normalizeObjectArrayItems(editableLayoutProps[field.key]);
                         const subFields =
                           field.subFields?.length
                             ? field.subFields
-                            : inferObjectArraySubFields(items);
+                            : inferObjectArraySubFields(savedItems);
                         if (!subFields.length) return null;
                         const minItems = field.minItems ?? 0;
+                        // Always show at least `minItems` entries (empty ones to fill in).
+                        const blankItem = () => {
+                          const empty: Record<string, string> = {};
+                          subFields.forEach((sf) => { empty[sf.key] = ""; });
+                          return empty;
+                        };
+                        const items =
+                          savedItems.length < minItems
+                            ? [...savedItems, ...Array.from({ length: minItems - savedItems.length }, blankItem)]
+                            : savedItems;
+                        const overMax = !!field.maxItems && items.length > field.maxItems;
                         return (
                           <div key={field.key}>
-                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">{field.label}</label>
+                            <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5 block">
+                              {field.label}
+                              {field.maxItems ? <span className="ml-1.5 normal-case tracking-normal tabular-nums text-gray-400/80">({items.length}/{field.maxItems})</span> : null}
+                            </label>
+                            {overMax ? (
+                              <p className="text-[11px] text-amber-600 mb-1.5">
+                                Only the first {field.maxItems} appear in the video — remove the extra {items.length - (field.maxItems ?? 0) === 1 ? "one" : "ones"}.
+                              </p>
+                            ) : null}
                             <div className="space-y-3">
                               {items.map((item, i) => (
-                                <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50">
+                                <div key={i} className={`flex items-start gap-2 p-3 rounded-lg border border-gray-200 bg-gray-50/50 ${field.maxItems && i >= field.maxItems ? "opacity-50" : ""}`}>
                                   <span className="text-[11px] text-gray-400 w-5 text-right flex-shrink-0 pt-2 tabular-nums">{i + 1}.</span>
                                   <div className="flex-1 space-y-2">
                                     {subFields.map((sf) => (
@@ -5805,9 +5875,7 @@ export default function SceneEditModal({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const empty: Record<string, string> = {};
-                                    subFields.forEach((sf) => { empty[sf.key] = ""; });
-                                    setEditableLayoutProps((prev) => ({ ...prev, [field.key]: [...items, empty] }));
+                                    setEditableLayoutProps((prev) => ({ ...prev, [field.key]: [...items, blankItem()] }));
                                   }}
                                   className="flex items-center gap-1.5 text-[11px] font-medium text-gray-400 uppercase tracking-wider hover:text-purple-600 mt-2"
                                 >
@@ -5879,8 +5947,8 @@ export default function SceneEditModal({
                           Suppressed when the layout declares its own props, so a
                           custom outro shows ITS fields rather than three inputs
                           nothing on the frame reads. Crumpled's closing never reads
-                          these headings either. */}
-                      {!customLayoutHasPropSchema && normalizedTemplateId !== "crumpled" && (
+                          these headings either, and neither does Snowy Christmas's. */}
+                      {!customLayoutHasPropSchema && normalizedTemplateId !== "crumpled" && normalizedTemplateId !== "christmas" && (
                         <>
                           <h4 className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                             Section headings

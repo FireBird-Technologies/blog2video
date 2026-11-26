@@ -8,6 +8,7 @@ import {
   resolveMagazineLayout,
 } from "../components/remotion/magazine/MagazineVideoComposition";
 import { CRUMPLED_PREVIEW_SCENES } from "../components/templatePreviews/crumpledPreviewScenes";
+import { CHRISTMAS_PREVIEW_SCENES } from "../components/templatePreviews/christmasPreviewScenes";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -2286,6 +2287,10 @@ const SCENE_SETS: Record<string, SceneSet> = {
     template: "crumpled",
     scenes: CRUMPLED_PREVIEW_SCENES as DemoScene[],
   },
+  "preview-christmas": {
+    template: "christmas",
+    scenes: CHRISTMAS_PREVIEW_SCENES as DemoScene[],
+  },
 };
 
 const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string }> = {
@@ -2307,6 +2312,7 @@ const TEMPLATE_COLORS: Record<string, { accent: string; bg: string; text: string
   stickman_football: { accent: "#869358", bg: "#FFFFFF", text: "#111111" },
   stickman_2: { accent: "#FFFFFF", bg: "#000000", text: "#FFFFFF" },
   crumpled: { accent: "#8b5a2b", bg: "#f9f5ec", text: "#000000" },
+  christmas: { accent: "#D62839", bg: "#EAF4FB", text: "#12324A" },
 };
 
 const TEMPLATE_LABELS: Record<string, string> = {
@@ -2328,6 +2334,7 @@ const TEMPLATE_LABELS: Record<string, string> = {
   stickman_football: "Stickman Football",
   stickman_2: "Stickman 2",
   crumpled: "Crumpled Paper",
+  christmas: "Snowy Christmas",
 };
 
 interface BlogDemoPlayerProps {
