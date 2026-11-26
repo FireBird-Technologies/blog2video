@@ -43,6 +43,7 @@ const BUILTIN_TEMPLATE_IDS = [
   "old-documentary-reel",
   "starlit",
   "crumpled",
+  "christmas",
 ];
 
 const ORIENTATIONS = [

@@ -55,6 +55,7 @@ TEMPLATE_IDS = [
     "old-documentary-reel",
     "starlit",
     "crumpled",
+    "christmas",
 ]
 
 MAX_SIZE = (320, 180)  # card thumbnails; anything larger is wasted bytes

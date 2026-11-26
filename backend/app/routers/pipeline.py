@@ -80,6 +80,7 @@ from app.services.scene_content_schema import SAMPLE_CHART_TABLE
 from app.dspy_modules.script_gen import ScriptGenerator
 from app.dspy_modules.template_scene_gen import TemplateSceneGenerator
 from app.dspy_modules.display_text_gen import DisplayTextGenerator
+from app.services.layout_policy import balance_layouts, get_layout_policy
 from app.services.template_service import (
     validate_template_id,
     get_layout_prompt,
@@ -522,6 +523,9 @@ def _sanitize_script_layouts(
     last_idx = len(scenes_raw) - 1
     usage: dict[str, int] = {}
     prev_layout: str | None = None
+    # Templates with a layout policy fill and balance content-aware (below) instead
+    # of through _pick_diverse, which cannot tell whether a scene suits a layout.
+    policy_managed = get_layout_policy(template_id) is not None
 
     def _pick_diverse(exclude: set[str] | None = None) -> str:
         banned = set(exclude or set())
@@ -554,6 +558,10 @@ def _sanitize_script_layouts(
             # _pick_diverse fallback below assigns a non-hero layout instead.
             # Mirrors template_layout_planner._enforce_hero_rule.
             desired = ""
+
+        if policy_managed:
+            scene["preferred_layout"] = desired
+            continue
 
         if not desired:
             excludes = set()
@@ -599,6 +607,9 @@ def _sanitize_script_layouts(
         scene["preferred_layout"] = desired
         usage[desired] = usage.get(desired, 0) + 1
         prev_layout = desired
+
+    if policy_managed:
+        balance_layouts(template_id, scenes_raw)
 
     return scenes_raw
 
@@ -3225,7 +3236,9 @@ async def _generate_scenes(
     )
     logger.info("[PIPELINE] Project %s: template='%s', validated='%s'", project.id, project.template, template_id)
     supports_ending_socials = "ending_socials" in get_valid_layouts(template_id)
-    scene_gen = TemplateSceneGenerator(template_id)
+    scene_gen = TemplateSceneGenerator(
+        template_id, source_text=getattr(project, "blog_content", None) or ""
+    )
     image_filenames = [
         a.filename for a in project.assets if a.asset_type.value == "image"
     ]

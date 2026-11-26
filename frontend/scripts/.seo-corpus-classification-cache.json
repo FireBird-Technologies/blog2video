@@ -3242,5 +3242,13 @@
   "marketing:/templates/crumpled@d9835eb02f086675@20aaebd1": {
     "keep": true,
     "reason": "Describes a Blog2Video template feature"
+  },
+  "marketing:/templates/christmas@10318dd188d46b87@20aaebd1": {
+    "keep": true,
+    "reason": "Describes Blog2Video Christmas template features and use cases."
+  },
+  "marketing:/templates/christmas@1d80c560330ed685@20aaebd1": {
+    "keep": true,
+    "reason": "unparseable classifier response — kept by default"
   }
 }

@@ -17,3 +17,4 @@ export { default as MagazinePreviewPortrait } from "./MagazinePreviewPortrait";
 export { default as StarlitPreviewPortrait } from "./StarlitPreviewPortrait";
 export { default as YourOwnBrandPreviewPortrait } from "./YourOwnBrandPreviewPortrait";
 export { default as CrumpledPreviewPortrait } from "./CrumpledPreviewPortrait";
+export { default as ChristmasPreviewPortrait } from "./ChristmasPreviewPortrait";

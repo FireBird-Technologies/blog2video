@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" width="1200" height="900">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d3557"/>
+      <stop offset="0.55" stop-color="#36618e"/>
+      <stop offset="1" stop-color="#8fb3d6"/>
+    </linearGradient>
+    <linearGradient id="snow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c9daea"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd27a" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffd27a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="moon" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fffbe6"/>
+      <stop offset="0.6" stop-color="#fff3c4"/>
+      <stop offset="1" stop-color="#fff3c4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- dusk sky, moon, stars -->
+  <rect width="1200" height="900" fill="url(#sky)"/>
+  <circle cx="960" cy="150" r="120" fill="url(#moon)"/>
+  <circle cx="960" cy="150" r="52" fill="#fffbe6"/>
+  <g fill="#ffffff">
+    <circle cx="120" cy="90" r="3"/><circle cx="260" cy="170" r="2"/><circle cx="390" cy="70" r="2.5"/>
+    <circle cx="540" cy="140" r="2"/><circle cx="700" cy="60" r="3"/><circle cx="800" cy="210" r="2"/>
+    <circle cx="1100" cy="260" r="2.5"/><circle cx="60" cy="250" r="2"/><circle cx="640" cy="250" r="2"/>
+  </g>
+
+  <!-- distant hills + pines -->
+  <path d="M0 560 Q200 470 420 530 T860 500 T1200 520 L1200 900 L0 900 Z" fill="#dbe7f3"/>
+  <g fill="#5d8f7a">
+    <path d="M90 560 l40 -110 l40 110 z"/><path d="M150 570 l32 -90 l32 90 z"/>
+    <path d="M1010 540 l44 -120 l44 120 z"/><path d="M1080 550 l34 -95 l34 95 z"/>
+  </g>
+  <g fill="#ffffff">
+    <path d="M118 485 l12 -35 l12 35 q-12 6 -24 0z"/><path d="M1042 455 l12 -35 l12 35 q-12 6 -24 0z"/>
+  </g>
+
+  <!-- ground -->
+  <path d="M0 640 Q300 600 600 630 T1200 620 L1200 900 L0 900 Z" fill="url(#snow)"/>
+
+  <!-- cottage -->
+  <g>
+    <rect x="360" y="430" width="420" height="250" fill="#8a4b2f"/>
+    <g stroke="#6e3a24" stroke-width="4">
+      <line x1="360" y1="480" x2="780" y2="480"/><line x1="360" y1="530" x2="780" y2="530"/>
+      <line x1="360" y1="580" x2="780" y2="580"/><line x1="360" y1="630" x2="780" y2="630"/>
+    </g>
+    <!-- roof -->
+    <path d="M320 440 L570 270 L820 440 Z" fill="#b5352f"/>
+    <!-- snow lying along both roof slopes, with drips over the eaves -->
+    <path d="M300 446 L570 258 L840 446 L812 452 L570 296 L328 452 Z" fill="#ffffff"/>
+    <path d="M300 446 Q312 470 326 450 Q340 476 356 452 Q372 470 384 448 M756 448 Q768 470 784 452 Q800 476 814 450 Q828 470 840 446" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>
+    <!-- chimney -->
+    <rect x="690" y="300" width="50" height="90" fill="#7a3f26"/>
+    <path d="M682 300 q33 -22 66 0 q-33 10 -66 0z" fill="#ffffff"/>
+    <!-- windows with warm glow -->
+    <circle cx="450" cy="545" r="90" fill="url(#glow)"/>
+    <circle cx="690" cy="545" r="90" fill="url(#glow)"/>
+    <rect x="405" y="505" width="90" height="80" rx="6" fill="#ffcf6b" stroke="#ffffff" stroke-width="8"/>
+    <rect x="645" y="505" width="90" height="80" rx="6" fill="#ffcf6b" stroke="#ffffff" stroke-width="8"/>
+    <path d="M450 505 v80 M405 545 h90 M690 505 v80 M645 545 h90" stroke="#ffffff" stroke-width="6"/>
+    <path d="M398 588 q52 -14 104 0 q-52 10 -104 0z M638 588 q52 -14 104 0 q-52 10 -104 0z" fill="#ffffff"/>
+    <!-- door + wreath -->
+    <rect x="532" y="560" width="76" height="120" rx="8" fill="#5a2f1c"/>
+    <circle cx="570" cy="600" r="24" fill="none" stroke="#2e7d4f" stroke-width="12"/>
+    <circle cx="570" cy="580" r="6" fill="#d62839"/>
+    <circle cx="590" cy="625" r="4" fill="#e8b746"/>
+  </g>
+
+  <!-- fairy lights along the roof edge -->
+  <path d="M330 452 Q450 478 570 462 T810 452" fill="none" stroke="#24364a" stroke-width="3"/>
+  <g>
+    <circle cx="360" cy="460" r="8" fill="#d62839"/><circle cx="410" cy="468" r="8" fill="#e8b746"/>
+    <circle cx="460" cy="471" r="8" fill="#3fa7e0"/><circle cx="510" cy="469" r="8" fill="#2e7d4f"/>
+    <circle cx="570" cy="462" r="8" fill="#d62839"/><circle cx="630" cy="460" r="8" fill="#e8b746"/>
+    <circle cx="690" cy="462" r="8" fill="#3fa7e0"/><circle cx="740" cy="458" r="8" fill="#2e7d4f"/>
+    <circle cx="790" cy="454" r="8" fill="#d62839"/>
+  </g>
+
+  <!-- decorated tree beside the cottage -->
+  <g>
+    <rect x="896" y="640" width="28" height="40" fill="#5a2f1c"/>
+    <path d="M910 380 L990 520 L960 520 L1010 600 L975 600 L1030 660 L790 660 L845 600 L810 600 L860 520 L830 520 Z" fill="#1f7a4d"/>
+    <path d="M890 430 q20 8 40 0 M865 500 q45 16 90 0 M845 570 q65 20 130 0 M825 640 q85 22 170 0" stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <path d="M910 352 l9 26 h27 l-22 16 l9 26 l-23 -16 l-23 16 l9 -26 l-22 -16 h27 z" fill="#e8b746"/>
+    <circle cx="880" cy="470" r="9" fill="#d62839"/><circle cx="940" cy="520" r="9" fill="#e8b746"/>
+    <circle cx="870" cy="560" r="9" fill="#3fa7e0"/><circle cx="970" cy="590" r="9" fill="#d62839"/>
+    <circle cx="900" cy="620" r="9" fill="#e8b746"/><circle cx="830" cy="630" r="9" fill="#3fa7e0"/>
+  </g>
+
+  <!-- gifts in the snow -->
+  <g>
+    <rect x="190" y="660" width="110" height="90" rx="6" fill="#d62839"/>
+    <rect x="236" y="660" width="18" height="90" fill="#e8b746"/>
+    <rect x="182" y="645" width="126" height="26" rx="5" fill="#e0404f"/>
+    <path d="M245 645 q-40 -45 -55 -10 q15 20 55 10z M245 645 q40 -45 55 -10 q-15 20 -55 10z" fill="#e8b746"/>
+    <rect x="310" y="690" width="80" height="60" rx="5" fill="#2e7d4f"/>
+    <rect x="343" y="690" width="14" height="60" fill="#ffffff"/>
+  </g>
+
+  <!-- foreground snow drift + falling snow -->
+  <path d="M0 760 Q250 720 520 760 T1200 750 L1200 900 L0 900 Z" fill="#ffffff"/>
+  <g fill="#ffffff" opacity="0.9">
+    <circle cx="80" cy="330" r="5"/><circle cx="200" cy="420" r="4"/><circle cx="330" cy="300" r="6"/>
+    <circle cx="470" cy="380" r="4"/><circle cx="620" cy="320" r="5"/><circle cx="760" cy="390" r="4"/>
+    <circle cx="880" cy="300" r="6"/><circle cx="1040" cy="380" r="5"/><circle cx="1150" cy="450" r="4"/>
+    <circle cx="150" cy="560" r="4"/><circle cx="1120" cy="600" r="5"/><circle cx="560" cy="200" r="4"/>
+  </g>
+</svg>
